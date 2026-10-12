@@ -12,7 +12,7 @@ public sealed class PacketDispatcher
     private readonly Dictionary<ushort, Route> _routes = new();
     private readonly ILogger<PacketDispatcher> _logger;
 
-    public PacketDispatcher(LoginHandler login, CharacterHandler characters, ILogger<PacketDispatcher> logger)
+    public PacketDispatcher(LoginHandler login, CharacterHandler characters, WorldHandler world, ILogger<PacketDispatcher> logger)
     {
         _logger = logger;
 
@@ -21,6 +21,11 @@ public sealed class PacketDispatcher
         Register(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize, SessionState.CharacterSelect, characters.HandleCreateAsync);
         Register(Opcodes.DeleteCharacter, DeleteCharacterRequest.PacketSize, SessionState.CharacterSelect, characters.HandleDeleteAsync);
         Register(Opcodes.CharacterLogin, PacketHeader.Size + 4, SessionState.CharacterSelect, characters.HandleEnterWorldAsync);
+
+        Register(Opcodes.Move, ServerPackets.MoveSize, SessionState.InGame, world.HandleMoveAsync);
+        Register(Opcodes.MoveStop, ServerPackets.MoveSize, SessionState.InGame, world.HandleMoveAsync);
+        Register(Opcodes.RequestMob, PacketHeader.Size + 2, SessionState.InGame, world.HandleRequestMobAsync);
+        Register(Opcodes.Chat, ServerPackets.ChatSize, SessionState.InGame, world.HandleChatAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

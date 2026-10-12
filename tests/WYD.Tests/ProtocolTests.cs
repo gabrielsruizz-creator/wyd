@@ -93,11 +93,11 @@ public class ProtocolTests
         Assert.Equal(108, ServerPackets.MessagePanelSize);
         Assert.Equal(0x2E8, ServerPackets.SelCharSize);
         Assert.Equal(756, ServerPackets.SelCharPacketSize);
-        Assert.Equal(1816, ServerPackets.AccountLoginOkSize);
+        Assert.Equal(1824, ServerPackets.AccountLoginOkSize);
 
         var account = new Account { Username = "teste" };
         var character = ClassTemplates.Create(1, 2, "Guerreiro", CharacterClass.TransKnight, 2100, 2100);
-        Assert.Equal(1816, ServerPackets.AccountLoginOk(1, account, [character]).Length);
+        Assert.Equal(1824, ServerPackets.AccountLoginOk(1, account, [character]).Length);
         Assert.Equal(756, ServerPackets.SelCharList(Opcodes.CreateCharacterOk, 1, [character]).Length);
     }
 
@@ -163,7 +163,7 @@ public class ProtocolTests
         c.Inventory[0] = new Item(4010);
 
         var p = ServerPackets.CharacterLoginOk(7, c);
-        Assert.Equal(0x320, p.Length);
+        Assert.Equal(1244, p.Length);
         Assert.Equal(Opcodes.CharacterLoginOk, PacketHeader.ReadType(p));
         short I16(int o) => BitConverter.ToInt16(p, o);
         int I32(int o) => BitConverter.ToInt32(p, o);

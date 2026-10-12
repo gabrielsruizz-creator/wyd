@@ -255,6 +255,103 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.True(await client.IsClosedAsync());
     }
 
+    /// <summary>Cria a conta (se preciso), loga, passa da segunda senha, cria um personagem e entra no mapa.</summary>
+    private async Task<FakeClient> EnterWorldAsync(string account, string name)
+    {
+        if (await _store.FindByUsernameAsync(account) is null)
+            await _store.CreateAsync(account, PasswordHasher.Hash("senha123"));
+
+        var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        await client.SendAsync(LoginPacket(account, "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(new SecondPasswordRequest("1234", false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(CreatePacket(0, name));
+        Assert.Equal(Opcodes.CreateCharacterOk, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
+        Assert.Equal(Opcodes.CharacterLoginOk, (await client.ReceiveAsync()).Type);
+        return client;
+    }
+
+    private static byte[] MovePacket(ushort id, short x, short y, short destX, short destY) =>
+        new PacketWriter(Opcodes.Move, ServerPackets.MoveSize, id)
+            .WriteInt16(x).WriteInt16(y).WriteInt32(2).WriteInt32(0)
+            .WriteInt16(destX).WriteInt16(destY).WriteString("1111", 24).ToArray();
+
+    [Fact]
+    public async Task Players_see_each_other_move_chat_and_leave()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+
+        // Os dois nasceram em (2100, 2100): cada um recebe o 0x364 do outro.
+        var bornForA = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.CreateMob, bornForA.Type);
+        Assert.Equal(ServerPackets.CreateMobSize, bornForA.Length);
+        bornForA.Skip(4);
+        ushort bId = bornForA.ReadUInt16();
+        Assert.Equal("Bruno", bornForA.ReadString(12));
+        var bornForB = await b.ReceiveAsync();
+        Assert.Equal(Opcodes.CreateMob, bornForB.Type);
+        bornForB.Skip(4);
+        ushort aId = bornForB.ReadUInt16();
+
+        // B anda um pouco: A recebe o mesmo movimento com o id de B.
+        await b.SendAsync(MovePacket(bId, 2100, 2100, 2105, 2103));
+        var move = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.Move, move.Type);
+        Assert.Equal(bId, move.Id);
+        move.Skip(12);
+        Assert.Equal(2105, move.ReadInt16());
+
+        // Chat de A chega a B com o id de A.
+        await a.SendAsync(new PacketWriter(Opcodes.Chat, ServerPackets.ChatSize, aId).WriteString("oi Bruno", GameConstants.MessageLength).ToArray());
+        var chat = await b.ReceiveAsync();
+        Assert.Equal(Opcodes.Chat, chat.Type);
+        Assert.Equal(aId, chat.Id);
+        Assert.Equal("oi Bruno", chat.ReadString(GameConstants.MessageLength));
+
+        // B se afasta para fora da visão: os dois somem um para o outro.
+        await b.SendAsync(MovePacket(bId, 2105, 2103, 2140, 2103));
+        var goneForA = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.RemoveMob, goneForA.Type);
+        Assert.Equal(bId, goneForA.Id);
+        Assert.Equal(Opcodes.RemoveMob, (await b.ReceiveAsync()).Type);
+
+        // Volta: aparecem de novo.
+        await b.SendAsync(MovePacket(bId, 2140, 2103, 2110, 2103));
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+
+        // B sai do jogo: A recebe o 0x165 e a posição de B fica salva.
+        b.Dispose();
+        var left = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.RemoveMob, left.Type);
+        Assert.Equal(bId, left.Id);
+
+        var bAccount = (await _store.FindByUsernameAsync("jogadorb"))!;
+        for (int i = 0; i < 50 && (await _store.ListByAccountAsync(bAccount.Id))[0].PosX != 2110; i++)
+            await Task.Delay(20);
+        Assert.Equal(2110, (await _store.ListByAccountAsync(bAccount.Id))[0].PosX);
+    }
+
+    [Fact]
+    public async Task Move_too_far_is_ignored()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
+
+        // Teleporte de 500 células: recusado, ninguém some da tela.
+        await b.SendAsync(MovePacket(0, 2100, 2100, 2600, 2100));
+        await b.SendAsync(MovePacket(0, 2100, 2100, 2101, 2100));
+        var move = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.Move, move.Type);
+        move.Skip(12);
+        Assert.Equal(2101, move.ReadInt16());
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 
@@ -381,9 +478,18 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
             if (_characters.Any(c => c.Name.Equals(character.Name, StringComparison.OrdinalIgnoreCase)
                                      || (c.AccountId == character.AccountId && c.Slot == character.Slot)))
                 return Task.FromResult(false);
+            character.Id = Interlocked.Increment(ref _nextId);
             _characters.Add(character);
             return Task.FromResult(true);
         }
+    }
+
+    public Task SavePositionAsync(int characterId, short x, short y)
+    {
+        lock (_characters)
+            foreach (var c in _characters.Where(c => c.Id == characterId))
+                (c.PosX, c.PosY) = (x, y);
+        return Task.CompletedTask;
     }
 
     public Task<bool> DeleteAsync(int accountId, int slot)

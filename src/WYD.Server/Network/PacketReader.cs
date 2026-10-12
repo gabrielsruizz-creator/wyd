@@ -20,6 +20,9 @@ public sealed class PacketReader
     public ushort Type => PacketHeader.ReadType(_buffer);
     public ushort Id => PacketHeader.ReadId(_buffer);
 
+    /// <summary>Cópia do pacote inteiro (já decifrado), para repassar a outros jogadores.</summary>
+    public byte[] ToArray() => (byte[])_buffer.Clone();
+
     public byte ReadByte() => _buffer[_position++];
 
     public short ReadInt16()

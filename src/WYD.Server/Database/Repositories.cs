@@ -21,4 +21,6 @@ public interface ICharacterRepository
     Task<bool> CreateAsync(Character character);
 
     Task<bool> DeleteAsync(int accountId, int slot);
+
+    Task SavePositionAsync(int characterId, short x, short y);
 }

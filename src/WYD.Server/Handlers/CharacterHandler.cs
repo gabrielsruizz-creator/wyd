@@ -13,6 +13,7 @@ namespace WYD.Server.Handlers;
 public sealed partial class CharacterHandler(
     IOptions<ServerOptions> options,
     ICharacterRepository characters,
+    World world,
     ILogger<CharacterHandler> logger)
 {
     private readonly ServerOptions _options = options.Value;
@@ -27,7 +28,7 @@ public sealed partial class CharacterHandler(
         var account = session.Account!;
         if (!session.SecondPasswordVerified)
         {
-            await session.SendAsync(ServerPackets.Signal(Opcodes.CreateCharacterFail, id: session.Id));
+            await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.CreateCharacterFail, session.Id));
             return;
         }
 
@@ -53,7 +54,7 @@ public sealed partial class CharacterHandler(
         if (error is not null)
         {
             await session.SendMessageAsync(error);
-            await session.SendAsync(ServerPackets.Signal(Opcodes.CreateCharacterFail, id: session.Id));
+            await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.CreateCharacterFail, session.Id));
             return;
         }
 
@@ -70,7 +71,7 @@ public sealed partial class CharacterHandler(
         var account = session.Account!;
         if (!session.SecondPasswordVerified)
         {
-            await session.SendAsync(ServerPackets.Signal(Opcodes.DeleteCharacterFail, id: session.Id));
+            await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.DeleteCharacterFail, session.Id));
             return;
         }
         var target = session.Characters.FirstOrDefault(c => c.Slot == request.Slot);
@@ -86,7 +87,7 @@ public sealed partial class CharacterHandler(
         if (error is not null)
         {
             await session.SendMessageAsync(error);
-            await session.SendAsync(ServerPackets.Signal(Opcodes.DeleteCharacterFail, id: session.Id));
+            await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.DeleteCharacterFail, session.Id));
             return;
         }
 
@@ -102,7 +103,7 @@ public sealed partial class CharacterHandler(
         var character = session.Characters.FirstOrDefault(c => c.Slot == request.Slot);
         if (character is null || !session.SecondPasswordVerified)
         {
-            await session.SendAsync(ServerPackets.Signal(Opcodes.CharacterLoginFail, id: session.Id));
+            await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.CharacterLoginFail, session.Id));
             return;
         }
 
@@ -111,5 +112,6 @@ public sealed partial class CharacterHandler(
         logger.LogInformation("[{Id}] '{Account}' entrou no mundo com {Name} em ({X}, {Y}).",
             session.Id, session.Account!.Username, character.Name, character.PosX, character.PosY);
         await session.SendAsync(ServerPackets.CharacterLoginOk(session.Id, character));
+        await world.EnterAsync(session);
     }
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WYD.Server.Config;
 using WYD.Server.Database;
+using WYD.Server.Game;
 using WYD.Server.Handlers;
 using WYD.Server.Network;
 using WYD.Server.Security;
@@ -107,6 +108,8 @@ public static class Program
         services.AddSingleton<IAccountRepository, MySqlAccountRepository>();
         services.AddSingleton<ICharacterRepository, MySqlCharacterRepository>();
 
+        services.AddSingleton<World>();
+        services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();
         services.AddSingleton<CharacterHandler>();
         services.AddSingleton<PacketDispatcher>();

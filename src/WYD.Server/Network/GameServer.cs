@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WYD.Server.Config;
+using WYD.Server.Game;
 using WYD.Server.Handlers;
 
 namespace WYD.Server.Network;
@@ -15,6 +16,7 @@ public sealed class GameServer : BackgroundService
     private readonly KeyTable _keyTable;
     private readonly SessionManager _sessions;
     private readonly PacketDispatcher _dispatcher;
+    private readonly World _world;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<GameServer> _logger;
     private readonly TaskCompletionSource<IPEndPoint> _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -24,12 +26,14 @@ public sealed class GameServer : BackgroundService
         KeyTable keyTable,
         SessionManager sessions,
         PacketDispatcher dispatcher,
+        World world,
         ILoggerFactory loggerFactory)
     {
         _options = options.Value;
         _keyTable = keyTable;
         _sessions = sessions;
         _dispatcher = dispatcher;
+        _world = world;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<GameServer>();
     }
@@ -89,6 +93,8 @@ public sealed class GameServer : BackgroundService
             _ = session.RunAsync(_dispatcher.DispatchAsync, stoppingToken);
         }
 
+        // Desligando: grava a posição de quem está no mapa antes de derrubar as conexões.
+        await _world.SaveAllAsync();
         foreach (var session in _sessions.All.ToList())
             session.Close();
     }

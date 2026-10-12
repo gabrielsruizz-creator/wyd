@@ -57,7 +57,9 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
 | `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ |
 | `0xFDE` | SecondPassword     | 32      | `Password[16]`, `int Change` (0 = conferir, 1 = gravar nova)             | ✅ |
-| `0x366` / `0x367` | Movimento | 52      | `short X, Y`, `int ?`, `int ?`, `short DestX, DestY`, `char Rota[24]` (dígitos de direção) | ⚠️ ainda ignorado |
+| `0x366` / `0x367` | Movimento | 52      | `short X, Y`, `int Velocidade`, `int Tipo`, `short DestX, DestY` (0x18), `char Rota[24]` | ✅ |
+| `0x369` | RequestMob         | 16      | `ushort Id` (0x0C): o client pede o 0x364 de um id que não conhece       | ✅ |
+| `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x3A0` | Ping               | 12      | ignorado                                                                 | ✅ |
 
 ### Servidor → Client
@@ -65,18 +67,36 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | Opcode  | Nome                | Tamanho | Conteúdo                                                                   | Situação |
 |---------|---------------------|--------:|----------------------------------------------------------------------------|----------|
 | `0x101` | MessagePanel        | 108     | `char Text[96]`                                                            | ✅ |
-| `0x10E` | AccountLoginOk      | 1816    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
+| `0x10E` | AccountLoginOk      | 1824    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
+| `0x364` | CreateMob           | 176     | põe um jogador na tela (layout abaixo)                                     | ✅ |
+| `0x165` | RemoveMob           | 16      | id no cabeçalho, `int Tipo` (0x0C)                                         | ✅ |
+| `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho              | ✅ |
+| `0x333` | Chat                | 108     | o mesmo pacote do client, com o id de quem falou (não volta para ele)      | ✅ |
 | `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
 | `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
-| `0x114` | CharacterLoginOk    | 800     | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x306), `ushort Clima` (0x308), `byte SkillBar2[16]` (0x30A), `int ?` (0x31C) | ✅ offsets; ⚠️ falta testar no client |
+| `0x114` | CharacterLoginOk    | 1244    | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x306), `ushort Clima` (0x308), `byte SkillBar2[16]` (0x30A), `int ?` (0x31C) | ✅ offsets; ⚠️ falta testar no client |
 | `0xFDE` | SecondPasswordOk    | 32      | segunda senha aceita                                                       | ✅ |
 | `0xFDF` | SecondPasswordFail  | 16      | segunda senha errada: o client volta a bloquear e mostra o erro dele       | ✅ |
-| `0x119` | CharacterLoginFail  | 16      | o client mostra a mensagem dele                                            | ✅ |
-| `0x11A` | CreateCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
-| `0x11B` | DeleteCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
+| `0x119` | CharacterLoginFail  | 12      | o client mostra a mensagem dele                                            | ✅ |
+| `0x11A` | CreateCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
+| `0x11B` | DeleteCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 
 > Atenção: no 7.54 o login aceito é o `0x10E`. O `0x10A` que aparece em documentação de outras
 > versões é ignorado por este client.
+
+> Tamanhos: o WYD.exe tem uma tabela com o tamanho esperado de cada pacote que recebe. Se não bater,
+> ele só grava "Type check missing" no log dele e segue; mesmo assim o servidor usa os tamanhos exatos.
+
+### `0x364` CreateMob (176 bytes)
+
+| Offset | Campo | Offset | Campo |
+|-------:|-------|-------:|-------|
+| `0x0C` | `short X, Y` | `0x42` | `byte Affect[32]` |
+| `0x10` | `ushort Id` | `0x62` | `ushort Guild` |
+| `0x12` | `char Name[12]` | `0x64` | `SCORE Score` |
+| `0x1E` | `byte ChaosPoint, CurrentKill` | `0x80` | `ushort CreateType` |
+| `0x20` | `ushort TotalKill` | `0x82` | `byte Refino[16]` |
+| `0x22` | `ushort Equip[16]` | `0x92` | `char Tab[26]` |
 
 ### Structs (7.54)
 
@@ -134,3 +154,10 @@ o servidor também recusa criar, apagar e entrar no mundo até a senha ser confe
 - Trocar: o client confere a atual (`Change = 0`), pede a nova duas vezes e manda com `Change = 1`.
 - 5 erros seguidos desconectam.
 - Esqueceu? `WYD.Server reset-second-password <conta>` apaga a senha; a próxima digitada vira a nova.
+
+## Mundo
+
+Cada jogador vê os outros num quadrado de 16 células em volta (o client desenha 33x33). Entrar no
+campo de visão manda o `0x364` para os dois lados; sair manda o `0x165`. O destino de cada movimento
+vira a posição do jogador (destinos a mais de 40 células são ignorados), e a posição é salva no banco
+ao sair do jogo e ao desligar o servidor.

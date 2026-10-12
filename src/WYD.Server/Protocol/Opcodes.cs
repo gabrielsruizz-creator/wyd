@@ -12,6 +12,10 @@ public static class Opcodes
     public const ushort DeleteCharacter = 0x211;   // MSG_DeleteCharacter, 44 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLogin = 0x213;    // MSG_CharacterLogin, 36 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLogout = 0x215;   // volta para a seleção (a validar)
+    public const ushort Chat = 0x333;              // MSG_MessageChat, 108 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
+    public const ushort Move = 0x366;              // MSG_Action, 52 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
+    public const ushort MoveStop = 0x367;          // MSG_Action, 52 bytes (conferido no WYD.exe 7.54)
+    public const ushort RequestMob = 0x369;        // client pede o 0x364 de um id que ele não conhece (conferido no WYD.exe 7.54)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
     public const ushort SecondPassword = 0xFDE;    // MSG_SecondPassword, 32 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
 
@@ -24,6 +28,8 @@ public static class Opcodes
     public const ushort CharacterLoginFail = 0x119;    // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort CreateCharacterFail = 0x11A;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort DeleteCharacterFail = 0x11B;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
+    public const ushort CreateMob = 0x364;             // MSG_CreateMob, 176 bytes: põe um jogador/mob na tela (conferido no WYD.exe 7.54)
+    public const ushort RemoveMob = 0x165;             // 16 bytes: tira da tela o id do cabeçalho (conferido no WYD.exe 7.54)
     public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
 
     public static string Name(ushort type) => type switch
@@ -35,6 +41,12 @@ public static class Opcodes
         CharacterLogout => "CharacterLogout",
         ClientPing => "ClientPing",
         SecondPassword => "SecondPassword",
+        Chat => "Chat",
+        Move => "Move",
+        MoveStop => "MoveStop",
+        RequestMob => "RequestMob",
+        CreateMob => "CreateMob",
+        RemoveMob => "RemoveMob",
         SecondPasswordFail => "SecondPasswordFail",
         MessagePanel => "MessagePanel",
         AccountLoginOk => "AccountLoginOk",

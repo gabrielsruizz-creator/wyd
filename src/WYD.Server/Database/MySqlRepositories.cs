@@ -219,6 +219,17 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         return true;
     }
 
+    public async Task SavePositionAsync(int characterId, short x, short y)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand(
+            "UPDATE characters SET pos_x = @x, pos_y = @y WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@x", x);
+        command.Parameters.AddWithValue("@y", y);
+        command.Parameters.AddWithValue("@id", characterId);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<bool> DeleteAsync(int accountId, int slot)
     {
         await using var connection = await db.OpenAsync();

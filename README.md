@@ -16,15 +16,15 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Segunda senha (numérica) com troca de senha e bloqueio após 5 erros
 - [x] Criar personagem (TK, FM, BM, HT) e apagar personagem (com confirmação de senha)
 - [x] Entrar no mundo com o personagem escolhido (pacote `0x114` com a ficha completa)
+- [x] Ver os outros jogadores, andar (a posição fica salva) e chat local
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
 
 ## Próximas etapas
 
-1. Movimento, visão de outros jogadores e chat.
-2. Leitura dos arquivos de dados (lista de itens, NPCs, mobs).
-3. Mobs, combate, skills, drops, NPCs de loja, baú, grupo, guild, quests…
+1. Leitura dos arquivos de dados (lista de itens, NPCs, mobs).
+2. Mobs, combate, skills, drops, NPCs de loja, baú, grupo, guild, quests…
 
 ## Requisitos
 

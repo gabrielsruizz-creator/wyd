@@ -106,10 +106,12 @@ public static class ServerPackets
 
     public const int MessagePanelSize = PacketHeader.Size + MessageLength;
 
-    /// <summary>0x10E: cabeçalho, SELCHAR, Cargo[128], int Coin, char Account[16], byte Keys[16].</summary>
-    public const int AccountLoginOkSize = PacketHeader.Size + SelCharSize + MaxCargo * Item.Size + 4 + AccountNameLength + 16;
+    /// <summary>0x10E: cabeçalho, SELCHAR, Cargo[128], int Coin, char Account[16], byte Keys[16] e 8 bytes livres.</summary>
+    /// <remarks>Os tamanhos seguem a tabela que o WYD.exe usa para conferir cada pacote recebido.</remarks>
+    public const int AccountLoginOkSize = 1824;
     public const int SelCharPacketSize = PacketHeader.Size + SelCharSize;
     public const int SignalSize = PacketHeader.Size + 4;
+    public const int HeaderOnlySize = PacketHeader.Size;
 
     /// <summary>
     /// STRUCT_MOB do client 7.54: a ficha completa do personagem (756 bytes), conferida no WYD.exe.
@@ -125,8 +127,13 @@ public static class ServerPackets
     /// </summary>
     public const int MobSize = 0x2F4;
 
-    /// <summary>0x114: cabeçalho, short X, short Y, STRUCT_MOB, id do jogador, clima, barra de skills extra.</summary>
-    public const int CharacterLoginOkSize = 0x320;
+    /// <summary>0x114: cabeçalho, short X, short Y, STRUCT_MOB, id do jogador, clima, barra de skills extra (e o resto zerado).</summary>
+    public const int CharacterLoginOkSize = 1244;
+
+    public const int CreateMobSize = 176;
+    public const int RemoveMobSize = 16;
+    public const int MoveSize = 52;
+    public const int ChatSize = PacketHeader.Size + MessageLength;
 
     /// <summary>Skill vazia na barra (o client trata valores negativos como slot livre).</summary>
     public const byte EmptySkill = 0xFF;
@@ -141,6 +148,49 @@ public static class ServerPackets
     public static byte[] SecondPasswordOk(ushort id) =>
         new PacketWriter(Opcodes.SecondPassword, SecondPasswordRequest.PacketSize, id).Skip(20).ToArray();
 
+    /// <summary>Pacote só com o cabeçalho (os sinais de falha 0x119/0x11A/0x11B têm 12 bytes no 7.54).</summary>
+    public static byte[] HeaderOnly(ushort type, ushort id = 0) => new PacketWriter(type, HeaderOnlySize, id).ToArray();
+
+    /// <summary>
+    /// 0x364: põe um jogador na tela de quem recebe. Layout conferido no WYD.exe 7.54:
+    /// <code>
+    /// 0x0C short X, Y          0x10 ushort Id          0x12 char Name[12]
+    /// 0x1E byte ChaosPoint     0x1F byte CurrentKill   0x20 ushort TotalKill
+    /// 0x22 ushort Equip[16]    0x42 byte Affect[32]    0x62 ushort Guild
+    /// 0x64 SCORE Score         0x80 ushort CreateType  0x82 byte Refino[16]
+    /// 0x92 char Tab[26]        0xAC (4 bytes)
+    /// </code>
+    /// </summary>
+    public static byte[] CreateMob(ushort mobId, Character c)
+    {
+        var w = new PacketWriter(Opcodes.CreateMob, CreateMobSize, mobId);
+        w.WriteInt16(c.PosX).WriteInt16(c.PosY);
+        w.WriteUInt16(mobId);
+        w.WriteString(c.Name, 12);
+        w.WriteByte(0).WriteByte(0).WriteUInt16(0);   // ChaosPoint, CurrentKill, TotalKill
+        foreach (var item in c.Equip) w.WriteInt16(item.Index);
+        w.Skip(32);                                   // Affect
+        w.WriteUInt16(c.Guild);
+        c.BaseScore.Write(w);
+        w.WriteUInt16(0);                             // CreateType: aparece normalmente
+        w.Skip(16);                                   // refino de cada equipamento
+        w.WriteString("", 26);                        // Tab
+        w.Skip(4);
+        return w.ToArray();
+    }
+
+    /// <summary>0x165: tira o id da tela de quem recebe (tipo 0 = simplesmente some).</summary>
+    public static byte[] RemoveMob(ushort mobId, int type = 0) =>
+        new PacketWriter(Opcodes.RemoveMob, RemoveMobSize, mobId).WriteInt32(type).ToArray();
+
+    /// <summary>Copia um pacote recebido trocando o id do cabeçalho (repasse de movimento e chat).</summary>
+    public static byte[] Relay(byte[] packet, ushort id)
+    {
+        var copy = (byte[])packet.Clone();
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(copy.AsSpan(PacketHeader.IdOffset), id);
+        return copy;
+    }
+
     /// <summary>Pacote só com um parâmetro inteiro (MSG_STANDARDPARM).</summary>
     public static byte[] Signal(ushort type, int parm = 0, ushort id = 0) =>
         new PacketWriter(type, SignalSize, id).WriteInt32(parm).ToArray();
@@ -154,6 +204,7 @@ public static class ServerPackets
         w.WriteInt32(account.CargoCoin);              // 0x6F4
         w.WriteString(account.Username, AccountNameLength); // 0x6F8
         w.Skip(16);                                   // 0x708: chaves que o client guarda no módulo de rede
+        w.Skip(AccountLoginOkSize - w.Position);      // 0x718
         return w.ToArray();
     }
 
@@ -174,6 +225,7 @@ public static class ServerPackets
             w.WriteByte(EmptySkill);
         w.Skip(2);                                    // 0x31A
         w.WriteInt32(0);                              // 0x31C: (desconhecido, o client só guarda)
+        w.Skip(CharacterLoginOkSize - w.Position);    // 0x320: não lido na entrada no mundo
         return w.ToArray();
     }
 
