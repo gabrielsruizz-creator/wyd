@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+# Arquivos extraídos do client não vão para o repositório
+data/KeyTable.bin
+logs/

@@ -1,0 +1,18 @@
+# Sobe o MariaDB para o servidor: docker compose up -d
+# Os dados ficam no volume "wyd-db" e sobrevivem a reinícios.
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wyd
+      MARIADB_USER: wyd
+      MARIADB_PASSWORD: wyd           # troque em produção (e no appsettings.json)
+      MARIADB_ROOT_PASSWORD: troque-esta-senha
+    ports:
+      - "127.0.0.1:3306:3306"         # só acessível pela própria máquina
+    volumes:
+      - wyd-db:/var/lib/mysql
+
+volumes:
+  wyd-db:
