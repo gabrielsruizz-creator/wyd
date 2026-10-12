@@ -7,6 +7,9 @@ public sealed class Account
     public int Id { get; set; }
     public string Username { get; set; } = "";
     public string PasswordHash { get; set; } = "";
+
+    /// <summary>Segunda senha (tela de personagens). Null até o jogador definir a primeira.</summary>
+    public string? SecondPasswordHash { get; set; }
     public int AccessLevel { get; set; }
     public bool Banned { get; set; }
 

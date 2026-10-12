@@ -27,10 +27,32 @@ public sealed class MySqlDatabase(IOptions<DatabaseOptions> options, ILogger<MyS
         string sql = await reader.ReadToEndAsync();
 
         await using var connection = await OpenAsync();
-        await using var command = new MySqlCommand(sql, connection);
-        await command.ExecuteNonQueryAsync();
+        await using (var command = new MySqlCommand(sql, connection))
+            await command.ExecuteNonQueryAsync();
+
+        // Colunas acrescentadas depois da primeira versão: o CREATE TABLE IF NOT EXISTS não altera
+        // tabelas que já existem, então elas são adicionadas aqui (funciona em MySQL e MariaDB).
+        foreach (var (table, column, definition) in Migrations)
+        {
+            await using var check = new MySqlCommand(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t AND COLUMN_NAME = @c",
+                connection);
+            check.Parameters.AddWithValue("@t", table);
+            check.Parameters.AddWithValue("@c", column);
+            if (Convert.ToInt32(await check.ExecuteScalarAsync()) > 0) continue;
+
+            await using var alter = new MySqlCommand($"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}", connection);
+            await alter.ExecuteNonQueryAsync();
+            logger.LogInformation("Coluna {Table}.{Column} adicionada.", table, column);
+        }
+
         logger.LogInformation("Banco de dados pronto ({Database}).", connection.Database);
     }
+
+    private static readonly (string Table, string Column, string Definition)[] Migrations =
+    [
+        ("accounts", "second_password_hash", "VARCHAR(255) NULL AFTER password_hash"),
+    ];
 }
 
 public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepository
@@ -39,7 +61,7 @@ public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepositor
     {
         await using var connection = await db.OpenAsync();
         await using var command = new MySqlCommand(
-            "SELECT id, username, password_hash, access_level, banned, cargo_coin, cargo FROM accounts WHERE username = @u",
+            "SELECT id, username, password_hash, second_password_hash, access_level, banned, cargo_coin, cargo FROM accounts WHERE username = @u",
             connection);
         command.Parameters.AddWithValue("@u", username);
 
@@ -51,6 +73,7 @@ public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepositor
             Id = r.GetInt32("id"),
             Username = r.GetString("username"),
             PasswordHash = r.GetString("password_hash"),
+            SecondPasswordHash = r.IsDBNull(r.GetOrdinal("second_password_hash")) ? null : r.GetString("second_password_hash"),
             AccessLevel = r.GetInt32("access_level"),
             Banned = r.GetBoolean("banned"),
             CargoCoin = r.GetInt32("cargo_coin"),
@@ -68,6 +91,16 @@ public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepositor
         await command.ExecuteNonQueryAsync();
 
         return new Account { Id = (int)command.LastInsertedId, Username = username, PasswordHash = passwordHash };
+    }
+
+    public async Task SetSecondPasswordAsync(int accountId, string? hash)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand(
+            "UPDATE accounts SET second_password_hash = @h WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@h", hash);
+        command.Parameters.AddWithValue("@id", accountId);
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task UpdateLastLoginAsync(int accountId, string? ip)

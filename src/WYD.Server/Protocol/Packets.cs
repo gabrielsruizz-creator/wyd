@@ -58,6 +58,23 @@ public sealed record DeleteCharacterRequest(int Slot, string Name, string Passwo
         new(r.ReadInt32(), r.ReadString(NameLength), r.ReadString(AccountPasswordLength));
 }
 
+/// <summary>
+/// 0xFDE MSG_SecondPassword (32 bytes): senha numérica da tela de personagens.
+/// <code>
+/// 12  char Password[16]   (o client corta em 14 caracteres)
+/// 28  int  Change         (0 = conferir; 1 = gravar como nova senha)
+/// </code>
+/// </summary>
+public sealed record SecondPasswordRequest(string Password, bool Change)
+{
+    public const int PacketSize = 32;
+
+    public static SecondPasswordRequest Read(PacketReader r) => new(r.ReadString(16), r.ReadInt32() != 0);
+
+    public byte[] Write() =>
+        new PacketWriter(Opcodes.SecondPassword, PacketSize).WriteString(Password, 16).WriteInt32(Change ? 1 : 0).ToArray();
+}
+
 /// <summary>0x213 MSG_CharacterLogin (36 bytes): o client escolheu o personagem do slot.</summary>
 public sealed record CharacterLoginRequest(int Slot)
 {
@@ -119,6 +136,10 @@ public static class ServerPackets
         new PacketWriter(Opcodes.MessagePanel, MessagePanelSize, id)
             .WriteString(text, MessageLength)
             .ToArray();
+
+    /// <summary>0xFDE: segunda senha aceita (o client libera a tela de personagens).</summary>
+    public static byte[] SecondPasswordOk(ushort id) =>
+        new PacketWriter(Opcodes.SecondPassword, SecondPasswordRequest.PacketSize, id).Skip(20).ToArray();
 
     /// <summary>Pacote só com um parâmetro inteiro (MSG_STANDARDPARM).</summary>
     public static byte[] Signal(ushort type, int parm = 0, ushort id = 0) =>

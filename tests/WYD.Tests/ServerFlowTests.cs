@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using WYD.Server;
 using WYD.Server.Database;
 using WYD.Server.Game;
+using WYD.Server.Handlers;
 using WYD.Server.Network;
 using WYD.Server.Protocol;
 using WYD.Server.Security;
@@ -60,6 +61,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var loginOk = await client.ReceiveAsync();
         Assert.Equal(Opcodes.AccountLoginOk, loginOk.Type);
         Assert.Equal(ServerPackets.AccountLoginOkSize, loginOk.Length);
+        await client.SendAsync(new SecondPasswordRequest("1234", false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
 
         await client.SendAsync(new PacketWriter(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize)
             .WriteInt32(1).WriteString("Arqueira", 16).WriteInt32((int)CharacterClass.Huntress).ToArray());
@@ -92,8 +95,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     public async Task Enter_world_with_created_character()
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
-        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+        await LoginAndUnlockAsync(client);
 
         // Slot vazio: o client recebe o sinal de falha.
         await client.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
@@ -154,10 +156,12 @@ public sealed class ServerFlowTests : IAsyncLifetime
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
         client.Mode = mode;
         await client.SendAsync(LoginPacket("jogador", "senha123", 756));
-
-        // O login é o primeiro pacote; se o checksum dele for ambíguo (os dois modos dão o mesmo valor),
-        // o servidor ainda não sabe o modo. Por isso confere alguns pacotes seguidos.
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(new SecondPasswordRequest("1234", false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+
+        // Se o checksum de um pacote for ambíguo (os dois modos dão o mesmo valor), o servidor ainda
+        // não sabe o modo. Por isso confere alguns pacotes seguidos.
         for (int i = 0; i < 5; i++)
         {
             await client.SendAsync(new PacketWriter(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize)
@@ -171,6 +175,84 @@ public sealed class ServerFlowTests : IAsyncLifetime
             }
         }
         Assert.Fail("nenhuma resposta com checksum não ambíguo");
+    }
+
+    /// <summary>Loga e passa pela segunda senha, chegando à tela de personagens liberada.</summary>
+    private static async Task LoginAndUnlockAsync(FakeClient client, string secondPassword = "1234")
+    {
+        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(new SecondPasswordRequest(secondPassword, false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+    }
+
+    private static byte[] CreatePacket(int slot, string name, int cls = 0) =>
+        new PacketWriter(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize)
+            .WriteInt32(slot).WriteString(name, 16).WriteInt32(cls).ToArray();
+
+    [Fact]
+    public async Task Second_password_is_defined_on_first_use_and_then_checked()
+    {
+        using (var first = await FakeClient.ConnectAsync(_endPoint, _table))
+        {
+            await LoginAndUnlockAsync(first, "7002"); // conta sem segunda senha: 7002 passa a ser a senha
+        }
+        Assert.NotNull((await _store.FindByUsernameAsync("jogador"))!.SecondPasswordHash);
+
+        using var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+
+        // Sem a segunda senha, nada é liberado.
+        await client.SendAsync(CreatePacket(0, "Bloqueado"));
+        Assert.Equal(Opcodes.CreateCharacterFail, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(new SecondPasswordRequest("9999", false).Write());
+        Assert.Equal(Opcodes.SecondPasswordFail, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(new SecondPasswordRequest("7002", false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(CreatePacket(0, "Liberado"));
+        Assert.Equal(Opcodes.CreateCharacterOk, (await client.ReceiveAsync()).Type);
+    }
+
+    [Fact]
+    public async Task Second_password_can_be_changed_after_confirming_the_current_one()
+    {
+        using var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+
+        // Trocar sem ter confirmado a atual é recusado.
+        await client.SendAsync(new SecondPasswordRequest("5555", true).Write());
+        Assert.Equal(Opcodes.SecondPasswordFail, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(new SecondPasswordRequest("1111", false).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+        await client.SendAsync(new SecondPasswordRequest("5555", true).Write());
+        Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
+
+        var account = (await _store.FindByUsernameAsync("jogador"))!;
+        Assert.True(PasswordHasher.Verify("5555", account.SecondPasswordHash!));
+    }
+
+    [Fact]
+    public async Task Too_many_wrong_second_passwords_disconnect()
+    {
+        await _store.SetSecondPasswordAsync(1, PasswordHasher.Hash("1234"));
+        using var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+
+        for (int i = 1; i < LoginHandler.MaxSecondPasswordFailures; i++)
+        {
+            await client.SendAsync(new SecondPasswordRequest("0000", false).Write());
+            Assert.Equal(Opcodes.SecondPasswordFail, (await client.ReceiveAsync()).Type);
+        }
+        await client.SendAsync(new SecondPasswordRequest("0000", false).Write());
+        Assert.Equal("Muitas tentativas de senha incorretas.", (await client.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.True(await client.IsClosedAsync());
     }
 
     private static byte[] LoginPacket(string username, string password, int version) =>
@@ -274,6 +356,13 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
     }
 
     public Task UpdateLastLoginAsync(int accountId, string? ip) => Task.CompletedTask;
+
+    public Task SetSecondPasswordAsync(int accountId, string? hash)
+    {
+        foreach (var a in _accounts.Values.Where(a => a.Id == accountId))
+            a.SecondPasswordHash = hash;
+        return Task.CompletedTask;
+    }
 
     public Task<List<Character>> ListByAccountAsync(int accountId)
     {

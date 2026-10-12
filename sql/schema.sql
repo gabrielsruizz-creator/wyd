@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     username      VARCHAR(16)  NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    second_password_hash VARCHAR(255) NULL,   -- senha numérica da tela de personagens
     access_level  TINYINT      NOT NULL DEFAULT 0,
     banned        TINYINT(1)   NOT NULL DEFAULT 0,
     cargo_coin    INT          NOT NULL DEFAULT 0,

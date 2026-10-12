@@ -56,7 +56,9 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ✅ |
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
 | `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ |
-| `0x3A0` | Ping               | —       | ignorado                                                                 | ⚠️ |
+| `0xFDE` | SecondPassword     | 32      | `Password[16]`, `int Change` (0 = conferir, 1 = gravar nova)             | ✅ |
+| `0x366` / `0x367` | Movimento | 52      | `short X, Y`, `int ?`, `int ?`, `short DestX, DestY`, `char Rota[24]` (dígitos de direção) | ⚠️ ainda ignorado |
+| `0x3A0` | Ping               | 12      | ignorado                                                                 | ✅ |
 
 ### Servidor → Client
 
@@ -67,6 +69,8 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
 | `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
 | `0x114` | CharacterLoginOk    | 800     | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x306), `ushort Clima` (0x308), `byte SkillBar2[16]` (0x30A), `int ?` (0x31C) | ✅ offsets; ⚠️ falta testar no client |
+| `0xFDE` | SecondPasswordOk    | 32      | segunda senha aceita                                                       | ✅ |
+| `0xFDF` | SecondPasswordFail  | 16      | segunda senha errada: o client volta a bloquear e mostra o erro dele       | ✅ |
 | `0x119` | CharacterLoginFail  | 16      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11A` | CreateCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11B` | DeleteCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
@@ -119,3 +123,14 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
    [`Packets.cs`](../src/WYD.Server/Protocol/Packets.cs), e o `PacketWriter` se recusa a montar um
    pacote cujo tamanho não bata, então os erros aparecem logo.
 4. Quando confirmar um pacote, troque ⚠️ por ✅ aqui.
+
+## Segunda senha
+
+O client guarda o estado da senha numérica numa variável (0 = bloqueado, painel aberto). Ao enviar a
+senha ele **já desbloqueia por conta própria**; é a resposta `0xFDF` que faz voltar a bloquear. Por isso
+o servidor também recusa criar, apagar e entrar no mundo até a senha ser conferida.
+
+- Conta sem segunda senha: a primeira senha digitada passa a ser a da conta.
+- Trocar: o client confere a atual (`Change = 0`), pede a nova duas vezes e manda com `Change = 1`.
+- 5 erros seguidos desconectam.
+- Esqueceu? `WYD.Server reset-second-password <conta>` apaga a senha; a próxima digitada vira a nova.

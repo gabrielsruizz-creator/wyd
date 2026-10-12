@@ -67,11 +67,14 @@ public static class Program
                 break;
             case "create-account" when args.Length == 3:
                 return await CreateAccountAsync(host.Services, args[1], args[2]);
+            case "reset-second-password" when args.Length == 2:
+                return await ResetSecondPasswordAsync(host.Services, args[1]);
             default:
                 Console.Error.WriteLine("""
                     Uso:
                       WYD.Server                                    inicia o servidor
                       WYD.Server create-account <conta> <senha>     cria uma conta
+                      WYD.Server reset-second-password <conta>      apaga a segunda senha (o próximo login define outra)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
@@ -126,6 +129,20 @@ public static class Program
         if (Path.IsPathRooted(path) || File.Exists(path)) return path;
         string beside = Path.Combine(AppContext.BaseDirectory, path);
         return File.Exists(beside) ? beside : path;
+    }
+
+    private static async Task<int> ResetSecondPasswordAsync(IServiceProvider services, string username)
+    {
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+
+        await accounts.SetSecondPasswordAsync(account.Id, null);
+        Console.WriteLine($"Segunda senha de '{username}' apagada. A próxima senha digitada no jogo passa a ser a nova.");
+        return 0;
     }
 
     private static async Task<int> CreateAccountAsync(IServiceProvider services, string username, string password)

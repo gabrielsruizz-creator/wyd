@@ -7,6 +7,9 @@ public interface IAccountRepository
     Task<Account?> FindByUsernameAsync(string username);
     Task<Account> CreateAsync(string username, string passwordHash);
     Task UpdateLastLoginAsync(int accountId, string? ip);
+
+    /// <summary>Grava (ou apaga, com null) o hash da segunda senha.</summary>
+    Task SetSecondPasswordAsync(int accountId, string? hash);
 }
 
 public interface ICharacterRepository

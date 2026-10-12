@@ -25,6 +25,11 @@ public sealed partial class CharacterHandler(
     {
         var request = CreateCharacterRequest.Read(packet);
         var account = session.Account!;
+        if (!session.SecondPasswordVerified)
+        {
+            await session.SendAsync(ServerPackets.Signal(Opcodes.CreateCharacterFail, id: session.Id));
+            return;
+        }
 
         string? error =
             request.Slot is < 0 or >= GameConstants.CharactersPerAccount ? "Slot inválido." :
@@ -63,6 +68,11 @@ public sealed partial class CharacterHandler(
     {
         var request = DeleteCharacterRequest.Read(packet);
         var account = session.Account!;
+        if (!session.SecondPasswordVerified)
+        {
+            await session.SendAsync(ServerPackets.Signal(Opcodes.DeleteCharacterFail, id: session.Id));
+            return;
+        }
         var target = session.Characters.FirstOrDefault(c => c.Slot == request.Slot);
 
         string? error =
@@ -90,7 +100,7 @@ public sealed partial class CharacterHandler(
     {
         var request = CharacterLoginRequest.Read(packet);
         var character = session.Characters.FirstOrDefault(c => c.Slot == request.Slot);
-        if (character is null)
+        if (character is null || !session.SecondPasswordVerified)
         {
             await session.SendAsync(ServerPackets.Signal(Opcodes.CharacterLoginFail, id: session.Id));
             return;

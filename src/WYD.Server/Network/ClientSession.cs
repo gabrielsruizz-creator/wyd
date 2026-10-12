@@ -48,6 +48,10 @@ public sealed class ClientSession
     public Account? Account { get; set; }
     public List<Character> Characters { get; set; } = [];
 
+    /// <summary>A segunda senha foi conferida nesta conexão (libera criar, apagar e entrar no mundo).</summary>
+    public bool SecondPasswordVerified { get; set; }
+    public int SecondPasswordFailures { get; set; }
+
     /// <summary>Personagem em jogo (depois do 0x213).</summary>
     public Character? Character { get; set; }
     public bool IsClosed => Volatile.Read(ref _closed) != 0;

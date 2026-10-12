@@ -13,6 +13,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Login de conta com senha em hash (PBKDF2), conferência da versão do client, contas bloqueadas
       e derrubada da sessão antiga quando a mesma conta loga em outro lugar
 - [x] Tela de seleção: lista de personagens e baú da conta
+- [x] Segunda senha (numérica) com troca de senha e bloqueio após 5 erros
 - [x] Criar personagem (TK, FM, BM, HT) e apagar personagem (com confirmação de senha)
 - [x] Entrar no mundo com o personagem escolhido (pacote `0x114` com a ficha completa)
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
@@ -40,6 +41,9 @@ docker compose up -d
 # 2. Crie uma conta
 dotnet run --project src\WYD.Server -- create-account minhaconta minhasenha
 ```
+
+A segunda senha (a numérica da tela de personagens) é definida no primeiro login: a primeira senha
+digitada passa a ser a da conta. Para apagá-la: `dotnet run --project src\WYD.Server -- reset-second-password minhaconta`.
 
 As tabelas são criadas sozinhas na primeira execução (o script fica em [`sql/schema.sql`](sql/schema.sql)).
 

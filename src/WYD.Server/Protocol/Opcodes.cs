@@ -13,6 +13,7 @@ public static class Opcodes
     public const ushort CharacterLogin = 0x213;    // MSG_CharacterLogin, 36 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLogout = 0x215;   // volta para a seleção (a validar)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
+    public const ushort SecondPassword = 0xFDE;    // MSG_SecondPassword, 32 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
 
     // ---- Servidor -> Client ----
     public const ushort MessagePanel = 0x101;          // MSG_MessagePanel, 140 bytes
@@ -23,6 +24,7 @@ public static class Opcodes
     public const ushort CharacterLoginFail = 0x119;    // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort CreateCharacterFail = 0x11A;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort DeleteCharacterFail = 0x11B;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
+    public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
 
     public static string Name(ushort type) => type switch
     {
@@ -32,6 +34,8 @@ public static class Opcodes
         CharacterLogin => "CharacterLogin",
         CharacterLogout => "CharacterLogout",
         ClientPing => "ClientPing",
+        SecondPassword => "SecondPassword",
+        SecondPasswordFail => "SecondPasswordFail",
         MessagePanel => "MessagePanel",
         AccountLoginOk => "AccountLoginOk",
         CreateCharacterOk => "CreateCharacterOk",
