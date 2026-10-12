@@ -23,6 +23,8 @@ de tamanho fixo terminadas em zero.
 
 ## Cifra
 
+✅ Conferida com o client 7.54: a KeyTable encontrada pelo `find-keytable` decifra os pacotes do client.
+
 Implementada em [`PacketCipher.cs`](../src/WYD.Server/Network/PacketCipher.cs). Usa a KeyTable de
 512 bytes do client (ver [`data/README.md`](../data/README.md)):
 
@@ -51,7 +53,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 
 | Opcode  | Nome               | Tamanho | Conteúdo                                                                 | Situação |
 |---------|--------------------|--------:|--------------------------------------------------------------------------|----------|
-| `0x20D` | AccountLogin       | 116     | `Password[12]`, `Account[16]`, `Zero[52]`, `int Version`, `int DBNeedSave`, `int Adapter[4]` | ⚠️ |
+| `0x20D` | AccountLogin       | 116     | `Account[16]`, `Password[12]`, `int Version`, `int DBNeedSave`, `int Adapter[4]`, `Zero[52]` | ✅ client 7.54 |
 | `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ⚠️ |
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ⚠️ |
 | `0x213` | CharacterLogin     | —       | `int Slot`, …                                                            | ⚠️ ainda não implementado |

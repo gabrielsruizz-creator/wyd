@@ -49,7 +49,7 @@ public static class KeyTableFinder
     public static List<Match> Filter(List<Match> candidates, byte[] login) =>
         candidates.Where(m => TryDecryptAll(m.Table, [login]) is not null).ToList();
 
-    /// <summary>Cabeçalho + senha[12] + conta[16]: o mínimo para reconhecer um login.</summary>
+    /// <summary>Cabeçalho + conta[16] + senha[12]: o mínimo para reconhecer um login.</summary>
     private const int MinLoginSize = PacketHeader.Size + 12 + 16;
 
     /// <summary>
@@ -65,11 +65,15 @@ public static class KeyTableFinder
             var packet = (byte[])encrypted.Clone();
             if (!PacketCipher.Decrypt(packet, keyTable) || PacketHeader.ReadType(packet) != Opcodes.AccountLogin) return null;
 
+            // Conta[16] logo depois do cabeçalho (layout do 7.54); aceita também senha[12] antes da conta.
             var r = new PacketReader(packet);
-            string first = r.ReadString(12), second = r.ReadString(16);
+            string accountFirst = r.ReadString(16);
+            r = new PacketReader(packet);
+            r.Skip(12);
+            string accountSecond = r.ReadString(16);
             string? username =
-                Handlers.LoginHandler.UsernamePattern().IsMatch(second) ? second :   // senha[12] e depois conta[16]
-                Handlers.LoginHandler.UsernamePattern().IsMatch(first) ? first : null; // ordem invertida
+                Handlers.LoginHandler.UsernamePattern().IsMatch(accountFirst) ? accountFirst :
+                Handlers.LoginHandler.UsernamePattern().IsMatch(accountSecond) ? accountSecond : null;
             if (username is null) return null;
 
             int version = packet.Length >= AccountLoginRequest.PacketSize ? AccountLoginRequest.Read(new PacketReader(packet)).ClientVersion : 0;

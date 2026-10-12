@@ -6,20 +6,38 @@ namespace WYD.Server.Protocol;
 
 // ======================= Client -> Servidor =======================
 
-/// <summary>0x20D MSG_AccountLogin (116 bytes).</summary>
+/// <summary>
+/// 0x20D MSG_AccountLogin (116 bytes), conferido com o client 7.54:
+/// <code>
+/// 12  char AccountName[16]
+/// 28  char AccountPassword[12]
+/// 40  int  ClientVersion     (754 / 756)
+/// 44  int  DBNeedSave
+/// 48  int  AdapterName[4]    (identificação da placa de rede)
+/// 64  char Zero[52]
+/// </code>
+/// </summary>
 public sealed record AccountLoginRequest(string Username, string Password, int ClientVersion)
 {
     public const int PacketSize = 116;
 
     public static AccountLoginRequest Read(PacketReader r)
     {
-        string password = r.ReadString(AccountPasswordLength);
         string username = r.ReadString(AccountNameLength);
-        r.Skip(52);                  // Zero[52]
-        int version = r.ReadInt32(); // ClientVersion
-        // DBNeedSave (int) e AdapterName (int[4], MAC da placa de rede) ficam no fim do pacote.
+        string password = r.ReadString(AccountPasswordLength);
+        int version = r.ReadInt32();
         return new AccountLoginRequest(username, password, version);
     }
+
+    /// <summary>Monta o pacote como o client faria (usado nos testes e ferramentas).</summary>
+    public byte[] Write() =>
+        new PacketWriter(Opcodes.AccountLogin, PacketSize)
+            .WriteString(Username, AccountNameLength)
+            .WriteString(Password, AccountPasswordLength)
+            .WriteInt32(ClientVersion)
+            .WriteInt32(1)  // DBNeedSave
+            .Skip(16 + 52)  // AdapterName, Zero
+            .ToArray();
 }
 
 /// <summary>0x20F MSG_NewCharacter (36 bytes).</summary>

@@ -124,9 +124,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     private static byte[] LoginPacket(string username, string password, int version) =>
-        new PacketWriter(Opcodes.AccountLogin, AccountLoginRequest.PacketSize)
-            .WriteString(password, 12).WriteString(username, 16).Skip(52).WriteInt32(version).Skip(4 + 16)
-            .ToArray();
+        new AccountLoginRequest(username, password, version).Write();
 
     private static byte[] DeletePacket(int slot, string name, string password) =>
         new PacketWriter(Opcodes.DeleteCharacter, DeleteCharacterRequest.PacketSize)

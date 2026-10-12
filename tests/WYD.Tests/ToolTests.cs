@@ -10,9 +10,7 @@ public class ToolTests
 {
     private static byte[] EncryptedLogin(KeyTable table, string username, int version, byte keyWord = 77)
     {
-        var packet = new PacketWriter(Opcodes.AccountLogin, AccountLoginRequest.PacketSize)
-            .WriteString("senha123", 12).WriteString(username, 16).Skip(52).WriteInt32(version).Skip(4 + 16)
-            .ToArray();
+        var packet = new AccountLoginRequest(username, "senha123", version).Write();
         PacketCipher.Encrypt(packet, table, keyWord);
         return packet;
     }

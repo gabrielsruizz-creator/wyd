@@ -120,15 +120,26 @@ public class ProtocolTests
     }
 
     [Fact]
-    public void Account_login_request_is_parsed()
+    public void Account_login_request_matches_real_754_client()
     {
-        var w = new PacketWriter(Opcodes.AccountLogin, AccountLoginRequest.PacketSize);
-        w.WriteString("senha123", 12).WriteString("jogador", 16).Skip(52).WriteInt32(756).Skip(4 + 16);
-        var request = AccountLoginRequest.Read(new PacketReader(w.ToArray()));
+        // Pacote decifrado capturado de um client 7.54 (conta, senha e identificação da máquina trocadas).
+        var packet = Convert.FromHexString(
+            "74000D420D0200008B140000" +                     // cabeçalho: 116 bytes, opcode 0x20D
+            "6A6F6761646F720000000000" + "00000000" +        // conta[16] = "jogador"
+            "73656E6861000000" + "00000000" +                // senha[12] = "senha"
+            "F2020000" +                                     // versão 754
+            "01000000" +                                     // DBNeedSave
+            "0102030405060708090A0B0C0D0E0F10" +             // AdapterName
+            new string('0', 52 * 2));                        // Zero[52]
+        Assert.Equal(AccountLoginRequest.PacketSize, packet.Length);
 
+        var request = AccountLoginRequest.Read(new PacketReader(packet));
         Assert.Equal("jogador", request.Username);
-        Assert.Equal("senha123", request.Password);
-        Assert.Equal(756, request.ClientVersion);
+        Assert.Equal("senha", request.Password);
+        Assert.Equal(754, request.ClientVersion);
+
+        var rebuilt = new AccountLoginRequest("jogador", "senha", 754).Write();
+        Assert.Equal(packet.AsSpan(12, 48 - 12).ToArray(), rebuilt.AsSpan(12, 48 - 12).ToArray()); // do fim do cabeçalho até o AdapterName
     }
 
     [Fact]

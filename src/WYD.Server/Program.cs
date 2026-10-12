@@ -16,6 +16,9 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // Sem isso o console do Windows mostra "Vers├úo" no lugar de "Versão".
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+
         // Ferramentas que não usam o banco.
         switch (args)
         {
