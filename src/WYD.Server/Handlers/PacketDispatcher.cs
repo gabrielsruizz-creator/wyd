@@ -19,7 +19,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.AccountLogin, AccountLoginRequest.PacketSize, SessionState.Connected, login.HandleAccountLoginAsync);
         Register(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize, SessionState.CharacterSelect, characters.HandleCreateAsync);
         Register(Opcodes.DeleteCharacter, DeleteCharacterRequest.PacketSize, SessionState.CharacterSelect, characters.HandleDeleteAsync);
-        Register(Opcodes.CharacterLogin, PacketHeader.Size, SessionState.CharacterSelect, characters.HandleEnterWorldAsync);
+        Register(Opcodes.CharacterLogin, PacketHeader.Size + 4, SessionState.CharacterSelect, characters.HandleEnterWorldAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

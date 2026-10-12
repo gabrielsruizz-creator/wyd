@@ -14,17 +14,16 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
       e derrubada da sessão antiga quando a mesma conta loga em outro lugar
 - [x] Tela de seleção: lista de personagens e baú da conta
 - [x] Criar personagem (TK, FM, BM, HT) e apagar personagem (com confirmação de senha)
+- [x] Entrar no mundo com o personagem escolhido (pacote `0x114` com a ficha completa)
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
 
 ## Próximas etapas
 
-1. **Validar com o client real**: KeyTable e os layouts marcados ⚠️ em [`docs/protocolo.md`](docs/protocolo.md).
-2. **Entrar no mundo**: pacote de entrada com o `STRUCT_MOB` completo, mapa e posição.
-3. Movimento, visão de outros jogadores e chat.
-4. Leitura dos arquivos de dados (lista de itens, NPCs, mobs).
-5. Mobs, combate, skills, drops, NPCs de loja, baú, grupo, guild, quests…
+1. Movimento, visão de outros jogadores e chat.
+2. Leitura dos arquivos de dados (lista de itens, NPCs, mobs).
+3. Mobs, combate, skills, drops, NPCs de loja, baú, grupo, guild, quests…
 
 ## Requisitos
 

@@ -114,6 +114,7 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
                 Level = r.GetInt32("level"),
                 Ac = r.GetInt32("ac"),
                 Damage = r.GetInt32("damage"),
+                AttackRun = Score.DefaultAttackRun,
                 MaxHp = r.GetInt32("max_hp"),
                 MaxMp = r.GetInt32("max_mp"),
                 Hp = r.GetInt32("hp"),

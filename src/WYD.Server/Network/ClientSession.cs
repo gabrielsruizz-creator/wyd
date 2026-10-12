@@ -47,6 +47,9 @@ public sealed class ClientSession
     public SessionState State { get; set; } = SessionState.Connected;
     public Account? Account { get; set; }
     public List<Character> Characters { get; set; } = [];
+
+    /// <summary>Personagem em jogo (depois do 0x213).</summary>
+    public Character? Character { get; set; }
     public bool IsClosed => Volatile.Read(ref _closed) != 0;
 
     public event Action<ClientSession>? Closed;

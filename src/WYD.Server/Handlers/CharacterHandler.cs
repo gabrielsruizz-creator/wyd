@@ -85,7 +85,21 @@ public sealed partial class CharacterHandler(
         await session.SendAsync(ServerPackets.SelCharList(Opcodes.DeleteCharacterOk, session.Id, session.Characters));
     }
 
-    /// <summary>0x213: entrar no mundo. Próxima etapa do projeto (pacote 0x114 com STRUCT_MOB completo).</summary>
-    public Task HandleEnterWorldAsync(ClientSession session, PacketReader packet) =>
-        session.SendMessageAsync("A entrada no mundo ainda não foi implementada neste servidor.");
+    /// <summary>0x213: entrar no mundo com o personagem do slot escolhido.</summary>
+    public async Task HandleEnterWorldAsync(ClientSession session, PacketReader packet)
+    {
+        var request = CharacterLoginRequest.Read(packet);
+        var character = session.Characters.FirstOrDefault(c => c.Slot == request.Slot);
+        if (character is null)
+        {
+            await session.SendAsync(ServerPackets.Signal(Opcodes.CharacterLoginFail, id: session.Id));
+            return;
+        }
+
+        session.Character = character;
+        session.State = SessionState.InGame;
+        logger.LogInformation("[{Id}] '{Account}' entrou no mundo com {Name} em ({X}, {Y}).",
+            session.Id, session.Account!.Username, character.Name, character.PosX, character.PosY);
+        await session.SendAsync(ServerPackets.CharacterLoginOk(session.Id, character));
+    }
 }

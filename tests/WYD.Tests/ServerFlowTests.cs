@@ -89,6 +89,29 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Enter_world_with_created_character()
+    {
+        using var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+
+        // Slot vazio: o client recebe o sinal de falha.
+        await client.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
+        Assert.Equal(Opcodes.CharacterLoginFail, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(new PacketWriter(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize)
+            .WriteInt32(0).WriteString("Cavaleiro", 16).WriteInt32(0).ToArray());
+        Assert.Equal(Opcodes.CreateCharacterOk, (await client.ReceiveAsync()).Type);
+
+        await client.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
+        var world = await client.ReceiveAsync();
+        Assert.Equal(Opcodes.CharacterLoginOk, world.Type);
+        Assert.Equal(ServerPackets.CharacterLoginOkSize, world.Length);
+        world.Skip(4);
+        Assert.Equal("Cavaleiro", world.ReadString(16));
+    }
+
+    [Fact]
     public async Task Wrong_password_is_refused()
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);

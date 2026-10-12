@@ -58,6 +58,14 @@ public sealed record DeleteCharacterRequest(int Slot, string Name, string Passwo
         new(r.ReadInt32(), r.ReadString(NameLength), r.ReadString(AccountPasswordLength));
 }
 
+/// <summary>0x213 MSG_CharacterLogin (36 bytes): o client escolheu o personagem do slot.</summary>
+public sealed record CharacterLoginRequest(int Slot)
+{
+    public const int PacketSize = 36;
+
+    public static CharacterLoginRequest Read(PacketReader r) => new(r.ReadInt32());
+}
+
 // ======================= Servidor -> Client =======================
 
 public static class ServerPackets
@@ -86,6 +94,26 @@ public static class ServerPackets
     public const int SelCharPacketSize = PacketHeader.Size + SelCharSize;
     public const int SignalSize = PacketHeader.Size + 4;
 
+    /// <summary>
+    /// STRUCT_MOB do client 7.54: a ficha completa do personagem (756 bytes), conferida no WYD.exe.
+    /// <code>
+    /// 0x000 char  Name[16]       0x010 byte  Clan          0x011 byte  Merchant     0x012 ushort Guild
+    /// 0x014 byte  Class          0x015 byte  Rsv           0x016 ushort Quest       0x018 int   Coin
+    /// 0x01C int   Exp            0x020 short SPX           0x022 short SPY
+    /// 0x024 SCORE BaseScore      0x040 SCORE CurrentScore  0x05C ITEM  Equip[16]    0x0DC ITEM  Carry[64]
+    /// 0x2DC uint  LearnedSkill   0x2E0 short ScoreBonus    0x2E2 short SpecialBonus 0x2E4 short SkillBonus
+    /// 0x2E6 byte  Critical      0x2E7 byte  SaveMana      0x2E8 byte  SkillBar[4]  0x2EC byte  GuildLevel
+    /// 0x2ED byte  Magic         0x2EE byte  RegenHP       0x2EF byte  RegenMP      0x2F0 byte  Resist[4]
+    /// </code>
+    /// </summary>
+    public const int MobSize = 0x2F4;
+
+    /// <summary>0x114: cabeçalho, short X, short Y, STRUCT_MOB, id do jogador, clima, barra de skills extra.</summary>
+    public const int CharacterLoginOkSize = 0x320;
+
+    /// <summary>Skill vazia na barra (o client trata valores negativos como slot livre).</summary>
+    public const byte EmptySkill = 0xFF;
+
     /// <summary>0x101: caixa de mensagem na tela do client.</summary>
     public static byte[] MessagePanel(string text, ushort id = 0) =>
         new PacketWriter(Opcodes.MessagePanel, MessagePanelSize, id)
@@ -106,6 +134,56 @@ public static class ServerPackets
         w.WriteString(account.Username, AccountNameLength); // 0x6F8
         w.Skip(16);                                   // 0x708: chaves que o client guarda no módulo de rede
         return w.ToArray();
+    }
+
+    /// <summary>
+    /// 0x114: entra no mundo com o personagem escolhido. O client copia a ficha (STRUCT_MOB), usa X/Y como
+    /// posição, guarda o id de 0x306 como o id do próprio jogador e troca para a cena do mapa.
+    /// </summary>
+    public static byte[] CharacterLoginOk(ushort id, Character character)
+    {
+        var w = new PacketWriter(Opcodes.CharacterLoginOk, CharacterLoginOkSize, id);
+        w.WriteInt16(character.PosX);                 // 0x00C
+        w.WriteInt16(character.PosY);                 // 0x00E
+        WriteMob(w, character);                       // 0x010
+        w.Skip(2);                                    // 0x304
+        w.WriteUInt16(id);                            // 0x306: id do jogador no servidor
+        w.WriteUInt16(0);                             // 0x308: clima
+        for (int i = 0; i < 16; i++)                  // 0x30A: segunda barra de skills
+            w.WriteByte(EmptySkill);
+        w.Skip(2);                                    // 0x31A
+        w.WriteInt32(0);                              // 0x31C: (desconhecido, o client só guarda)
+        return w.ToArray();
+    }
+
+    internal static void WriteMob(PacketWriter w, Character c)
+    {
+        int start = w.Position;
+        w.WriteString(c.Name, NameLength);
+        w.WriteByte(0);                               // Clan
+        w.WriteByte(0);                               // Merchant
+        w.WriteUInt16(c.Guild);
+        w.WriteByte((byte)c.Class);
+        w.WriteByte(0);                               // Rsv
+        w.WriteUInt16(0);                             // Quest
+        w.WriteInt32(c.Coin);
+        w.WriteInt32((int)Math.Clamp(c.Exp, 0, int.MaxValue));
+        w.WriteInt16(c.PosX);
+        w.WriteInt16(c.PosY);
+        c.BaseScore.Write(w);
+        c.BaseScore.Write(w);                         // CurrentScore: por enquanto igual ao base (sem bônus de itens)
+        foreach (var item in c.Equip) item.Write(w);
+        foreach (var item in c.Inventory) item.Write(w);
+        w.WriteUInt32(0);                             // LearnedSkill
+        w.WriteInt16(0).WriteInt16(0).WriteInt16(0);  // ScoreBonus, SpecialBonus, SkillBonus
+        w.WriteByte(0).WriteByte(0);                  // Critical, SaveMana
+        for (int i = 0; i < 4; i++) w.WriteByte(EmptySkill); // SkillBar[4]
+        w.WriteByte(0).WriteByte(0);                  // GuildLevel, Magic
+        w.WriteByte(0).WriteByte(0);                  // RegenHP, RegenMP
+        w.Skip(4);                                    // Resist[4]
+
+        if (w.Position - start != MobSize)
+            throw new InvalidOperationException($"STRUCT_MOB com {w.Position - start} bytes (esperado {MobSize}).");
     }
 
     /// <summary>0x110 / 0x112: lista de personagens atualizada após criar/apagar.</summary>

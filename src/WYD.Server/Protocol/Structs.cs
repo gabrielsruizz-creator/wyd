@@ -84,6 +84,9 @@ public struct Score
 {
     public const int Size = 28;
 
+    /// <summary>Velocidade padrão dos personagens (4 bits de baixo de AttackRun).</summary>
+    public const byte DefaultAttackRun = 2;
+
     public int Level;
     public int Ac;
     public int Damage;

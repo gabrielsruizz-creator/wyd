@@ -55,7 +55,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x20D` | AccountLogin       | 116     | `Account[16]`, `Password[12]`, `int Version`, `int DBNeedSave`, `int Adapter[4]`, `Zero[52]` | ✅ |
 | `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ✅ |
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
-| `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ tamanho; ainda não implementado |
+| `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ |
 | `0x3A0` | Ping               | —       | ignorado                                                                 | ⚠️ |
 
 ### Servidor → Client
@@ -66,7 +66,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x10E` | AccountLoginOk      | 1816    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
 | `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
 | `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
-| `0x114` | CharacterLoginOk    | —       | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` de 756 bytes (0x10), …    | ⚠️ próxima etapa |
+| `0x114` | CharacterLoginOk    | 800     | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x306), `ushort Clima` (0x308), `byte SkillBar2[16]` (0x30A), `int ?` (0x31C) | ✅ offsets; ⚠️ falta testar no client |
 | `0x119` | CharacterLoginFail  | 16      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11A` | CreateCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11B` | DeleteCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
@@ -93,6 +93,21 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
   | `0x2D8` | `int Exp[4]`           |
 
   `Equip[0]` é o "rosto" do personagem (1 = TK, 11 = FM, 21 = BM, 31 = HT).
+- **`STRUCT_MOB`** (756 bytes, a ficha completa do personagem):
+
+  | Offset  | Campo | Offset  | Campo |
+  |--------:|-------|--------:|-------|
+  | `0x000` | `char Name[16]` | `0x05C` | `ITEM Equip[16]` |
+  | `0x010` | `byte Clan` | `0x0DC` | `ITEM Carry[64]` |
+  | `0x011` | `byte Merchant` | `0x2DC` | `uint LearnedSkill` |
+  | `0x012` | `ushort Guild` | `0x2E0` | `short ScoreBonus, SpecialBonus, SkillBonus` |
+  | `0x014` | `byte Class` | `0x2E6` | `byte Critical, SaveMana` |
+  | `0x016` | `ushort Quest` | `0x2E8` | `byte SkillBar[4]` (`0xFF` = vazio) |
+  | `0x018` | `int Coin` | `0x2EC` | `byte GuildLevel, Magic, RegenHP, RegenMP` |
+  | `0x01C` | `int Exp` | `0x2F0` | `byte Resist[4]` |
+  | `0x020` | `short SPX, SPY` | | |
+  | `0x024` | `SCORE BaseScore` | | |
+  | `0x040` | `SCORE CurrentScore` | | |
 
 ## Como validar um layout com o client real
 

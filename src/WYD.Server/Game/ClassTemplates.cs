@@ -36,6 +36,7 @@ public static class ClassTemplates
                 Level = 0, // o client mostra Level + 1
                 Ac = 4,
                 Damage = 5,
+                AttackRun = Score.DefaultAttackRun,
                 MaxHp = t.Hp,
                 Hp = t.Hp,
                 MaxMp = t.Mp,

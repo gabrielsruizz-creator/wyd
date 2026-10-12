@@ -153,6 +153,38 @@ public class ProtocolTests
         Assert.Equal((byte)'j', p[0x6F8]);                               // conta
     }
 
+    /// <summary>Offsets que o WYD.exe 7.54 lê do pacote 0x114 e da STRUCT_MOB.</summary>
+    [Fact]
+    public void Enter_world_uses_offsets_read_by_754_client()
+    {
+        var c = ClassTemplates.Create(1, 0, "Guerreiro", CharacterClass.BeastMaster, 2100, 2101);
+        c.Coin = 500;
+        c.Exp = 1000;
+        c.Inventory[0] = new Item(4010);
+
+        var p = ServerPackets.CharacterLoginOk(7, c);
+        Assert.Equal(0x320, p.Length);
+        Assert.Equal(Opcodes.CharacterLoginOk, PacketHeader.ReadType(p));
+        short I16(int o) => BitConverter.ToInt16(p, o);
+        int I32(int o) => BitConverter.ToInt32(p, o);
+        const int mob = 0x10;
+
+        Assert.Equal(2100, I16(0x0C));                       // X
+        Assert.Equal(2101, I16(0x0E));                       // Y
+        Assert.Equal((byte)'G', p[mob + 0x000]);             // Name
+        Assert.Equal((byte)CharacterClass.BeastMaster, p[mob + 0x014]); // Class
+        Assert.Equal(500, I32(mob + 0x018));                 // Coin
+        Assert.Equal(1000, I32(mob + 0x01C));                // Exp
+        Assert.Equal(2100, I16(mob + 0x020));                // SPX
+        Assert.Equal(c.BaseScore.Hp, I16(mob + 0x024 + 12)); // BaseScore.Hp
+        Assert.Equal(c.BaseScore.Hp, I16(mob + 0x040 + 12)); // CurrentScore.Hp
+        Assert.Equal(21, I16(mob + 0x05C));                  // Equip[0]: rosto da BM
+        Assert.Equal(4010, I16(mob + 0x0DC));                // Carry[0]
+        Assert.Equal(0xFF, p[mob + 0x2E8]);                  // SkillBar vazia
+        Assert.Equal(7, BitConverter.ToUInt16(p, 0x306));    // id do jogador
+        Assert.Equal(0xFF, p[0x30A]);                        // segunda barra de skills vazia
+    }
+
     [Fact]
     public void Account_login_request_matches_real_754_client()
     {
