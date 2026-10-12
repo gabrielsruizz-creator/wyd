@@ -27,6 +27,10 @@ public static class Program
                 return ToolCommands.ServerListCommand(path, null);
             case ["serverlist", var path, var ip]:
                 return ToolCommands.ServerListCommand(path, ip);
+            case ["items", var itemList]:
+                return ToolCommands.ItemsCommand(itemList, null);
+            case ["items", var itemList, var filter]:
+                return ToolCommands.ItemsCommand(itemList, filter);
             case ["find-keytable", var clientFile, .. var options]:
                 return await ToolCommands.FindKeyTableAsync(
                     clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"), OptionValue(options, "--status"));
@@ -77,6 +81,7 @@ public static class Program
                       WYD.Server create-account <conta> <senha>     cria uma conta
                       WYD.Server reset-second-password <conta>      apaga a segunda senha (o próximo login define outra)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
+                      WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
                 return 2;

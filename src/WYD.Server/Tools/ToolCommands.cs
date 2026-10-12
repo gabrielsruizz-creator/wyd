@@ -222,6 +222,37 @@ public static class ToolCommands
         return null;
     }
 
+    /// <summary>items &lt;ItemList.bin&gt; [texto]: lista os itens, ou só os que têm o texto no nome.</summary>
+    public static int ItemsCommand(string path, string? filter)
+    {
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {path}");
+            return 1;
+        }
+
+        Data.ItemList list;
+        try
+        {
+            list = Data.ItemList.Load(path, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "ExtraItem.bin"));
+        }
+        catch (InvalidDataException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
+
+        var items = list.All.Where(i => filter is null || i.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+        Console.WriteLine($"{path}: {list.All.Count()} itens, checksum 0x{list.Checksum:X} " +
+                          (list.MatchesClient ? "(igual ao esperado pelo client 7.54)." : $"(o client 7.54 espera 0x{Data.ItemList.ClientChecksum:X})."));
+        Console.WriteLine($"{"Índice",6}  {"Nome",-32} {"Modelo",6} {"Nível",5} {"Pos",6} {"Preço",10}");
+        foreach (var i in items)
+            Console.WriteLine($"{i.Index,6}  {i.Name,-32} {i.Mesh,6} {i.ReqLevel,5} {i.Pos,6} {i.Price,10}");
+        if (filter is not null)
+            Console.WriteLine($"{items.Count} item(ns) com \"{filter}\".");
+        return 0;
+    }
+
     private static void PrintStrings(string title, List<(int Offset, string Text)> strings)
     {
         Console.WriteLine(title);
