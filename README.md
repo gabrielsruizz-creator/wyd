@@ -34,23 +34,46 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 
 ## Como rodar
 
-```bash
+```powershell
 # 1. Banco de dados (pule se você já tem um MySQL/MariaDB)
 docker compose up -d
 
-# 2. Coloque o arquivo data/KeyTable.bin (veja data/README.md)
-
-# 3. Crie uma conta
-dotnet run --project src/WYD.Server -- create-account minhaconta minhasenha
-
-# 4. Inicie o servidor
-dotnet run --project src/WYD.Server
+# 2. Crie uma conta
+dotnet run --project src\WYD.Server -- create-account minhaconta minhasenha
 ```
 
 As tabelas são criadas sozinhas na primeira execução (o script fica em [`sql/schema.sql`](sql/schema.sql)).
 
-Para apontar o client para o seu servidor, edite a lista de servidores do client (`serverlist`)
-com o IP da máquina onde o servidor está rodando, e libere a porta **8281** no firewall/roteador.
+## Conectar o client
+
+Use um client da versão **7.54 ou 7.56**. Feche o jogo antes de começar.
+
+**1. Aponte o client para o seu PC** (troca os IPs do `serverlist.bin` e guarda um backup `.bak`):
+
+```powershell
+dotnet run --project src\WYD.Server -- serverlist "C:\caminho\do\jogo\serverlist.bin" 127.0.0.1
+```
+
+Rode sem o IP no final para só ver o que tem no arquivo. Para amigos jogarem de outros PCs, use o seu
+IP público e libere a porta **8281** no firewall e no roteador.
+
+**2. Ache a KeyTable** (veja [`data/README.md`](data/README.md)):
+
+```powershell
+dotnet run --project src\WYD.Server -- find-keytable "C:\caminho\do\jogo\WYD.exe"
+```
+
+Com o comando esperando, abra o jogo, escolha o servidor e tente logar com a conta que você criou.
+O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir, tente logar de novo.
+
+**3. Inicie o servidor e entre no jogo:**
+
+```powershell
+dotnet run --project src\WYD.Server -- --Server:LogPackets=true
+```
+
+Com `LogPackets` ligado, o console mostra cada pacote trocado com o client, o que ajuda a corrigir
+qualquer diferença de protocolo.
 
 ## Configuração
 

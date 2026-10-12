@@ -8,11 +8,18 @@ Arquivos que vêm do **client do jogo** ficam aqui. Eles não vão para o reposi
 Tabela de **512 bytes** que o client usa para cifrar os pacotes (`g_pKeyTable` no servidor
 original). Sem ela o servidor não consegue ler nada do que o client envia.
 
-Ela está dentro do executável do client da versão que você vai usar. Você pode:
+Ela está dentro do executável do client. O próprio servidor tem um comando que a encontra sozinho:
 
-- copiar a tabela de arquivos de servidor que você já tenha da mesma versão, ou
-- extraí-la do executável do seu client com um editor hexadecimal e salvar os 512 bytes
-  como `data/KeyTable.bin`.
+```powershell
+dotnet run --project src\WYD.Server -- find-keytable "C:\caminho\do\WYD.exe"
+```
+
+Ele espera o client conectar (o `serverlist` precisa apontar para este PC, veja o README principal),
+captura o pacote de login e procura no `WYD.exe` o trecho de 512 bytes que decifra esse pacote.
+Se pedir, tente logar de novo no client: às vezes um login só não basta para distinguir a tabela certa.
+
+Se o executável estiver protegido (compactado), a tabela não aparece no arquivo. O comando então
+explica como gerar um dump de memória do client pelo Gerenciador de Tarefas e procurar nele.
 
 ### Como saber se a tabela está certa
 

@@ -8,6 +8,7 @@ using WYD.Server.Database;
 using WYD.Server.Handlers;
 using WYD.Server.Network;
 using WYD.Server.Security;
+using WYD.Server.Tools;
 
 namespace WYD.Server;
 
@@ -15,6 +16,17 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // Ferramentas que não usam o banco.
+        switch (args)
+        {
+            case ["serverlist", var path]:
+                return ToolCommands.ServerListCommand(path, null);
+            case ["serverlist", var path, var ip]:
+                return ToolCommands.ServerListCommand(path, ip);
+            case ["find-keytable", var clientFile, .. var options]:
+                return await ToolCommands.FindKeyTableAsync(clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"));
+        }
+
         // Comandos de administração: dotnet run -- create-account <conta> <senha>
         string[] hostArgs = args.SkipWhile(a => !a.StartsWith('-')).ToArray();
         string? command = args.Length > 0 && !args[0].StartsWith('-') ? args[0] : null;
@@ -52,7 +64,13 @@ public static class Program
             case "create-account" when args.Length == 3:
                 return await CreateAccountAsync(host.Services, args[1], args[2]);
             default:
-                Console.Error.WriteLine("Uso: WYD.Server [create-account <conta> <senha>]");
+                Console.Error.WriteLine("""
+                    Uso:
+                      WYD.Server                                    inicia o servidor
+                      WYD.Server create-account <conta> <senha>     cria uma conta
+                      WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
+                      WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281]  acha a KeyTable do client
+                    """);
                 return 2;
         }
 
@@ -89,6 +107,12 @@ public static class Program
         services.AddSingleton<GameServer>();
         services.AddHostedService(sp => sp.GetRequiredService<GameServer>());
         return services;
+    }
+
+    private static string? OptionValue(string[] options, string name)
+    {
+        int i = Array.IndexOf(options, name);
+        return i >= 0 && i + 1 < options.Length ? options[i + 1] : null;
     }
 
     /// <summary>Caminhos relativos valem a partir da pasta atual ou, se não existirem lá, da pasta do executável.</summary>
