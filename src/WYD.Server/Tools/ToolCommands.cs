@@ -44,7 +44,7 @@ public static class ToolCommands
         int count;
         try
         {
-            count = ServerList.ReplaceIps(plain, newIp);
+            count = ServerList.ReplaceAddresses(plain, newIp);
         }
         catch (InvalidOperationException ex)
         {
@@ -54,7 +54,7 @@ public static class ToolCommands
 
         if (count == 0)
         {
-            Console.WriteLine("Nenhum IP encontrado para trocar.");
+            Console.WriteLine("Nenhum endereço encontrado para trocar.");
             return 1;
         }
 
@@ -63,12 +63,12 @@ public static class ToolCommands
         if (!File.Exists(backup)) File.Copy(path, backup);
         File.WriteAllBytes(path, encoded);
 
-        PrintStrings($"{count} IP(s) trocado(s) por {newIp}. Backup do original em {backup}.", ServerList.Strings(plain));
+        PrintStrings($"{count} endereço(s) apontado(s) para {newIp}. Backup do original em {backup}.", ServerList.Strings(plain));
         return 0;
     }
 
-    /// <summary>find-keytable &lt;WYD.exe ou dump&gt; [--port 8281]</summary>
-    public static async Task<int> FindKeyTableAsync(string clientFile, int port)
+    /// <summary>find-keytable &lt;WYD.exe ou dump&gt; [--port 8281] [--status "texto"]</summary>
+    public static async Task<int> FindKeyTableAsync(string clientFile, int port, string? statusBody = null)
     {
         if (!File.Exists(clientFile))
         {
@@ -92,6 +92,13 @@ public static class ToolCommands
             candidates = KeyTableFinder.Search(file, logins);
             if (candidates.Count == 0) return NotFound(clientFile, logins[^1], fromOldCaptures: true);
         }
+
+        // O client só tenta conectar se a página de status disser que o canal existe.
+        using var statusCts = new CancellationTokenSource();
+        string body = statusBody?.Replace("\\n", "\n") ?? StatusHttpServer.BuildBody(11, 0);
+        var status = new StatusHttpServer(80, () => body, Console.WriteLine);
+        if (status.Start() is { } statusListener)
+            _ = status.RunAsync(statusListener, statusCts.Token);
 
         TcpListener? listener = null;
         try
@@ -137,6 +144,7 @@ public static class ToolCommands
         finally
         {
             listener?.Stop();
+            statusCts.Cancel();
         }
 
         var match = candidates[0];

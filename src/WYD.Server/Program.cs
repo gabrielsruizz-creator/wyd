@@ -24,7 +24,8 @@ public static class Program
             case ["serverlist", var path, var ip]:
                 return ToolCommands.ServerListCommand(path, ip);
             case ["find-keytable", var clientFile, .. var options]:
-                return await ToolCommands.FindKeyTableAsync(clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"));
+                return await ToolCommands.FindKeyTableAsync(
+                    clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"), OptionValue(options, "--status"));
         }
 
         // Comandos de administração: dotnet run -- create-account <conta> <senha>
@@ -69,7 +70,7 @@ public static class Program
                       WYD.Server                                    inicia o servidor
                       WYD.Server create-account <conta> <senha>     cria uma conta
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
-                      WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281]  acha a KeyTable do client
+                      WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
                 return 2;
         }
@@ -106,6 +107,7 @@ public static class Program
 
         services.AddSingleton<GameServer>();
         services.AddHostedService(sp => sp.GetRequiredService<GameServer>());
+        services.AddHostedService<StatusService>();
         return services;
     }
 

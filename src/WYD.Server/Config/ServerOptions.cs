@@ -35,6 +35,18 @@ public sealed class ServerOptions
     /// <summary>Rejeita pacotes cujo checksum não confere. Deixe desligado até validar com o seu client.</summary>
     public bool StrictChecksum { get; set; }
 
+    /// <summary>
+    /// Porta HTTP das páginas de status dos canais (serv00.asp…), que o client consulta antes de conectar.
+    /// 0 desliga. Se não for 80, o comando serverlist precisa incluir a porta no endereço.
+    /// </summary>
+    public int StatusPort { get; set; } = 80;
+
+    /// <summary>Quantos números a página de status devolve (um por canal do grupo).</summary>
+    public int StatusChannels { get; set; } = 11;
+
+    /// <summary>Resposta fixa da página de status, para testes ("{online}" vira o número de jogadores; "\n" quebra linha).</summary>
+    public string StatusBody { get; set; } = "";
+
     /// <summary>Posição inicial dos personagens novos (Armia).</summary>
     public int StartX { get; set; } = 2100;
     public int StartY { get; set; } = 2100;

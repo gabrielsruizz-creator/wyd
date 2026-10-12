@@ -54,8 +54,12 @@ Use um client da versão **7.54 ou 7.56**. Feche o jogo antes de começar.
 dotnet run --project src\WYD.Server -- serverlist "C:\caminho\do\jogo\serverlist.bin" 127.0.0.1
 ```
 
+Isso troca os IPs dos canais e também as páginas de status (`http://www.wyd.com.br/.../serv01.asp`),
+que o client consulta para saber se cada canal existe: sem resposta, todos aparecem "Inexistente." e
+ele se recusa a conectar. O próprio servidor responde essas páginas na porta **80**.
+
 Rode sem o IP no final para só ver o que tem no arquivo. Para amigos jogarem de outros PCs, use o seu
-IP público e libere a porta **8281** no firewall e no roteador.
+IP público e libere as portas **8281** e **80** no firewall e no roteador.
 
 **2. Ache a KeyTable** (veja [`data/README.md`](data/README.md)):
 
@@ -88,6 +92,7 @@ sobrescrever qualquer opção pela linha de comando, por exemplo `--Server:LogPa
 | `Server:AutoRegister`          | `false`             | Cria a conta no primeiro login (bom para testes)            |
 | `Server:LogPackets`            | `false`             | Mostra todos os pacotes em hex no console                   |
 | `Server:StrictChecksum`        | `false`             | Derruba quem mandar pacote com checksum errado              |
+| `Server:StatusPort`            | `80`                | Porta das páginas de status dos canais (0 desliga)          |
 | `Server:StartX` / `StartY`     | `2100` / `2100`     | Onde os personagens novos começam                           |
 | `Database:ConnectionString`    | `…Database=wyd…`    | Conexão com o MySQL                                         |
 

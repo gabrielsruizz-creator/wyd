@@ -31,6 +31,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             ["Server:Port"] = "0",
             ["Server:AutoRegister"] = "false",
             ["Server:StrictChecksum"] = "true",
+            ["Server:StatusPort"] = "0",
         });
         builder.Services.AddWydServer(builder.Configuration);
         builder.Services.AddSingleton(_table);

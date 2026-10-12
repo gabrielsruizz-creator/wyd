@@ -109,24 +109,40 @@ public sealed partial class ServerList
         return result;
     }
 
-    /// <summary>Troca todos os IPs do arquivo decodificado por <paramref name="newIp"/>. Retorna quantos trocou.</summary>
-    public static int ReplaceIps(byte[] plain, string newIp)
+    /// <summary>
+    /// Aponta o arquivo decodificado para <paramref name="newIp"/>: troca os IPs dos canais e o endereço
+    /// (host e porta) das páginas de status "http://...", mantendo o caminho. Retorna quantos trocou.
+    /// </summary>
+    public static int ReplaceAddresses(byte[] plain, string newIp, int statusPort = 80)
     {
         int replaced = 0;
+        string statusHost = statusPort == 80 ? newIp : $"{newIp}:{statusPort}";
 
         foreach (var (offset, text) in Strings(plain))
         {
-            var ip = Ipv4().Match(text);
-            if (!ip.Success) continue;
+            string newText;
+            var url = UrlHost().Match(text);
+            if (url.Success)
+            {
+                newText = url.Groups["scheme"].Value + statusHost + text[url.Length..];
+            }
+            else if (Ipv4().Match(text) is { Success: true } ip)
+            {
+                newText = text[..ip.Index] + newIp + text[(ip.Index + ip.Length)..];
+            }
+            else
+            {
+                continue;
+            }
 
-            string newText = text[..ip.Index] + newIp + text[(ip.Index + ip.Length)..];
+            if (newText == text) { replaced++; continue; }
             int textEnd = offset + text.Length;
 
             // Se o texto novo for maior, precisa caber nos zeros depois do antigo, deixando um zero no fim.
             int free = 0;
             while (textEnd + free < plain.Length && plain[textEnd + free] == 0) free++;
             if (newText.Length - text.Length > free - 1)
-                throw new InvalidOperationException($"O IP '{newIp}' não cabe no lugar de '{ip.Value}' (posição {offset}).");
+                throw new InvalidOperationException($"'{newText}' não cabe no lugar de '{text}' (posição {offset}).");
 
             plain.AsSpan(offset, Math.Max(text.Length, newText.Length)).Clear();
             Encoding.ASCII.GetBytes(newText).CopyTo(plain, offset);
@@ -135,4 +151,7 @@ public sealed partial class ServerList
 
         return replaced;
     }
+
+    [GeneratedRegex(@"^(?<scheme>https?://)[^/:\s]+(:\d+)?", RegexOptions.IgnoreCase)]
+    private static partial Regex UrlHost();
 }

@@ -115,18 +115,43 @@ public class ToolTests
     }
 
     [Fact]
-    public void Replaces_ips_and_keeps_other_text()
+    public void Points_ips_and_status_urls_to_new_address()
     {
         var (encoded, _) = FakeServerList(xor: false, period: 64);
         var codec = ServerList.Detect(encoded);
         var plain = codec.Decode(encoded);
 
-        Assert.Equal(3, ServerList.ReplaceIps(plain, "127.0.0.1"));
+        Assert.Equal(4, ServerList.ReplaceAddresses(plain, "127.0.0.1"));
         var reread = codec.Decode(codec.Encode(plain));
         var texts = ServerList.Strings(reread).Select(s => s.Text).ToList();
 
-        Assert.Equal(["http://wyd.exemplo.com/status", "127.0.0.1", "127.0.0.1", "127.0.0.1"], texts);
+        Assert.Equal(["http://127.0.0.1/status", "127.0.0.1", "127.0.0.1", "127.0.0.1"], texts);
         Assert.Equal(0, reread[64 + "127.0.0.1".Length]); // terminado em zero
+        Assert.Equal(0, reread["http://127.0.0.1/status".Length]); // sobra do endereço antigo apagada
+
+        // Rodar de novo não muda nada, e uma porta diferente de 80 entra no endereço.
+        Assert.Equal(4, ServerList.ReplaceAddresses(plain, "127.0.0.1"));
+        ServerList.ReplaceAddresses(plain, "10.0.0.2", statusPort: 8080);
+        Assert.Contains(ServerList.Strings(plain), s => s.Text == "http://10.0.0.2:8080/status");
+    }
+
+    [Fact]
+    public async Task Status_server_answers_any_path()
+    {
+        var logs = new List<string>();
+        var server = new StatusHttpServer(0, () => StatusHttpServer.BuildBody(3, 5), logs.Add);
+        var listener = server.Start()!;
+        int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        using var cts = new CancellationTokenSource();
+        var run = server.RunAsync(listener, cts.Token);
+
+        using var http = new HttpClient();
+        var body = await http.GetStringAsync($"http://127.0.0.1:{port}/wyd_br/servers/serv01.asp");
+
+        Assert.Equal("5\n5\n5\n", body);
+        Assert.Contains(logs, l => l.Contains("GET /wyd_br/servers/serv01.asp"));
+        cts.Cancel();
+        await run;
     }
 
     [Fact]
