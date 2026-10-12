@@ -28,6 +28,9 @@ public sealed class ClientSession
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private int _closed;
+    private ChecksumMode _checksumMode = ChecksumMode.CipherMinusPlain;
+    private bool _checksumModeKnown;
+    private string _closeReason = "conexão encerrada pelo servidor";
 
     public ClientSession(ushort id, Socket socket, KeyTable keyTable, ServerOptions options, ILogger logger)
     {
@@ -69,16 +72,30 @@ public sealed class ClientSession
                 }
                 catch (OperationCanceledException) when (!token.IsCancellationRequested)
                 {
-                    _logger.LogInformation("[{Id}] Desconectado por inatividade.", Id);
+                    _closeReason = "inatividade";
                     break;
                 }
 
-                if (read == 0) break;
+                if (read == 0)
+                {
+                    _closeReason = "o client fechou a conexão";
+                    break;
+                }
                 framer.Append(buffer.AsSpan(0, read));
 
                 while (framer.TryRead() is { } packet)
                 {
-                    if (!PacketCipher.Decrypt(packet, _keyTable))
+                    if (PacketCipher.Decrypt(packet, _keyTable, out var mode))
+                    {
+                        // Responde com o checksum calculado do mesmo jeito que o client calcula o dele.
+                        if (mode is { } detected && !_checksumModeKnown)
+                        {
+                            _checksumMode = detected;
+                            _checksumModeKnown = true;
+                            _logger.LogInformation("[{Id}] Checksum do client: {Mode}.", Id, detected);
+                        }
+                    }
+                    else
                     {
                         if (_options.StrictChecksum)
                             throw new ProtocolException("Checksum inválido.");
@@ -97,18 +114,20 @@ public sealed class ClientSession
         catch (OperationCanceledException) { }
         catch (ProtocolException ex)
         {
-            _logger.LogWarning("[{Id}] Erro de protocolo de {Remote}: {Message}", Id, RemoteEndPoint, ex.Message);
+            _closeReason = $"erro de protocolo: {ex.Message}";
         }
         catch (SocketException ex)
         {
-            _logger.LogDebug("[{Id}] Socket: {Message}", Id, ex.Message);
+            _closeReason = $"erro de rede: {ex.Message}";
         }
         catch (Exception ex)
         {
+            _closeReason = "erro no servidor";
             _logger.LogError(ex, "[{Id}] Erro ao processar pacote de {Remote}.", Id, RemoteEndPoint);
         }
         finally
         {
+            _logger.LogInformation("[{Id}] Desconectado: {Reason}.", Id, _closeReason);
             Close();
         }
     }
@@ -123,7 +142,7 @@ public sealed class ClientSession
                 Opcodes.Name(PacketHeader.ReadType(packet)), packet.Length, HexDump.Format(packet));
 
         var data = (byte[])packet.Clone();
-        PacketCipher.Encrypt(data, _keyTable, (byte)RandomNumberGenerator.GetInt32(256));
+        PacketCipher.Encrypt(data, _keyTable, (byte)RandomNumberGenerator.GetInt32(256), _checksumMode);
 
         await _sendLock.WaitAsync();
         try

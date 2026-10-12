@@ -123,6 +123,33 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.True(await first.IsClosedAsync());
     }
 
+    [Theory]
+    [InlineData(ChecksumMode.CipherMinusPlain)]
+    [InlineData(ChecksumMode.PlainMinusCipher)]
+    public async Task Server_answers_with_the_clients_checksum_mode(ChecksumMode mode)
+    {
+        using var client = await FakeClient.ConnectAsync(_endPoint, _table);
+        client.Mode = mode;
+        await client.SendAsync(LoginPacket("jogador", "senha123", 756));
+
+        // O login é o primeiro pacote; se o checksum dele for ambíguo (os dois modos dão o mesmo valor),
+        // o servidor ainda não sabe o modo. Por isso confere alguns pacotes seguidos.
+        Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
+        for (int i = 0; i < 5; i++)
+        {
+            await client.SendAsync(new PacketWriter(Opcodes.CreateCharacter, CreateCharacterRequest.PacketSize)
+                .WriteInt32(9).WriteString("Teste", 16).WriteInt32(0).ToArray());
+            await client.ReceiveAsync(); // mensagem de erro (slot inválido)
+            await client.ReceiveAsync(); // sinal de falha
+            if (client.LastReceivedMode is { } received)
+            {
+                Assert.Equal(mode, received);
+                return;
+            }
+        }
+        Assert.Fail("nenhuma resposta com checksum não ambíguo");
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 
@@ -139,6 +166,12 @@ internal sealed class FakeClient : IDisposable
     private readonly NetworkStream _stream;
     private readonly KeyTable _table;
     private bool _initSent;
+
+    /// <summary>Forma de checksum que este client usa ao enviar.</summary>
+    public ChecksumMode Mode { get; set; } = ChecksumMode.CipherMinusPlain;
+
+    /// <summary>Forma de checksum do último pacote recebido do servidor.</summary>
+    public ChecksumMode? LastReceivedMode { get; private set; }
 
     private FakeClient(TcpClient tcp, KeyTable table)
     {
@@ -157,7 +190,7 @@ internal sealed class FakeClient : IDisposable
     public async Task SendAsync(byte[] packet)
     {
         var data = (byte[])packet.Clone();
-        PacketCipher.Encrypt(data, _table, (byte)Random.Shared.Next(256));
+        PacketCipher.Encrypt(data, _table, (byte)Random.Shared.Next(256), Mode);
         if (!_initSent)
         {
             var init = new byte[4];
@@ -179,7 +212,8 @@ internal sealed class FakeClient : IDisposable
         sizeBytes.CopyTo(packet, 0);
         await _stream.ReadExactlyAsync(packet.AsMemory(2), timeout.Token);
 
-        Assert.True(PacketCipher.Decrypt(packet, _table), "checksum do servidor não confere");
+        Assert.True(PacketCipher.Decrypt(packet, _table, out var mode), "checksum do servidor não confere");
+        LastReceivedMode = mode;
         return new PacketReader(packet);
     }
 
