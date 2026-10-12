@@ -62,18 +62,27 @@ public sealed record DeleteCharacterRequest(int Slot, string Name, string Passwo
 
 public static class ServerPackets
 {
-    /// <summary>STRUCT_SELCHAR: dados dos 4 slots mostrados na tela de seleção (840 bytes).</summary>
+    /// <summary>
+    /// STRUCT_SELCHAR do client 7.54: os 4 slots da tela de seleção (744 bytes), conferido no WYD.exe.
+    /// <code>
+    /// 0x000 short SPX[4]          0x008 short SPY[4]         0x010 char  Name[4][16]
+    /// 0x050 SCORE Score[4] (28)   0x0C0 ITEM  Equip[4][16]   0x2C0 short Guild[4]
+    /// 0x2C8 int   Coin[4]         0x2D8 int   Exp[4]
+    /// </code>
+    /// </summary>
     public const int SelCharSize =
         CharactersPerAccount * 2 * 2              // SPX[4], SPY[4]
-        + CharactersPerAccount * NameLength       // MobName[4][16]
+        + CharactersPerAccount * NameLength       // Name[4][16]
         + CharactersPerAccount * Score.Size       // Score[4]
         + CharactersPerAccount * MaxEquip * Item.Size // Equip[4][16]
         + CharactersPerAccount * 2                // Guild[4]
         + CharactersPerAccount * 4                // Coin[4]
-        + CharactersPerAccount * 8;               // Exp[4]
+        + CharactersPerAccount * 4;               // Exp[4]
 
     public const int MessagePanelSize = PacketHeader.Size + MessageLength;
-    public const int AccountLoginOkSize = PacketHeader.Size + 16 + SelCharSize + MaxCargo * Item.Size + 4 + AccountNameLength + 16;
+
+    /// <summary>0x10E: cabeçalho, SELCHAR, Cargo[128], int Coin, char Account[16], byte Keys[16].</summary>
+    public const int AccountLoginOkSize = PacketHeader.Size + SelCharSize + MaxCargo * Item.Size + 4 + AccountNameLength + 16;
     public const int SelCharPacketSize = PacketHeader.Size + SelCharSize;
     public const int SignalSize = PacketHeader.Size + 4;
 
@@ -87,16 +96,15 @@ public static class ServerPackets
     public static byte[] Signal(ushort type, int parm = 0, ushort id = 0) =>
         new PacketWriter(type, SignalSize, id).WriteInt32(parm).ToArray();
 
-    /// <summary>0x10A: login aceito, com a lista de personagens e o baú da conta.</summary>
+    /// <summary>0x10E: login aceito, com a lista de personagens e o baú da conta. O client vai para a tela de seleção.</summary>
     public static byte[] AccountLoginOk(ushort id, Account account, IReadOnlyList<Character> characters)
     {
         var w = new PacketWriter(Opcodes.AccountLoginOk, AccountLoginOkSize, id);
-        w.Skip(16); // HashKeyTable[16] (a validar)
-        WriteSelChar(w, characters);
-        foreach (var item in account.Cargo) item.Write(w);
-        w.WriteInt32(account.CargoCoin);
-        w.WriteString(account.Username, AccountNameLength);
-        w.Skip(16); // SSN1, SSN2 e reservado (a validar)
+        WriteSelChar(w, characters);                  // 0x00C
+        foreach (var item in account.Cargo) item.Write(w); // 0x2F4
+        w.WriteInt32(account.CargoCoin);              // 0x6F4
+        w.WriteString(account.Username, AccountNameLength); // 0x6F8
+        w.Skip(16);                                   // 0x708: chaves que o client guarda no módulo de rede
         return w.ToArray();
     }
 
@@ -124,6 +132,6 @@ public static class ServerPackets
                 (c?.Equip[i] ?? default).Write(w);
         foreach (var c in slots) w.WriteUInt16(c?.Guild ?? 0);
         foreach (var c in slots) w.WriteInt32(c?.Coin ?? 0);
-        foreach (var c in slots) w.WriteInt64(c?.Exp ?? 0);
+        foreach (var c in slots) w.WriteInt32((int)Math.Clamp(c?.Exp ?? 0, 0, int.MaxValue));
     }
 }

@@ -89,15 +89,16 @@ public class ProtocolTests
     [Fact]
     public void Packet_layouts_have_expected_sizes()
     {
-        Assert.Equal(140, ServerPackets.MessagePanelSize);
-        Assert.Equal(840, ServerPackets.SelCharSize);
-        Assert.Equal(852, ServerPackets.SelCharPacketSize);
-        Assert.Equal(1928, ServerPackets.AccountLoginOkSize);
+        // Tamanhos conferidos no WYD.exe 7.54.
+        Assert.Equal(108, ServerPackets.MessagePanelSize);
+        Assert.Equal(0x2E8, ServerPackets.SelCharSize);
+        Assert.Equal(756, ServerPackets.SelCharPacketSize);
+        Assert.Equal(1816, ServerPackets.AccountLoginOkSize);
 
         var account = new Account { Username = "teste" };
         var character = ClassTemplates.Create(1, 2, "Guerreiro", CharacterClass.TransKnight, 2100, 2100);
-        Assert.Equal(1928, ServerPackets.AccountLoginOk(1, account, [character]).Length);
-        Assert.Equal(852, ServerPackets.SelCharList(Opcodes.CreateCharacterOk, 1, [character]).Length);
+        Assert.Equal(1816, ServerPackets.AccountLoginOk(1, account, [character]).Length);
+        Assert.Equal(756, ServerPackets.SelCharList(Opcodes.CreateCharacterOk, 1, [character]).Length);
     }
 
     [Fact]
@@ -117,6 +118,39 @@ public class ProtocolTests
 
         r.Skip(4 * Score.Size + 2 * 16 * Item.Size); // Score[4] e Equip dos slots 0 e 1
         Assert.Equal(11, r.ReadInt16()); // Equip[0] do slot 2 = rosto da Foema
+    }
+
+    /// <summary>Offsets que o WYD.exe 7.54 lê da lista de personagens e do pacote 0x10E.</summary>
+    [Fact]
+    public void Login_reply_uses_offsets_read_by_754_client()
+    {
+        var account = new Account { Username = "jogador", CargoCoin = 777 };
+        account.Cargo[0] = new Item(4011);
+        var c = ClassTemplates.Create(1, 2, "Arqueira", CharacterClass.Huntress, 2100, 2101);
+        c.Guild = 55;
+        c.Coin = 1234;
+        c.Exp = 98765;
+        c.BaseScore.Level = 9;
+        c.BaseScore.Hp = 75;
+
+        var p = ServerPackets.AccountLoginOk(1, account, [c]);
+        Assert.Equal(Opcodes.AccountLoginOk, PacketHeader.ReadType(p));
+        const int sel = 0x0C, slot = 2;
+        short I16(int o) => BitConverter.ToInt16(p, o);
+        int I32(int o) => BitConverter.ToInt32(p, o);
+
+        Assert.Equal(2100, I16(sel + 0x000 + slot * 2));                 // SPX
+        Assert.Equal(2101, I16(sel + 0x008 + slot * 2));                 // SPY
+        Assert.Equal((byte)'A', p[sel + 0x010 + slot * 16]);             // Name
+        Assert.Equal(9, I16(sel + 0x050 + slot * 0x1C));                 // Score.Level
+        Assert.Equal(75, I16(sel + 0x050 + slot * 0x1C + 12));           // Score.Hp
+        Assert.Equal(31, I16(sel + 0x0C0 + slot * 0x80));                // Equip[0] (rosto da HT)
+        Assert.Equal(55, I16(sel + 0x2C0 + slot * 2));                   // Guild
+        Assert.Equal(1234, I32(sel + 0x2C8 + slot * 4));                 // Coin
+        Assert.Equal(98765, I32(sel + 0x2D8 + slot * 4));                // Exp
+        Assert.Equal(4011, I16(0x2F4));                                  // Cargo[0]
+        Assert.Equal(777, I32(0x6F4));                                   // gold do baú
+        Assert.Equal((byte)'j', p[0x6F8]);                               // conta
     }
 
     [Fact]

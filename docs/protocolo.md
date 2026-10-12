@@ -45,38 +45,53 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 ## Pacotes
 
 **Situação:**
-- ✅ validado nos testes automáticos: o formato bate entre o servidor e o client de teste;
-- ⚠️ a validar: o layout segue a documentação da comunidade, mas ainda precisa ser conferido
-  com o client real (ligue `LogPackets`).
+- ✅ conferido no client 7.54: pelo tráfego real ou pela leitura do código do `WYD.exe`;
+- ⚠️ a validar.
 
 ### Client → Servidor
 
 | Opcode  | Nome               | Tamanho | Conteúdo                                                                 | Situação |
 |---------|--------------------|--------:|--------------------------------------------------------------------------|----------|
-| `0x20D` | AccountLogin       | 116     | `Account[16]`, `Password[12]`, `int Version`, `int DBNeedSave`, `int Adapter[4]`, `Zero[52]` | ✅ client 7.54 |
-| `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ⚠️ |
-| `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ⚠️ |
-| `0x213` | CharacterLogin     | —       | `int Slot`, …                                                            | ⚠️ ainda não implementado |
+| `0x20D` | AccountLogin       | 116     | `Account[16]`, `Password[12]`, `int Version`, `int DBNeedSave`, `int Adapter[4]`, `Zero[52]` | ✅ |
+| `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ✅ |
+| `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
+| `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ tamanho; ainda não implementado |
 | `0x3A0` | Ping               | —       | ignorado                                                                 | ⚠️ |
 
 ### Servidor → Client
 
 | Opcode  | Nome                | Tamanho | Conteúdo                                                                   | Situação |
 |---------|---------------------|--------:|----------------------------------------------------------------------------|----------|
-| `0x101` | MessagePanel        | 140     | `char Text[128]`                                                           | ⚠️ |
-| `0x10A` | AccountLoginOk      | 1928    | `HashKeyTable[16]`, `SELCHAR`, `ITEM Cargo[128]`, `int Coin`, `Account[16]`, `16 bytes` | ⚠️ |
-| `0x110` | CreateCharacterOk   | 852     | `SELCHAR`                                                                  | ⚠️ |
-| `0x112` | DeleteCharacterOk   | 852     | `SELCHAR`                                                                  | ⚠️ |
-| `0x11A` | CreateCharacterFail | 16      | `int Parm`                                                                 | ⚠️ |
-| `0x11B` | DeleteCharacterFail | 16      | `int Parm`                                                                 | ⚠️ |
+| `0x101` | MessagePanel        | 108     | `char Text[96]`                                                            | ✅ |
+| `0x10E` | AccountLoginOk      | 1816    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
+| `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
+| `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
+| `0x114` | CharacterLoginOk    | —       | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` de 756 bytes (0x10), …    | ⚠️ próxima etapa |
+| `0x119` | CharacterLoginFail  | 16      | o client mostra a mensagem dele                                            | ✅ |
+| `0x11A` | CreateCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
+| `0x11B` | DeleteCharacterFail | 16      | o client mostra a mensagem dele                                            | ✅ |
 
-### Structs
+> Atenção: no 7.54 o login aceito é o `0x10E`. O `0x10A` que aparece em documentação de outras
+> versões é ignorado por este client.
+
+### Structs (7.54)
 
 - **`STRUCT_ITEM`** (8 bytes): `short Index`, depois `{byte Effect, byte Value}` × 3.
-- **`STRUCT_SCORE`** (48 bytes): `int Level, Ac, Damage`, `byte Merchant, AttackRun, Direction, ChaosRate`,
-  `int MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `ushort Special[4]`.
-- **`STRUCT_SELCHAR`** (840 bytes, os 4 slots da conta): `short SPX[4]`, `short SPY[4]`, `char Name[4][16]`,
-  `SCORE Score[4]`, `ITEM Equip[4][16]`, `ushort Guild[4]`, `int Coin[4]`, `long long Exp[4]`.
+- **`STRUCT_SCORE`** (28 bytes): `short Level, Ac, Damage`, `byte Merchant, AttackRun`,
+  `short MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `byte Special[4]`.
+- **`STRUCT_SELCHAR`** (744 bytes, os 4 slots da conta):
+
+  | Offset  | Campo                  |
+  |--------:|------------------------|
+  | `0x000` | `short SPX[4]`         |
+  | `0x008` | `short SPY[4]`         |
+  | `0x010` | `char Name[4][16]`     |
+  | `0x050` | `SCORE Score[4]`       |
+  | `0x0C0` | `ITEM Equip[4][16]`    |
+  | `0x2C0` | `short Guild[4]`       |
+  | `0x2C8` | `int Coin[4]`          |
+  | `0x2D8` | `int Exp[4]`           |
+
   `Equip[0]` é o "rosto" do personagem (1 = TK, 11 = FM, 21 = BM, 31 = HT).
 
 ## Como validar um layout com o client real

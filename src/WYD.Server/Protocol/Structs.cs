@@ -8,7 +8,7 @@ public static class GameConstants
     public const int NameLength = 16;
     public const int AccountNameLength = 16;
     public const int AccountPasswordLength = 12;
-    public const int MessageLength = 128;
+    public const int MessageLength = 96; // o client 7.54 corta o texto em 0x6A (conferido no WYD.exe)
     public const int CharactersPerAccount = 4;
     public const int MaxEquip = 16;
     public const int MaxCarry = 64;
@@ -68,26 +68,37 @@ public struct Item
     }
 }
 
-/// <summary>STRUCT_SCORE: 48 bytes com os atributos do personagem.</summary>
+/// <summary>
+/// STRUCT_SCORE do client 7.54: 28 bytes, com os campos em short.
+/// Conferido no WYD.exe (cópia de 0x1C bytes por personagem e leituras word/byte nesses offsets).
+/// <code>
+///  0 short Level      2 short Ac        4 short Damage
+///  6 byte  Merchant   7 byte  AttackRun
+///  8 short MaxHp     10 short MaxMp    12 short Hp       14 short Mp
+/// 16 short Str       18 short Int      20 short Dex      22 short Con
+/// 24 byte  Special[4]
+/// </code>
+/// Na memória os valores são int; ao montar o pacote são limitados ao intervalo de um short.
+/// </summary>
 public struct Score
 {
-    public const int Size = 48;
+    public const int Size = 28;
 
     public int Level;
     public int Ac;
     public int Damage;
     public byte Merchant;
     public byte AttackRun;
-    public byte Direction;
-    public byte ChaosRate;
     public int MaxHp, MaxMp, Hp, Mp;
     public short Str, Int, Dex, Con;
-    public ushort Special1, Special2, Special3, Special4;
+    public byte Special1, Special2, Special3, Special4;
+
+    private static short Clamp(int value) => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
 
     public readonly void Write(PacketWriter w) =>
-        w.WriteInt32(Level).WriteInt32(Ac).WriteInt32(Damage)
-         .WriteByte(Merchant).WriteByte(AttackRun).WriteByte(Direction).WriteByte(ChaosRate)
-         .WriteInt32(MaxHp).WriteInt32(MaxMp).WriteInt32(Hp).WriteInt32(Mp)
+        w.WriteInt16(Clamp(Level)).WriteInt16(Clamp(Ac)).WriteInt16(Clamp(Damage))
+         .WriteByte(Merchant).WriteByte(AttackRun)
+         .WriteInt16(Clamp(MaxHp)).WriteInt16(Clamp(MaxMp)).WriteInt16(Clamp(Hp)).WriteInt16(Clamp(Mp))
          .WriteInt16(Str).WriteInt16(Int).WriteInt16(Dex).WriteInt16(Con)
-         .WriteUInt16(Special1).WriteUInt16(Special2).WriteUInt16(Special3).WriteUInt16(Special4);
+         .WriteByte(Special1).WriteByte(Special2).WriteByte(Special3).WriteByte(Special4);
 }

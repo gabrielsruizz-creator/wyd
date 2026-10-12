@@ -74,12 +74,12 @@ public sealed class ServerFlowTests : IAsyncLifetime
             .WriteInt32(2).WriteString("arqueira", 16).WriteInt32(0).ToArray());
         var duplicated = await client.ReceiveAsync();
         Assert.Equal(Opcodes.MessagePanel, duplicated.Type);
-        Assert.Equal("Este nome já está em uso.", duplicated.ReadString(128));
+        Assert.Equal("Este nome já está em uso.", duplicated.ReadString(GameConstants.MessageLength));
         Assert.Equal(Opcodes.CreateCharacterFail, (await client.ReceiveAsync()).Type);
 
         // Apagar exige a senha da conta.
         await client.SendAsync(DeletePacket(1, "Arqueira", "errada"));
-        Assert.Equal("Senha incorreta.", (await client.ReceiveAsync()).ReadString(128));
+        Assert.Equal("Senha incorreta.", (await client.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.Equal(Opcodes.DeleteCharacterFail, (await client.ReceiveAsync()).Type);
 
         await client.SendAsync(DeletePacket(1, "Arqueira", "senha123"));
@@ -95,7 +95,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await client.SendAsync(LoginPacket("jogador", "errada", 756));
         var reply = await client.ReceiveAsync();
         Assert.Equal(Opcodes.MessagePanel, reply.Type);
-        Assert.Equal("Senha incorreta.", reply.ReadString(128));
+        Assert.Equal("Senha incorreta.", reply.ReadString(GameConstants.MessageLength));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
         await client.SendAsync(LoginPacket("jogador", "senha123", 600));
         var reply = await client.ReceiveAsync();
-        Assert.Contains("Versão do client inválida", reply.ReadString(128));
+        Assert.Contains("Versão do client inválida", reply.ReadString(GameConstants.MessageLength));
         Assert.True(await client.IsClosedAsync());
     }
 
@@ -119,7 +119,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await second.SendAsync(LoginPacket("jogador", "senha123", 756));
         Assert.Equal(Opcodes.AccountLoginOk, (await second.ReceiveAsync()).Type);
 
-        Assert.Equal("Sua conta foi conectada em outro lugar.", (await first.ReceiveAsync()).ReadString(128));
+        Assert.Equal("Sua conta foi conectada em outro lugar.", (await first.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(await first.IsClosedAsync());
     }
 
