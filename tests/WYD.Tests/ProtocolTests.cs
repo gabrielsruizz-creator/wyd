@@ -185,6 +185,22 @@ public class ProtocolTests
         Assert.Equal(0xFF, p[0x30A]);                        // segunda barra de skills vazia
     }
 
+    [Theory]
+    [InlineData(2096, 2094, 2097, 2099, "98888")]   // capturado do client 7.54
+    [InlineData(2096, 2096, 2096, 2093, "222")]     // capturado do client 7.54
+    [InlineData(10, 10, 7, 12, "774")]
+    [InlineData(5, 5, 5, 5, "")]
+    public void Route_uses_numpad_directions(int x, int y, int dx, int dy, string expected)
+    {
+        Assert.Equal(expected, ServerPackets.Route(x, y, dx, dy));
+    }
+
+    [Fact]
+    public void Route_is_limited_to_23_steps()
+    {
+        Assert.Equal(23, ServerPackets.Route(0, 0, 100, 0).Length);
+    }
+
     [Fact]
     public void Account_login_request_matches_real_754_client()
     {

@@ -161,22 +161,62 @@ public static class ServerPackets
     /// 0x92 char Tab[26]        0xAC (4 bytes)
     /// </code>
     /// </summary>
-    public static byte[] CreateMob(ushort mobId, Character c)
+    public static byte[] CreateMob(ushort mobId, Character c) =>
+        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.BaseScore);
+
+    public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score)
     {
         var w = new PacketWriter(Opcodes.CreateMob, CreateMobSize, mobId);
-        w.WriteInt16(c.PosX).WriteInt16(c.PosY);
+        w.WriteInt16(x).WriteInt16(y);
         w.WriteUInt16(mobId);
-        w.WriteString(c.Name, 12);
+        w.WriteString(name, 12);
         w.WriteByte(0).WriteByte(0).WriteUInt16(0);   // ChaosPoint, CurrentKill, TotalKill
-        foreach (var item in c.Equip) w.WriteInt16(item.Index);
+        var slots = equip.Take(MaxEquip).ToArray();
+        for (int i = 0; i < MaxEquip; i++) w.WriteInt16(i < slots.Length ? slots[i] : (short)0);
         w.Skip(32);                                   // Affect
-        w.WriteUInt16(c.Guild);
-        c.BaseScore.Write(w);
+        w.WriteUInt16(guild);
+        score.Write(w);
         w.WriteUInt16(0);                             // CreateType: aparece normalmente
         w.Skip(16);                                   // refino de cada equipamento
         w.WriteString("", 26);                        // Tab
         w.Skip(4);
         return w.ToArray();
+    }
+
+    /// <summary>
+    /// 0x366 gerado pelo servidor (movimento de um mob). A rota é uma sequência de dígitos no estilo do
+    /// teclado numérico, um por célula: 8 = +Y, 2 = -Y, 6 = +X, 4 = -X, 9 = +X+Y, 7 = -X+Y, 3 = +X-Y, 1 = -X-Y
+    /// (conferido nos pacotes que o client 7.54 manda: "98888" vai de (2096, 2094) a (2097, 2099)).
+    /// </summary>
+    public static byte[] Move(ushort id, short x, short y, short destX, short destY, int speed)
+    {
+        return new PacketWriter(Opcodes.Move, MoveSize, id)
+            .WriteInt16(x).WriteInt16(y)
+            .WriteInt32(speed)
+            .WriteInt32(0)                            // tipo: andar
+            .WriteInt16(destX).WriteInt16(destY)
+            .WriteString(Route(x, y, destX, destY), MaxRoute)
+            .ToArray();
+    }
+
+    public const int MaxRoute = 24;
+
+    /// <summary>Rota em linha reta (diagonal primeiro), com no máximo 23 passos.</summary>
+    public static string Route(int x, int y, int destX, int destY)
+    {
+        var route = new System.Text.StringBuilder();
+        while ((x != destX || y != destY) && route.Length < MaxRoute - 1)
+        {
+            int dx = Math.Sign(destX - x), dy = Math.Sign(destY - y);
+            route.Append((dx, dy) switch
+            {
+                (0, 1) => '8', (0, -1) => '2', (1, 0) => '6', (-1, 0) => '4',
+                (1, 1) => '9', (-1, 1) => '7', (1, -1) => '3', _ => '1',
+            });
+            x += dx;
+            y += dy;
+        }
+        return route.ToString();
     }
 
     /// <summary>0x165: tira o id da tela de quem recebe (tipo 0 = simplesmente some).</summary>

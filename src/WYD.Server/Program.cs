@@ -106,7 +106,7 @@ public static class Program
         services.Configure<ServerOptions>(configuration.GetSection(ServerOptions.Section));
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.Section));
 
-        services.AddSingleton(sp => KeyTable.Load(ResolvePath(sp.GetRequiredService<IOptions<ServerOptions>>().Value.KeyTablePath)));
+        services.AddSingleton(sp => KeyTable.Load(PathResolver.Resolve(sp.GetRequiredService<IOptions<ServerOptions>>().Value.KeyTablePath)));
         services.AddSingleton(sp => new SessionManager(sp.GetRequiredService<IOptions<ServerOptions>>().Value.MaxUsers));
 
         services.AddSingleton<MySqlDatabase>();
@@ -122,6 +122,8 @@ public static class Program
         services.AddSingleton<GameServer>();
         services.AddHostedService(sp => sp.GetRequiredService<GameServer>());
         services.AddHostedService<StatusService>();
+        services.AddSingleton<MobService>();
+        services.AddHostedService(sp => sp.GetRequiredService<MobService>());
         return services;
     }
 
@@ -129,14 +131,6 @@ public static class Program
     {
         int i = Array.IndexOf(options, name);
         return i >= 0 && i + 1 < options.Length ? options[i + 1] : null;
-    }
-
-    /// <summary>Caminhos relativos valem a partir da pasta atual ou, se não existirem lá, da pasta do executável.</summary>
-    private static string ResolvePath(string path)
-    {
-        if (Path.IsPathRooted(path) || File.Exists(path)) return path;
-        string beside = Path.Combine(AppContext.BaseDirectory, path);
-        return File.Exists(beside) ? beside : path;
     }
 
     private static async Task<int> ResetSecondPasswordAsync(IServiceProvider services, string username)

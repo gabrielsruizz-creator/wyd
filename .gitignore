@@ -8,3 +8,6 @@ TestResults/
 data/*.bin
 logs/
 data/capturas/
+# Dados do servidor original (monstros e spawns)
+data/npc/
+data/NPCGener*.txt

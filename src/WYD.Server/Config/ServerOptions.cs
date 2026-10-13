@@ -47,6 +47,15 @@ public sealed class ServerOptions
     /// <summary>Resposta fixa da página de status, para testes ("{online}" vira o número de jogadores; "\n" quebra linha).</summary>
     public string StatusBody { get; set; } = "";
 
+    /// <summary>Lista de spawns de monstros e NPCs do servidor original.</summary>
+    public string NpcGenerPath { get; set; } = "data/NPCGener.txt";
+
+    /// <summary>Pasta com um arquivo por monstro/NPC (STRUCT_MOB de 816 bytes).</summary>
+    public string NpcPath { get; set; } = "data/npc";
+
+    /// <summary>Limite de monstros no mapa (ids de 1000 a 32767).</summary>
+    public int MaxMobs { get; set; } = 30000;
+
     /// <summary>Posição inicial dos personagens novos (Armia).</summary>
     public int StartX { get; set; } = 2100;
     public int StartY { get; set; } = 2100;

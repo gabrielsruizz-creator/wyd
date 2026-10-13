@@ -31,3 +31,22 @@ explica como gerar um dump de memória do client pelo Gerenciador de Tarefas e p
 
 A pasta `data/` é copiada para junto do executável ao compilar, então
 `dotnet run --project src/WYD.Server` encontra o arquivo automaticamente.
+
+## Monstros e NPCs (opcional)
+
+Vêm dos arquivos do servidor original (não do client):
+
+- `data/NPCGener.txt`: onde cada monstro/NPC nasce (5000+ entradas em blocos `#[n]`);
+- `data/npc/`: um arquivo por monstro/NPC, com 816 bytes (a ficha do servidor 7.56).
+
+Copie os dois para cá e reinicie o servidor. O log mostra quantos foram criados e quais arquivos
+foram ignorados (vazios ou de outro tamanho). Sem eles o servidor funciona normalmente, só sem monstros.
+
+## `ItemList.bin` (opcional, por enquanto)
+
+A lista de itens do client. Por ora é usada só pelo comando `items`, que mostra os itens e confere se o
+arquivo é o que o client 7.54 espera:
+
+```powershell
+dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada
+```

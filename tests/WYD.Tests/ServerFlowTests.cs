@@ -352,6 +352,60 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(2101, move.ReadInt16());
     }
 
+    [Fact]
+    public async Task Player_sees_monsters_near_and_loses_them_far_away()
+    {
+        // Pasta npc e regras de spawn de exemplo: 3 lobos perto de Armia, 1 NPC parado e 1 monstro longe.
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(npcDir, "Lobo"), NpcDataTests.NpcFile("Lobo", 299, 18, 200));
+            File.WriteAllBytes(Path.Combine(npcDir, "Ferreiro"), NpcDataTests.NpcFile("Ferreiro", 58, 1, 100, merchant: 1));
+            File.WriteAllBytes(Path.Combine(npcDir, "Quebrado"), new byte[10]);
+            var rules = new List<WYD.Server.Data.SpawnRule>
+            {
+                new() { Leader = "Lobo", Follower = "Lobo", MaxNumMob = 3, MinGroup = 2, MaxGroup = 2, StartX = 2105, StartY = 2105, StartRange = 2 },
+                new() { Leader = "Ferreiro", MaxNumMob = 1, StartX = 2098, StartY = 2100 },
+                new() { Leader = "Lobo", MaxNumMob = 1, StartX = 3000, StartY = 3000 },
+                new() { Leader = "Quebrado", MaxNumMob = 1, StartX = 2100, StartY = 2100 },
+                new() { Leader = "NaoExiste", MaxNumMob = 1, StartX = 2100, StartY = 2100 },
+            };
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(rules, npcDir);
+            Assert.Equal(5, _host.Services.GetRequiredService<World>().MobCount);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var seen = new List<(ushort Id, string Name, short Model)>();
+            for (int i = 0; i < 4; i++)
+            {
+                var p = await a.ReceiveAsync();
+                Assert.Equal(Opcodes.CreateMob, p.Type);
+                p.Skip(4);
+                ushort id = p.ReadUInt16();
+                string name = p.ReadString(12);
+                p.Skip(4);
+                seen.Add((id, name, p.ReadInt16()));
+            }
+            Assert.Equal(3, seen.Count(m => m.Name == "Lobo" && m.Model == 299));
+            Assert.Contains(seen, m => m.Name == "Ferreiro" && m.Model == 58);
+            Assert.All(seen, m => Assert.True(m.Id >= WYD.Server.Game.Mob.FirstId));
+
+            // Andando para longe, os 4 somem da tela.
+            await a.SendAsync(MovePacket(0, 2100, 2100, 2130, 2130));
+            var gone = new HashSet<ushort>();
+            for (int i = 0; i < 4; i++)
+            {
+                var p = await a.ReceiveAsync();
+                Assert.Equal(Opcodes.RemoveMob, p.Type);
+                gone.Add(p.Id);
+            }
+            Assert.Equal(seen.Select(m => m.Id).ToHashSet(), gone);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 

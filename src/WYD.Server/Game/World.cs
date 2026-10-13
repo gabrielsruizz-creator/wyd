@@ -6,9 +6,10 @@ using WYD.Server.Protocol;
 namespace WYD.Server.Game;
 
 /// <summary>
-/// Jogadores dentro do mapa e quem vê quem. Cada jogador enxerga os outros num quadrado de
+/// Jogadores e monstros no mapa, e quem vê quem. Cada jogador enxerga num quadrado de
 /// <see cref="ViewRange"/> células em volta dele (o client do WYD desenha 33x33).
-/// Quando alguém entra no campo de visão recebe o 0x364 do outro; quando sai, o 0x165.
+/// Quando algo entra no campo de visão o jogador recebe o 0x364; quando sai, o 0x165.
+/// Os monstros ficam numa grade de <see cref="CellSize"/> células para a busca por proximidade ser rápida.
 /// </summary>
 public sealed class World(ICharacterRepository characters, ILogger<World> logger)
 {
@@ -17,17 +18,131 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
     /// <summary>Maior distância aceita entre a posição atual e o destino de um movimento.</summary>
     public const int MaxMoveDistance = 40;
 
+    private const int CellSize = 32;
+
     private readonly object _lock = new();
     private readonly Dictionary<ushort, ClientSession> _players = new();
     private readonly Dictionary<ushort, HashSet<ushort>> _visible = new();
+    private readonly Dictionary<ushort, Mob> _mobs = new();
+    private readonly Dictionary<(int, int), List<Mob>> _grid = new();
 
     public int Count
     {
         get { lock (_lock) return _players.Count; }
     }
 
+    public int MobCount
+    {
+        get { lock (_lock) return _mobs.Count; }
+    }
+
     private static bool InRange(Character a, Character b) =>
         Math.Abs(a.PosX - b.PosX) <= ViewRange && Math.Abs(a.PosY - b.PosY) <= ViewRange;
+
+    private static bool InRange(Character a, Mob m) =>
+        Math.Abs(a.PosX - m.X) <= ViewRange && Math.Abs(a.PosY - m.Y) <= ViewRange;
+
+    private static (int, int) Cell(int x, int y) => (x / CellSize, y / CellSize);
+
+    /// <summary>Monstros num raio de <see cref="ViewRange"/> do ponto (chamar com o lock).</summary>
+    private IEnumerable<Mob> MobsNear(int x, int y)
+    {
+        var (cx0, cy0) = Cell(Math.Max(0, x - ViewRange), Math.Max(0, y - ViewRange));
+        var (cx1, cy1) = Cell(x + ViewRange, y + ViewRange);
+        for (int cx = cx0; cx <= cx1; cx++)
+            for (int cy = cy0; cy <= cy1; cy++)
+                if (_grid.TryGetValue((cx, cy), out var list))
+                    foreach (var mob in list)
+                        if (Math.Abs(mob.X - x) <= ViewRange && Math.Abs(mob.Y - y) <= ViewRange)
+                            yield return mob;
+    }
+
+    /// <summary>Coloca um monstro no mapa (normalmente na partida do servidor) e mostra a quem estiver perto.</summary>
+    public Task AddMobAsync(Mob mob)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            _mobs[mob.Id] = mob;
+            GridAdd(mob);
+            foreach (var player in _players.Values)
+            {
+                if (!InRange(player.Character!, mob)) continue;
+                _visible[player.Id].Add(mob.Id);
+                outgoing.Add((player, mob.CreatePacket()));
+            }
+        }
+        return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Monstros que algum jogador está vendo (os outros não precisam andar).</summary>
+    public List<Mob> WatchedMobs()
+    {
+        lock (_lock)
+            return _players.Values.SelectMany(p => MobsNear(p.Character!.PosX, p.Character.PosY)).Distinct().ToList();
+    }
+
+    /// <summary>Move um monstro: quem já via recebe o 0x366; quem passa a ver ou deixa de ver recebe 0x364/0x165.</summary>
+    public Task MoveMobAsync(Mob mob, short destX, short destY)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            var move = ServerPackets.Move(mob.Id, mob.X, mob.Y, destX, destY, mob.Speed);
+            GridRemove(mob);
+            mob.X = destX;
+            mob.Y = destY;
+            GridAdd(mob);
+
+            foreach (var player in _players.Values)
+            {
+                var mine = _visible[player.Id];
+                bool near = InRange(player.Character!, mob);
+                bool seen = mine.Contains(mob.Id);
+                if (near && seen) outgoing.Add((player, move));
+                else if (near)
+                {
+                    mine.Add(mob.Id);
+                    outgoing.Add((player, mob.CreatePacket()));
+                }
+                else if (seen)
+                {
+                    mine.Remove(mob.Id);
+                    outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
+                }
+            }
+        }
+        return SendAllAsync(outgoing);
+    }
+
+    private void GridAdd(Mob mob)
+    {
+        var cell = Cell(mob.X, mob.Y);
+        if (!_grid.TryGetValue(cell, out var list)) _grid[cell] = list = [];
+        list.Add(mob);
+    }
+
+    private void GridRemove(Mob mob)
+    {
+        if (_grid.TryGetValue(Cell(mob.X, mob.Y), out var list)) list.Remove(mob);
+    }
+
+    /// <summary>Atualiza os monstros que o jogador vê depois de ele entrar ou andar (chamar com o lock).</summary>
+    private void RefreshMobs(ClientSession session, List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        var me = session.Character!;
+        var mine = _visible[session.Id];
+        var near = MobsNear(me.PosX, me.PosY).ToList();
+
+        foreach (var id in mine.Where(id => id >= Mob.FirstId && !near.Any(m => m.Id == id)).ToList())
+        {
+            mine.Remove(id);
+            outgoing.Add((session, ServerPackets.RemoveMob(id)));
+        }
+        foreach (var mob in near)
+            if (mine.Add(mob.Id))
+                outgoing.Add((session, mob.CreatePacket()));
+    }
 
     /// <summary>O jogador entrou no mapa: ele e quem estiver perto passam a se ver.</summary>
     public Task EnterAsync(ClientSession session)
@@ -47,6 +162,7 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
                 outgoing.Add((session, ServerPackets.CreateMob(other.Id, other.Character!)));
                 outgoing.Add((other, ServerPackets.CreateMob(session.Id, me)));
             }
+            RefreshMobs(session, outgoing);
         }
         session.Closed += OnClosed;
         return SendAllAsync(outgoing);
@@ -96,6 +212,7 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
                     outgoing.Add((other, ServerPackets.RemoveMob(session.Id)));
                 }
             }
+            RefreshMobs(session, outgoing);
         }
         await SendAllAsync(outgoing);
         return true;
@@ -107,9 +224,13 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
         byte[]? packet = null;
         lock (_lock)
         {
-            if (_players.TryGetValue(mobId, out var other) && other != session
-                && _visible.TryGetValue(session.Id, out var mine) && mine.Contains(mobId))
-                packet = ServerPackets.CreateMob(mobId, other.Character!);
+            if (_visible.TryGetValue(session.Id, out var mine) && mine.Contains(mobId))
+            {
+                if (_players.TryGetValue(mobId, out var other) && other != session)
+                    packet = ServerPackets.CreateMob(mobId, other.Character!);
+                else if (_mobs.TryGetValue(mobId, out var mob))
+                    packet = mob.CreatePacket();
+            }
         }
         return packet is null ? Task.CompletedTask : session.SendAsync(packet);
     }

@@ -161,3 +161,10 @@ Cada jogador vê os outros num quadrado de 16 células em volta (o client desenh
 campo de visão manda o `0x364` para os dois lados; sair manda o `0x165`. O destino de cada movimento
 vira a posição do jogador (destinos a mais de 40 células são ignorados), e a posição é salva no banco
 ao sair do jogo e ao desligar o servidor.
+
+## Monstros
+
+Os monstros e NPCs usam ids a partir de 1000 (os jogadores ficam abaixo). Eles aparecem com o mesmo
+`0x364` dos jogadores, com o modelo no `Equip[0]`, e andam com o `0x366` gerado pelo servidor. A rota é
+uma sequência de dígitos no estilo do teclado numérico, um por célula: `8` = +Y, `2` = −Y, `6` = +X,
+`4` = −X, `9` = +X+Y, `7` = −X+Y, `3` = +X−Y, `1` = −X−Y (até 23 passos).
