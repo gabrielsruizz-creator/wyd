@@ -230,6 +230,34 @@ public static class ServerPackets
         return route.ToString();
     }
 
+    /// <summary>
+    /// Ataque (0x39D / 0x39E / 0x36C), lido no WYD.exe 7.54. O client manda o dano como -1 e o servidor
+    /// devolve o mesmo pacote com o dano de cada alvo para todos que estão vendo (inclusive quem atacou).
+    /// <code>
+    /// 0x0C ushort Atacante        0x10 short X, Y do atacante     0x14 short X, Y do alvo
+    /// 0x18 short Skill            0x1C byte Movimento             0x20 int Hold
+    /// 0x24 int ExpDoAtacante      0x2C {ushort Alvo, short Dano} × 1, 2 ou 13
+    /// </code>
+    /// </summary>
+    public static class AttackLayout
+    {
+        public const int Attacker = 0x0C;
+        public const int Skill = 0x18;
+        public const int Hold = 0x20;
+        public const int Exp = 0x24;
+        public const int Targets = 0x2C;
+        public const int TargetSize = 4;
+        public const int MaxTargets = 13;
+    }
+
+    public const int MobKillSize = 24;
+
+    /// <summary>0x338: <paramref name="killed"/> morreu; se quem recebe é o matador, o client mostra a nova experiência.</summary>
+    public static byte[] MobKill(ushort killed, ushort killer, int killerExp, int hold = 0) =>
+        new PacketWriter(Opcodes.MobKill, MobKillSize, killed)
+            .WriteInt32(hold).WriteUInt16(killed).WriteUInt16(killer).WriteInt32(killerExp)
+            .ToArray();
+
     public const int CommandSize = 128;
     public const int UpdateItemSize = 24;
 
@@ -273,7 +301,10 @@ public static class ServerPackets
 
     public static int ShopSlotToCarry(int shopSlot) => shopSlot / 9 * 27 + shopSlot % 9;
 
-    /// <summary>0x165: tira o id da tela de quem recebe (tipo 0 = simplesmente some).</summary>
+    /// <summary>Tipo do 0x165 para um monstro que morreu (0 = só some da tela).</summary>
+    public const int RemoveDead = 1;
+
+    /// <summary>0x165: tira o id da tela de quem recebe (tipo 0 = simplesmente some, 1 = morreu).</summary>
     public static byte[] RemoveMob(ushort mobId, int type = 0) =>
         new PacketWriter(Opcodes.RemoveMob, RemoveMobSize, mobId).WriteInt32(type).ToArray();
 

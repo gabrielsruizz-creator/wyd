@@ -52,6 +52,9 @@ public sealed class ClientSession
     public bool SecondPasswordVerified { get; set; }
     public int SecondPasswordFailures { get; set; }
 
+    /// <summary>Hora do último ataque aceito (para limitar a velocidade dos ataques).</summary>
+    public DateTime LastAttack { get; set; }
+
     /// <summary>Personagem em jogo (depois do 0x213).</summary>
     public Character? Character { get; set; }
     public bool IsClosed => Volatile.Read(ref _closed) != 0;

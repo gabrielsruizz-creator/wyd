@@ -43,4 +43,8 @@ public sealed class WorldHandler(World world)
 
         return session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry));
     }
+
+    /// <summary>0x39D / 0x39E / 0x36C: ataque com 1, 2 ou até 13 alvos.</summary>
+    public Task HandleAttackAsync(ClientSession session, PacketReader packet) =>
+        world.AttackAsync(session, packet.ToArray());
 }

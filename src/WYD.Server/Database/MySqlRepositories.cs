@@ -248,6 +248,15 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task SaveExpAsync(int characterId, long exp)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand("UPDATE characters SET exp = @exp WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@exp", exp);
+        command.Parameters.AddWithValue("@id", characterId);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<bool> DeleteAsync(int accountId, int slot)
     {
         await using var connection = await db.OpenAsync();

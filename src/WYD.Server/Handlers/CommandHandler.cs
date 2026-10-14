@@ -28,9 +28,15 @@ public sealed class CommandHandler(
                 await GiveItemAsync(session, request.Text);
                 break;
             case "ajuda" or "help":
-                await session.SendMessageAsync(session.Account!.AccessLevel > 0
-                    ? "GM: /item <índice> [efeito valor ...]  |  /nome texto = sussurro"
-                    : "/nome texto = sussurro para outro jogador");
+                // Cada comando numa linha do chat (como um sussurro do "Sistema"): a caixa de mensagem some rápido.
+                var lines = new List<string> { "/nome texto - sussurra para o jogador 'nome'" };
+                if (session.Account!.AccessLevel > 0)
+                {
+                    lines.Add("/item <índice> - cria um item no inventário (GM)");
+                    lines.Add("/item <índice> <efeito> <valor> ... - com até 3 efeitos (GM)");
+                }
+                foreach (var line in lines)
+                    await session.SendAsync(ServerPackets.Whisper(session.Id, "Sistema", line));
                 break;
             default:
                 await WhisperAsync(session, request.Command, request.Text);

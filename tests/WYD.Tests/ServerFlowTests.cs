@@ -33,6 +33,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             ["Server:AutoRegister"] = "false",
             ["Server:StrictChecksum"] = "true",
             ["Server:StatusPort"] = "0",
+            ["Server:RespawnSeconds"] = "1",
         });
         builder.Services.AddWydServer(builder.Configuration);
         builder.Services.AddSingleton(_table);
@@ -513,6 +514,111 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal("Fulano não está online.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
+    private static byte[] AttackPacket(ushort attacker, params ushort[] targets)
+    {
+        ushort type = targets.Length switch { 1 => Opcodes.AttackOne, 2 => Opcodes.AttackTwo, _ => Opcodes.Attack };
+        int size = targets.Length switch { 1 => 48, 2 => 52, _ => 96 };
+        var w = new PacketWriter(type, size, attacker);
+        w.WriteUInt16(attacker).Skip(2)
+         .WriteInt16(2100).WriteInt16(2100).WriteInt16(2101).WriteInt16(2100)
+         .WriteInt16(-1).WriteInt16(-1)                    // skill, ?
+         .WriteByte(0xFF).WriteByte(0).WriteByte(0).WriteByte(0)
+         .Skip(12);                                        // Hold, Exp, ?
+        foreach (var t in targets) w.WriteUInt16(t).WriteInt16(-1);
+        w.Skip(size - w.Position);
+        return w.ToArray();
+    }
+
+    [Fact]
+    public async Task Killing_a_monster_gives_exp_and_it_respawns()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Monstro com 1 de vida (morre no primeiro golpe) e um NPC de loja ao lado.
+            var weak = NpcDataTests.NpcFile("Gremlin", 202, 4, 1);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(weak.AsSpan(0x20), 280); // Exp
+            File.WriteAllBytes(Path.Combine(npcDir, "Gremlin"), weak);
+            File.WriteAllBytes(Path.Combine(npcDir, "Ferreiro"), NpcDataTests.NpcFile("Ferreiro", 58, 1, 100, merchant: 1));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+            [
+                new() { Leader = "Gremlin", MaxNumMob = 1, StartX = 2101, StartY = 2100 },
+                new() { Leader = "Ferreiro", MaxNumMob = 1, StartX = 2099, StartY = 2100 },
+            ], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var ids = new Dictionary<string, ushort>();
+            for (int i = 0; i < 2; i++)
+            {
+                var p = await a.ReceiveAsync();
+                p.Skip(4);
+                ushort id = p.ReadUInt16();
+                ids[p.ReadString(12)] = id;
+            }
+            var account = (await _store.FindByUsernameAsync("jogadora"))!;
+            const ushort me = 1; // cada teste sobe um servidor novo: a primeira conexão recebe o id 1
+
+            // NPC de loja não leva dano.
+            await a.SendAsync(AttackPacket(me, ids["Ferreiro"]));
+            var onNpc = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.AttackOne, onNpc.Type);
+            onNpc.Skip(0x2C - 12 + 2);
+            Assert.Equal(0, onNpc.ReadInt16());
+
+            await Task.Delay(World.MinAttackInterval);
+            await a.SendAsync(AttackPacket(me, ids["Gremlin"]));
+            var hit = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.AttackOne, hit.Type);
+            Assert.Equal(48, hit.Length);
+            hit.Skip(0x24 - 12);
+            Assert.Equal(280, hit.ReadInt32());          // experiência nova de quem atacou
+            hit.Skip(4);
+            Assert.Equal(ids["Gremlin"], hit.ReadUInt16());
+            Assert.True(hit.ReadInt16() >= 1);           // dano calculado pelo servidor
+
+            var kill = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.MobKill, kill.Type);
+            Assert.Equal(ServerPackets.MobKillSize, kill.Length);
+            kill.Skip(4);
+            Assert.Equal(ids["Gremlin"], kill.ReadUInt16());
+            kill.Skip(2);
+            Assert.Equal(280, kill.ReadInt32());
+
+            var removed = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.RemoveMob, removed.Type);
+            Assert.Equal(ids["Gremlin"], removed.Id);
+            Assert.Equal(ServerPackets.RemoveDead, removed.ReadInt32());
+
+            // A experiência ficou salva e o monstro renasce (RespawnSeconds = 1 no teste).
+            Assert.Equal(280, (await _store.ListByAccountAsync(account.Id))[0].Exp);
+            var back = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.CreateMob, back.Type);
+            back.Skip(4);
+            Assert.Equal(ids["Gremlin"], back.ReadUInt16());
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Help_lists_commands_in_chat()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        await a.SendAsync(CommandPacket("ajuda", ""));
+        var lines = new List<string>();
+        for (int i = 0; i < 3; i++)
+        {
+            var p = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.Command, p.Type);
+            Assert.Equal("Sistema", p.ReadString(16));
+            lines.Add(p.ReadString(96));
+        }
+        Assert.Contains(lines, l => l.StartsWith("/item"));
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 
@@ -627,6 +733,14 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
         lock (_characters)
             foreach (var c in _characters.Where(c => c.Id == characterId))
                 c.Inventory = (Item[])inventory.Clone();
+        return Task.CompletedTask;
+    }
+
+    public Task SaveExpAsync(int characterId, long exp)
+    {
+        lock (_characters)
+            foreach (var c in _characters.Where(c => c.Id == characterId))
+                c.Exp = exp;
         return Task.CompletedTask;
     }
 

@@ -56,6 +56,9 @@ public sealed class ServerOptions
     /// <summary>Pasta com um arquivo por monstro/NPC (STRUCT_MOB de 816 bytes).</summary>
     public string NpcPath { get; set; } = "data/npc";
 
+    /// <summary>Segundos até um monstro morto renascer.</summary>
+    public int RespawnSeconds { get; set; } = 20;
+
     /// <summary>Limite de monstros no mapa (ids de 1000 a 32767).</summary>
     public int MaxMobs { get; set; } = 30000;
 

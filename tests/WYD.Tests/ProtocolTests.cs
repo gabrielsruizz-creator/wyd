@@ -202,6 +202,20 @@ public class ProtocolTests
     }
 
     [Fact]
+    public void Damage_is_at_least_one_and_varies_around_base()
+    {
+        var attacker = new Score { Damage = 20, Str = 10 };   // base 25
+        var weakTarget = new Score { Ac = 0 };
+        var rng = new Random(1);
+        var values = Enumerable.Range(0, 500).Select(_ => WYD.Server.Game.Combat.Damage(attacker, weakTarget, rng)).ToList();
+        Assert.InRange(values.Min(), 20, 25);
+        Assert.InRange(values.Max(), 25, 30);
+
+        var tank = new Score { Ac = 1000 };
+        Assert.Equal(1, WYD.Server.Game.Combat.Damage(attacker, tank, rng));
+    }
+
+    [Fact]
     public void Account_login_request_matches_real_754_client()
     {
         // Pacote decifrado capturado de um client 7.54 (conta, senha e identificação da máquina trocadas).

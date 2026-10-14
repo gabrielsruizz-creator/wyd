@@ -28,6 +28,10 @@ public sealed class PacketDispatcher
         Register(Opcodes.Chat, ServerPackets.ChatSize, SessionState.InGame, world.HandleChatAsync);
         Register(Opcodes.RequestShop, PacketHeader.Size + 2, SessionState.InGame, world.HandleRequestShopAsync);
         Register(Opcodes.Command, PacketHeader.Size + GameConstants.NameLength, SessionState.InGame, commands.HandleAsync);
+        int oneTarget = ServerPackets.AttackLayout.Targets + ServerPackets.AttackLayout.TargetSize;
+        Register(Opcodes.AttackOne, oneTarget, SessionState.InGame, world.HandleAttackAsync);
+        Register(Opcodes.AttackTwo, oneTarget, SessionState.InGame, world.HandleAttackAsync);
+        Register(Opcodes.Attack, oneTarget, SessionState.InGame, world.HandleAttackAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

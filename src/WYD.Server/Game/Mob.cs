@@ -28,6 +28,14 @@ public sealed class Mob
     public short Y { get; set; }
     public int Hp { get; set; }
 
+    public bool Alive { get; set; } = true;
+
+    /// <summary>Quando um monstro morto volta ao mapa.</summary>
+    public DateTime RespawnAt { get; set; }
+
+    /// <summary>NPCs (lojas, guardas, mestres...) não podem ser atacados.</summary>
+    public bool Attackable => Template.Merchant == 0;
+
     /// <summary>NPCs (lojas etc.) e spawns com raio zero ficam parados.</summary>
     public bool Wanders => Template.Merchant == 0 && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;
 

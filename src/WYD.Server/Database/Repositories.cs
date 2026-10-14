@@ -29,4 +29,6 @@ public interface ICharacterRepository
     Task SavePositionAsync(int characterId, short x, short y);
 
     Task SaveInventoryAsync(int characterId, Item[] inventory);
+
+    Task SaveExpAsync(int characterId, long exp);
 }

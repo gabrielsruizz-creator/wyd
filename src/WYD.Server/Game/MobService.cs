@@ -25,18 +25,24 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, ILo
     {
         string generPath = PathResolver.Resolve(_options.NpcGenerPath);
         string npcPath = PathResolver.ResolveDirectory(_options.NpcPath);
-        if (!File.Exists(generPath) || !Directory.Exists(npcPath))
-        {
+        if (File.Exists(generPath) && Directory.Exists(npcPath))
+            await SpawnAllAsync(NpcGener.Load(generPath), npcPath);
+        else
             logger.LogInformation("Sem monstros: coloque o NPCGener.txt em {Gener} e a pasta npc em {Npc}.", generPath, npcPath);
-            return;
-        }
 
-        await SpawnAllAsync(NpcGener.Load(generPath), npcPath);
+        // O ciclo roda mesmo sem o NPCGener, para os monstros criados depois (renascer e andar).
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             var now = DateTime.UtcNow;
+            foreach (var mob in world.MobsToRespawn(now))
+            {
+                var (x, y) = Around(mob.Spawn.StartX, mob.Spawn.StartY, mob.Spawn.StartRange);
+                mob.NextMove = now + Wait(mob);
+                await world.RespawnAsync(mob, x, y);
+            }
+
             foreach (var mob in world.WatchedMobs())
             {
                 if (!mob.Wanders || mob.NextMove > now) continue;

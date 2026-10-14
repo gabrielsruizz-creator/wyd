@@ -11,8 +11,14 @@ namespace WYD.Server.Game;
 /// Quando algo entra no campo de visão o jogador recebe o 0x364; quando sai, o 0x165.
 /// Os monstros ficam numa grade de <see cref="CellSize"/> células para a busca por proximidade ser rápida.
 /// </summary>
-public sealed class World(ICharacterRepository characters, ILogger<World> logger)
+public sealed class World(ICharacterRepository characters, Microsoft.Extensions.Options.IOptions<WYD.Server.Config.ServerOptions> options, ILogger<World> logger)
 {
+    /// <summary>Distância máxima entre quem ataca e o alvo (ataques à distância e magias incluídos).</summary>
+    public const int AttackRange = 12;
+
+    /// <summary>Menor intervalo entre dois ataques do mesmo jogador.</summary>
+    public static readonly TimeSpan MinAttackInterval = TimeSpan.FromMilliseconds(300);
+
     public const int ViewRange = 16;
 
     /// <summary>Maior distância aceita entre a posição atual e o destino de um movimento.</summary>
@@ -239,9 +245,118 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
     public Mob? VisibleMob(ClientSession session, ushort mobId)
     {
         lock (_lock)
-            return _visible.TryGetValue(session.Id, out var mine) && mine.Contains(mobId) && _mobs.TryGetValue(mobId, out var mob)
+            return _visible.TryGetValue(session.Id, out var mine) && mine.Contains(mobId)
+                   && _mobs.TryGetValue(mobId, out var mob) && mob.Alive
                 ? mob
                 : null;
+    }
+
+    /// <summary>
+    /// Ataque do jogador (0x39D / 0x39E / 0x36C): calcula o dano em cada monstro alvo, devolve o pacote com os
+    /// danos a todos que estão vendo e, se algum morrer, dá a experiência e tira o monstro do mapa até renascer.
+    /// </summary>
+    public async Task AttackAsync(ClientSession session, byte[] packet)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        var killed = new List<Mob>();
+        long exp;
+        lock (_lock)
+        {
+            if (!_players.ContainsKey(session.Id)) return;
+            var now = DateTime.UtcNow;
+            if (now - session.LastAttack < MinAttackInterval) return;
+            session.LastAttack = now;
+
+            var me = session.Character!;
+            var mine = _visible[session.Id];
+            var response = ServerPackets.Relay(packet, session.Id);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Attacker), session.Id);
+
+            int count = Math.Min(ServerPackets.AttackLayout.MaxTargets,
+                (packet.Length - ServerPackets.AttackLayout.Targets) / ServerPackets.AttackLayout.TargetSize);
+            var hit = new List<Mob>();
+            for (int i = 0; i < count; i++)
+            {
+                int o = ServerPackets.AttackLayout.Targets + i * ServerPackets.AttackLayout.TargetSize;
+                ushort targetId = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet.AsSpan(o));
+                short damage = 0;
+
+                if (targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
+                    && mob.Alive && mob.Attackable && !hit.Contains(mob)
+                    && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
+                {
+                    damage = (short)Combat.Damage(me.BaseScore, mob.Template.Score);
+                    mob.Hp -= damage;
+                    hit.Add(mob);
+                    if (mob.Hp <= 0) killed.Add(mob);
+                }
+                System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(o + 2), damage);
+            }
+
+            foreach (var mob in killed)
+                me.Exp = Math.Min(int.MaxValue, me.Exp + Math.Max(0, mob.Template.Exp));
+            exp = me.Exp;
+
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), (int)exp);
+
+            // Quem vê o atacante ou algum dos alvos recebe o ataque com os danos.
+            foreach (var player in _players.Values)
+                if (player == session || InRange(player.Character!, me) || hit.Any(m => InRange(player.Character!, m)))
+                    outgoing.Add((player, response));
+
+            foreach (var mob in killed)
+            {
+                mob.Alive = false;
+                mob.Hp = 0;
+                mob.RespawnAt = now + TimeSpan.FromSeconds(Math.Max(1, options.Value.RespawnSeconds));
+                GridRemove(mob);
+                foreach (var player in _players.Values)
+                {
+                    if (!_visible[player.Id].Remove(mob.Id)) continue;
+                    outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, (int)exp)));
+                    outgoing.Add((player, ServerPackets.RemoveMob(mob.Id, ServerPackets.RemoveDead)));
+                }
+            }
+        }
+
+        await SendAllAsync(outgoing);
+        if (killed.Count > 0)
+        {
+            logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}).", session.Id, session.Character!.Name,
+                string.Join(", ", killed.Select(m => m.Template.Name)), exp);
+            try { await characters.SaveExpAsync(session.Character.Id, exp); }
+            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar a experiência de {Name}.", session.Character.Name); }
+        }
+    }
+
+    /// <summary>Monstros mortos cujo tempo de renascer já passou.</summary>
+    public List<Mob> MobsToRespawn(DateTime now)
+    {
+        lock (_lock)
+            return _mobs.Values.Where(m => !m.Alive && m.RespawnAt <= now).ToList();
+    }
+
+    /// <summary>Traz um monstro morto de volta, com vida cheia, na posição indicada.</summary>
+    public Task RespawnAsync(Mob mob, short x, short y)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            if (mob.Alive) return Task.CompletedTask;
+            mob.Alive = true;
+            mob.Hp = mob.Template.Score.MaxHp;
+            mob.X = x;
+            mob.Y = y;
+            GridAdd(mob);
+            foreach (var player in _players.Values)
+            {
+                if (!InRange(player.Character!, mob)) continue;
+                _visible[player.Id].Add(mob.Id);
+                outgoing.Add((player, mob.CreatePacket()));
+            }
+        }
+        return SendAllAsync(outgoing);
     }
 
     /// <summary>Chat (0x333): repassa a quem vê o jogador. O próprio client já mostra a mensagem de quem falou.</summary>
