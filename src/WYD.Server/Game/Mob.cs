@@ -66,6 +66,11 @@ public sealed class Mob
         }
     }
 
+    /// <summary>
+    /// O 0x364 do mob. A montaria (slot 14) não vai para a tela: NPC montado (os reis andam no Parade Horse)
+    /// derrubou o client 7.54 ao aparecer; a pé ele funciona igual.
+    /// </summary>
     public byte[] CreatePacket() =>
-        ServerPackets.CreateMob(Id, Template.Name, X, Y, Template.Equip.Select(i => i.Index), Template.Guild, Score);
+        ServerPackets.CreateMob(Id, Template.Name, X, Y,
+            Template.Equip.Select((item, slot) => slot == Stats.MountSlot ? (short)0 : item.Index), Template.Guild, Score);
 }
