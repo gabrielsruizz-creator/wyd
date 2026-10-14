@@ -838,7 +838,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var me = await CharacterOf("jogadora");
         var request = new PacketWriter(Opcodes.Teleport, 16, 1).WriteInt32(0).ToArray();
 
-        // Sem destino cadastrado: o GM recebe a dica.
+        // Sem destino cadastrado aqui (o padrão é o de Armia, em 2117 2102): o GM recebe a dica.
         await a.SendAsync(request);
         Assert.StartsWith("Teleporte sem destino em 2100 2100", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
