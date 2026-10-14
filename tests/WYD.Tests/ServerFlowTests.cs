@@ -755,8 +755,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.StartsWith("Uso: /gm nivel <1 a 200>", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
-    private static byte[] NpcClickPacket(ushort npc) =>
-        new PacketWriter(Opcodes.NpcClick, 20, 1).WriteInt32(npc).WriteInt32(0).ToArray();
+    private static byte[] NpcClickPacket(ushort npc, int confirm = 0) =>
+        new PacketWriter(Opcodes.NpcClick, 20, 1).WriteInt32(npc).WriteInt32(confirm).ToArray();
 
     [Fact]
     public async Task Evolution_happens_at_the_king_of_your_kingdom()
@@ -967,11 +967,6 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(ServerPackets.ShopTypeSkillMaster, list.ReadInt32());   // janela de skills, não de loja
             Assert.Equal(5000, list.ReadInt16());
 
-            // Pelo 0x28B (o client usa quando a Eternal Stone está equipada) abre o mesmo menu.
-            await a.SendAsync(NpcClickPacket(masterId));
-            var again = await a.ReceiveAsync();
-            Assert.Equal(Opcodes.ShopList, again.Type);
-            Assert.Equal(ServerPackets.ShopTypeSkillMaster, again.ReadInt32());
 
             // Tipo 2 do 0x277: aprender a skill do item 5000.
             await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5000).WriteInt16((short)masterId).Skip(2).ToArray());
@@ -984,6 +979,24 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // Skill de outra classe: recusada.
             await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5024).WriteInt16((short)masterId).Skip(2).ToArray());
             Assert.Contains("não é da sua classe", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            // Eternal Stone no slot 10: o mestre cria o Sefirot da classe dele (não abre o menu).
+            var me = await CharacterOf("jogador2");
+            me.Equip[Sefirot.EternalStoneSlot] = new Item(Sefirot.EternalStone);
+            await a.SendAsync(NpcClickPacket(masterId));
+            Assert.StartsWith("Para o Sefirot(Transknight) falta: Kocuna", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+
+            for (int i = 0; i < 8; i++) me.Inventory[i] = new Item((short)(Sefirot.FirstStone + i));
+            me.Coin = Sefirot.Price + 5;
+            await a.SendAsync(NpcClickPacket(masterId));                     // clique: só avisa
+            Assert.StartsWith("Confirme para trocar", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            await a.SendAsync(NpcClickPacket(masterId, confirm: 1));         // OK na pergunta: cria
+            var last = await ReceiveTypeAsync(a, Opcodes.MessagePanel);
+            Assert.Equal("Você recebeu o Sefirot(Transknight).", last.ReadString(GameConstants.MessageLength));
+            Assert.Equal(1760, me.Inventory[0].Index);
+            Assert.True(me.Inventory.Skip(1).Take(7).All(i => i.IsEmpty));
+            Assert.True(me.Equip[Sefirot.EternalStoneSlot].IsEmpty);
+            Assert.Equal(5, me.Coin);
         }
         finally
         {

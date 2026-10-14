@@ -339,3 +339,10 @@ Efeito pela SkillData (`InstanceType`, `InstanceValue`):
 | 6 | cura (em si ou em quem você vê) | força + especial da árvore + INT/4, com a magia dos itens; aparece como dano negativo |
 
 Buffs (`AffectType`, `AffectValue`, `AffectTime`) ainda não fazem efeito.
+
+## Sefirot (Eternal Stone no mestre de skill)
+
+Com a Eternal Stone (1742) no slot 10, clicar num mestre de skill não pede o menu: o client abre a pergunta
+"deseja continuar?" e manda o `0x28B` com `Confirma` = 0; ao aceitar, manda de novo com 1. Com as 8 pedras
+(Kocuna, Veean, Keced, Gebra, Tipalet, Nechark, Yesord, Marcute: 1744 a 1751) no inventário e 30 milhões de gold,
+o servidor troca tudo pelo Sefirot da classe do mestre: 1760 TK, 1761 FM, 1762 BM, 1763 HT.

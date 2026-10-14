@@ -16,10 +16,14 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
     public static bool IsKing(Mob npc) =>
         (npc.Template.Score.Merchant & 0x0F) == 15 && npc.Template.Clan is (byte)Kingdom.Blue or (byte)Kingdom.Red;
 
-    /// <summary>0x28B: o jogador clicou num NPC que conversa (id do NPC em 0x0C).</summary>
+    /// <summary>
+    /// 0x28B: o jogador falou com um NPC que conversa (id do NPC em 0x0C). O client manda com Confirma (0x10) = 0
+    /// ao clicar e abrir a pergunta, e com 1 quando o jogador aceita.
+    /// </summary>
     public async Task HandleNpcClickAsync(ClientSession session, PacketReader packet)
     {
         ushort npcId = (ushort)packet.ReadInt32();
+        bool confirmed = packet.Remaining >= 4 && packet.ReadInt32() != 0;
         var npc = world.VisibleMob(session, npcId);
         var c = session.Character!;
         if (npc is null || Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
@@ -28,8 +32,8 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
         if (npc.IsSkillMaster)
         {
             // Com a Eternal Stone (1742) no slot 10 o client pergunta "deseja continuar?" e manda o 0x28B em vez
-            // do 0x27B: abre o menu de skills do mesmo jeito.
-            await session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry, type: ServerPackets.ShopTypeSkillMaster));
+            // de pedir o menu: é a criação do Sefirot da classe do mestre.
+            await SefirotAsync(session, npc, confirmed);
             return;
         }
 
@@ -59,6 +63,41 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
         }
 
         await ChangeEvolutionAsync(session, c.Evolution + 1);
+    }
+
+    private async Task SefirotAsync(ClientSession session, Mob master, bool confirmed)
+    {
+        var c = session.Character!;
+        if (!Sefirot.HasEternalStone(c) || Sefirot.MasterClass(master.Template.Carry) is not { } cls)
+        {
+            await session.SendAsync(ServerPackets.ShopList(master.Id, master.Template.Carry, type: ServerPackets.ShopTypeSkillMaster));
+            return;
+        }
+
+        string name = $"Sefirot({Sefirot.ClassName(cls)})";
+        if (Sefirot.Missing(c, CommandHandler.BasicInventorySlots) is { } missing)
+        {
+            await session.SendMessageAsync($"Para o {name} falta: {missing}.");
+            return;
+        }
+        if (!confirmed)
+        {
+            await session.SendMessageAsync($"Confirme para trocar a Eternal Stone, as 8 pedras e {Sefirot.Price:N0} de gold pelo {name}.");
+            return;
+        }
+
+        var changed = Sefirot.Create(c, cls, CommandHandler.BasicInventorySlots)!;
+        foreach (int slot in changed)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Sefirot.EternalStoneSlot, default));
+        await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
+        foreach (var viewer in world.Viewers(session))
+            await viewer.SendAsync(ServerPackets.UpdateEquip(session.Id, c.Equip));
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+
+        logger.LogInformation("[{Id}] {Name} criou o {Item} com {Npc}.", session.Id, c.Name, name, master.Template.Name);
+        await session.SendMessageAsync($"Você recebeu o {name}.");
     }
 
     /// <summary>/kingdom ou /king: vai para o castelo do seu reino (neutros vão para o centro do reino).</summary>
