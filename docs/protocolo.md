@@ -301,7 +301,8 @@ grupo. As pedras 2441 a 2444 (uso 9) são material de composição, não gemas.
 ## Mestres de skill
 
 Mestres de skill têm `Merchant` 19 no arquivo do NPC e 3 em `Score.Merchant`: o client pede a lista deles com o
-`0x27B` (como numa loja) e o servidor responde com o `0x17C` dos itens de skill que eles carregam. Ao escolher
+`0x27B` (como numa loja) e o servidor responde com o `0x17C` dos itens de skill que eles carregam, com o tipo
+3 em `0x0C` (1 abre a loja; 3 abre o menu de skills, com as abas montadas pela classe do primeiro item). Ao escolher
 uma skill e confirmar, o client manda o `0x277` com tipo 2, `short Qual` = item da skill (5000 + n) e o id do NPC.
 
 A skill n é o item 5000 + n: TK 0-23 (Cap.Cavaleiros), FM 24-47 (Foema_Ancian), BM 48-71 (Mestre_Archi), HT 72-95

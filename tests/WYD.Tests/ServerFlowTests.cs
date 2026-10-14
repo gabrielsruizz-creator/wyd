@@ -957,6 +957,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await a.SendAsync(new PacketWriter(Opcodes.RequestShop, 16, 1).WriteUInt16(masterId).Skip(2).ToArray());
             var list = await a.ReceiveAsync();
             Assert.Equal(Opcodes.ShopList, list.Type);
+            Assert.Equal(ServerPackets.ShopTypeSkillMaster, list.ReadInt32());   // janela de skills, não de loja
+            Assert.Equal(5000, list.ReadInt16());
 
             // Tipo 2 do 0x277: aprender a skill do item 5000.
             await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5000).WriteInt16((short)masterId).Skip(2).ToArray());

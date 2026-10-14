@@ -41,7 +41,8 @@ public sealed class WorldHandler(World world)
             || Math.Abs(npc.X - me.PosX) > ShopDistance || Math.Abs(npc.Y - me.PosY) > ShopDistance)
             return Task.CompletedTask;
 
-        return session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry));
+        return session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry,
+            type: npc.IsSkillMaster ? ServerPackets.ShopTypeSkillMaster : ServerPackets.ShopTypeStore));
     }
 
     /// <summary>0x39D / 0x39E / 0x36C: ataque com 1, 2 ou até 13 alvos.</summary>

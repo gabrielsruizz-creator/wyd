@@ -368,10 +368,13 @@ public static class ServerPackets
     /// 0x17C: abre a janela da loja (tipo 1 = itens). As 3 abas de 9 itens vêm dos slots 0–8, 27–35 e
     /// 54–62 do inventário do NPC, como no servidor original.
     /// </summary>
-    public static byte[] ShopList(ushort npcId, IReadOnlyList<Item> carry, int tax = 0)
+    /// <summary>Tipo da janela no 0x17C (0x0C): 1 = loja; 3 = mestre de skill (o client monta as abas pela classe do 1º item).</summary>
+    public const int ShopTypeStore = 1, ShopTypeSkillMaster = 3;
+
+    public static byte[] ShopList(ushort npcId, IReadOnlyList<Item> carry, int tax = 0, int type = ShopTypeStore)
     {
         var w = new PacketWriter(Opcodes.ShopList, ShopListSize, npcId);
-        w.WriteInt32(1);
+        w.WriteInt32(type);
         for (int i = 0; i < ShopSlots; i++)
         {
             int slot = ShopSlotToCarry(i);
