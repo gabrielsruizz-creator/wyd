@@ -12,6 +12,7 @@ public static class Opcodes
     public const ushort DeleteCharacter = 0x211;   // MSG_DeleteCharacter, 44 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLogin = 0x213;    // MSG_CharacterLogin, 36 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLogout = 0x215;   // volta para a seleção (a validar)
+    public const ushort Command = 0x334;           // 128 bytes: "/xxx texto" -> char Cmd[16] em 0x0C, char Texto[...] em 0x1C; também é o sussurro (conferido no WYD.exe 7.54)
     public const ushort Chat = 0x333;              // MSG_MessageChat, 108 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort Move = 0x366;              // MSG_Action, 52 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort MoveStop = 0x367;          // MSG_Action, 52 bytes (conferido no WYD.exe 7.54)
@@ -31,6 +32,7 @@ public static class Opcodes
     public const ushort DeleteCharacterFail = 0x11B;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort CreateMob = 0x364;             // MSG_CreateMob, 176 bytes: põe um jogador/mob na tela (conferido no WYD.exe 7.54)
     public const ushort RemoveMob = 0x165;
+    public const ushort UpdateItem = 0x182;            // 24 bytes: short Tipo (0 equip, 1 inventário, 2 baú), short Slot, ITEM (conferido no WYD.exe 7.54)
     public const ushort ShopList = 0x17C;              // 236 bytes: int tipo, ITEM Lista[27], int imposto (conferido no WYD.exe 7.54)             // 16 bytes: tira da tela o id do cabeçalho (conferido no WYD.exe 7.54)
     public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
 
@@ -44,6 +46,8 @@ public static class Opcodes
         ClientPing => "ClientPing",
         SecondPassword => "SecondPassword",
         Chat => "Chat",
+        Command => "Command",
+        UpdateItem => "UpdateItem",
         Move => "Move",
         MoveStop => "MoveStop",
         RequestMob => "RequestMob",

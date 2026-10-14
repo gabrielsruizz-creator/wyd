@@ -75,6 +75,17 @@ public sealed record SecondPasswordRequest(string Password, bool Change)
         new PacketWriter(Opcodes.SecondPassword, PacketSize).WriteString(Password, 16).WriteInt32(Change ? 1 : 0).ToArray();
 }
 
+/// <summary>0x334: o jogador digitou "/comando texto" no chat (128 bytes; também é o sussurro "/nome texto").</summary>
+public sealed record CommandRequest(string Command, string Text)
+{
+    public static CommandRequest Read(PacketReader r)
+    {
+        string command = r.ReadString(NameLength);
+        string text = r.ReadString(Math.Min(r.Remaining, 96));
+        return new CommandRequest(command.Trim(), text.Trim());
+    }
+}
+
 /// <summary>0x213 MSG_CharacterLogin (36 bytes): o client escolheu o personagem do slot.</summary>
 public sealed record CharacterLoginRequest(int Slot)
 {
@@ -218,6 +229,27 @@ public static class ServerPackets
         }
         return route.ToString();
     }
+
+    public const int CommandSize = 128;
+    public const int UpdateItemSize = 24;
+
+    public enum ItemPlace : short { Equip = 0, Inventory = 1, Cargo = 2 }
+
+    /// <summary>0x182: troca o item de um slot (equipamento, inventário ou baú) na tela do jogador.</summary>
+    public static byte[] UpdateItem(ushort id, ItemPlace place, int slot, Item item)
+    {
+        var w = new PacketWriter(Opcodes.UpdateItem, UpdateItemSize, id);
+        w.WriteInt16((short)place).WriteInt16((short)slot);
+        item.Write(w);
+        return w.ToArray();
+    }
+
+    /// <summary>0x334 do servidor para o client: sussurro de <paramref name="from"/> (aparece no chat de quem recebe).</summary>
+    public static byte[] Whisper(ushort id, string from, string text) =>
+        new PacketWriter(Opcodes.Command, CommandSize, id)
+            .WriteString(from, NameLength)
+            .WriteString(text, CommandSize - PacketHeader.Size - NameLength)
+            .ToArray();
 
     public const int ShopListSize = 236;
     public const int ShopSlots = 27;

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WYD.Server.Config;
+using WYD.Server.Data;
 using WYD.Server.Database;
 using WYD.Server.Game;
 using WYD.Server.Handlers;
@@ -74,12 +75,15 @@ public static class Program
                 return await CreateAccountAsync(host.Services, args[1], args[2]);
             case "reset-second-password" when args.Length == 2:
                 return await ResetSecondPasswordAsync(host.Services, args[1]);
+            case "set-access" when args.Length == 3 && int.TryParse(args[2], out int level):
+                return await SetAccessAsync(host.Services, args[1], level);
             default:
                 Console.Error.WriteLine("""
                     Uso:
                       WYD.Server                                    inicia o servidor
                       WYD.Server create-account <conta> <senha>     cria uma conta
                       WYD.Server reset-second-password <conta>      apaga a segunda senha (o próximo login define outra)
+                      WYD.Server set-access <conta> <nivel>         0 = jogador, 1 = GM (libera /item no jogo)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
@@ -113,6 +117,8 @@ public static class Program
         services.AddSingleton<IAccountRepository, MySqlAccountRepository>();
         services.AddSingleton<ICharacterRepository, MySqlCharacterRepository>();
 
+        services.AddSingleton<ItemCatalog>();
+        services.AddSingleton<CommandHandler>();
         services.AddSingleton<World>();
         services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();
@@ -131,6 +137,20 @@ public static class Program
     {
         int i = Array.IndexOf(options, name);
         return i >= 0 && i + 1 < options.Length ? options[i + 1] : null;
+    }
+
+    private static async Task<int> SetAccessAsync(IServiceProvider services, string username, int level)
+    {
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+
+        await accounts.SetAccessLevelAsync(account.Id, level);
+        Console.WriteLine($"Conta '{username}' agora tem nível de acesso {level}{(level > 0 ? " (GM)" : "")}. Vale a partir do próximo login.");
+        return 0;
     }
 
     private static async Task<int> ResetSecondPasswordAsync(IServiceProvider services, string username)

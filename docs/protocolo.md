@@ -60,6 +60,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x366` / `0x367` | Movimento | 52      | `short X, Y`, `int Velocidade`, `int Tipo`, `short DestX, DestY` (0x18), `char Rota[24]` | ✅ |
 | `0x369` | RequestMob         | 16      | `ushort Id` (0x0C): o client pede o 0x364 de um id que não conhece       | ✅ |
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
+| `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x27B` | RequestShop        | 16      | `ushort IdDoNpc` (0x0C): o client só manda se `Score.Merchant & 0xF == 1` | ✅ |
 | `0x3A0` | Ping               | 12      | ignorado                                                                 | ✅ |
 
@@ -70,6 +71,8 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x101` | MessagePanel        | 108     | `char Text[96]`                                                            | ✅ |
 | `0x10E` | AccountLoginOk      | 1824    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
 | `0x364` | CreateMob           | 176     | põe um jogador na tela (layout abaixo)                                     | ✅ |
+| `0x182` | UpdateItem          | 24      | `short Tipo` (0 equip, 1 inventário, 2 baú), `short Slot`, `ITEM`          | ✅ |
+| `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
 | `0x165` | RemoveMob           | 16      | id no cabeçalho, `int Tipo` (0x0C)                                         | ✅ |
 | `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho              | ✅ |

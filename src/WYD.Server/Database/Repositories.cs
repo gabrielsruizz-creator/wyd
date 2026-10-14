@@ -1,4 +1,5 @@
 using WYD.Server.Game;
+using WYD.Server.Protocol;
 
 namespace WYD.Server.Database;
 
@@ -10,6 +11,9 @@ public interface IAccountRepository
 
     /// <summary>Grava (ou apaga, com null) o hash da segunda senha.</summary>
     Task SetSecondPasswordAsync(int accountId, string? hash);
+
+    /// <summary>0 = jogador; 1 ou mais = GM (pode usar comandos como /item).</summary>
+    Task SetAccessLevelAsync(int accountId, int level);
 }
 
 public interface ICharacterRepository
@@ -23,4 +27,6 @@ public interface ICharacterRepository
     Task<bool> DeleteAsync(int accountId, int slot);
 
     Task SavePositionAsync(int characterId, short x, short y);
+
+    Task SaveInventoryAsync(int characterId, Item[] inventory);
 }

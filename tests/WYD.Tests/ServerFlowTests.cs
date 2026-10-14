@@ -38,6 +38,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         builder.Services.AddSingleton(_table);
         builder.Services.AddSingleton<IAccountRepository>(_store);
         builder.Services.AddSingleton<ICharacterRepository>(_store);
+        builder.Services.AddSingleton(new WYD.Server.Data.ItemCatalog((WYD.Server.Data.ItemList?)null));
 
         _host = builder.Build();
         await _host.StartAsync();
@@ -452,6 +453,66 @@ public sealed class ServerFlowTests : IAsyncLifetime
         }
     }
 
+    private static byte[] CommandPacket(string command, string text) =>
+        new PacketWriter(Opcodes.Command, ServerPackets.CommandSize)
+            .WriteString(command, 16).WriteString(text, ServerPackets.CommandSize - 28).ToArray();
+
+    [Fact]
+    public async Task Gm_creates_item_with_slash_command()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+
+        // Sem ser GM: recusado.
+        await a.SendAsync(CommandPacket("item", "905"));
+        Assert.Equal("Comando só para GMs.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        var account = (await _store.FindByUsernameAsync("jogadora"))!;
+        account.AccessLevel = 1; // o mesmo objeto que a sessão usa (no servidor real vale a partir do próximo login)
+
+        await a.SendAsync(CommandPacket("item", "905 43 9"));
+        var update = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, update.Type);
+        Assert.Equal(ServerPackets.UpdateItemSize, update.Length);
+        Assert.Equal(1, update.ReadInt16());        // inventário
+        Assert.Equal(0, update.ReadInt16());        // primeiro slot livre
+        Assert.Equal(905, update.ReadInt16());
+        Assert.Equal((43, 9), (update.ReadByte(), update.ReadByte()));
+        Assert.Equal("item 905 criado no inventário.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        // O segundo vai para o slot seguinte, e o inventário fica salvo.
+        await a.SendAsync(CommandPacket("item", "1208"));
+        var second = await a.ReceiveAsync();
+        second.Skip(2);
+        Assert.Equal(1, second.ReadInt16());
+        await a.ReceiveAsync();
+        var saved = (await _store.ListByAccountAsync(account.Id))[0].Inventory;
+        Assert.Equal(new short[] { 905, 1208 }, saved.Take(2).Select(i => i.Index));
+
+        // Argumentos inválidos.
+        await a.SendAsync(CommandPacket("item", "abc"));
+        Assert.StartsWith("Uso: /item", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        await a.SendAsync(CommandPacket("item", "7000"));
+        Assert.StartsWith("Índice inválido", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    [Fact]
+    public async Task Slash_name_whispers_to_another_player()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
+
+        await a.SendAsync(CommandPacket("bruno", "oi, tudo bem?"));
+        var whisper = await b.ReceiveAsync();
+        Assert.Equal(Opcodes.Command, whisper.Type);
+        Assert.Equal("Alice", whisper.ReadString(16));
+        Assert.Equal("oi, tudo bem?", whisper.ReadString(96));
+
+        await a.SendAsync(CommandPacket("Fulano", "alô"));
+        Assert.Equal("Fulano não está online.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 
@@ -553,6 +614,21 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
     }
 
     public Task UpdateLastLoginAsync(int accountId, string? ip) => Task.CompletedTask;
+
+    public Task SetAccessLevelAsync(int accountId, int level)
+    {
+        foreach (var a in _accounts.Values.Where(a => a.Id == accountId))
+            a.AccessLevel = level;
+        return Task.CompletedTask;
+    }
+
+    public Task SaveInventoryAsync(int characterId, Item[] inventory)
+    {
+        lock (_characters)
+            foreach (var c in _characters.Where(c => c.Id == characterId))
+                c.Inventory = (Item[])inventory.Clone();
+        return Task.CompletedTask;
+    }
 
     public Task SetSecondPasswordAsync(int accountId, string? hash)
     {

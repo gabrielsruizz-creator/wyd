@@ -19,6 +19,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Ver os outros jogadores, andar (a posição fica salva) e chat local
 - [x] Monstros e NPCs do `NPCGener.txt` original no mapa, andando pela área de cada spawn
 - [x] Lojas dos NPCs abrem com os itens de cada um
+- [x] Comandos no chat: `/item` para GMs e sussurro `/nome texto`
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
@@ -83,6 +84,26 @@ dotnet run --project src\WYD.Server -- --Server:LogPackets=true
 
 Com `LogPackets` ligado, o console mostra cada pacote trocado com o client, o que ajuda a corrigir
 qualquer diferença de protocolo.
+
+## Comandos de GM
+
+Dê nível de GM a uma conta (vale a partir do próximo login):
+
+```powershell
+dotnet run --project src\WYD.Server -- set-access minhaconta 1
+```
+
+No jogo, digite no chat:
+
+| Comando | O que faz |
+|---------|-----------|
+| `/item 905` | cria o item 905 no primeiro espaço livre do inventário |
+| `/item 905 43 9` | o mesmo, com até 3 pares efeito/valor (ex.: 43 = refinação) |
+| `/ajuda` | lista os comandos |
+| `/Fulano oi` | sussurra "oi" para o jogador Fulano (qualquer conta) |
+
+Para achar o número de um item: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.
+Com o `ItemList.bin` em `data/`, o servidor recusa índices que não existem.
 
 ## Configuração
 

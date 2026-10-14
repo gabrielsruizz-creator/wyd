@@ -47,6 +47,9 @@ public sealed class ServerOptions
     /// <summary>Resposta fixa da página de status, para testes ("{online}" vira o número de jogadores; "\n" quebra linha).</summary>
     public string StatusBody { get; set; } = "";
 
+    /// <summary>Lista de itens do client (opcional): usada para conferir os itens criados por GMs.</summary>
+    public string ItemListPath { get; set; } = "data/ItemList.bin";
+
     /// <summary>Lista de spawns de monstros e NPCs do servidor original.</summary>
     public string NpcGenerPath { get; set; } = "data/NPCGener.txt";
 
