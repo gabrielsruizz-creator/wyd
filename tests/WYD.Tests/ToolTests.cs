@@ -194,4 +194,24 @@ public class ToolTests
         Assert.Equal(0, WYD.Server.Game.Leveling.Apply(c, table));
         Assert.Equal(0, WYD.Server.Game.Leveling.Apply(c, null));
     }
+
+    [Fact]
+    public void Set_level_moves_up_and_down()
+    {
+        var c = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.Foema };
+        c.BaseScore.MaxHp = 60; c.BaseScore.MaxMp = 65;
+        var table = new WYD.Server.Data.ExpTable([100, 200, 300, 400]);
+
+        WYD.Server.Game.Leveling.SetLevel(c, 3, table);
+        Assert.Equal(3, c.BaseScore.Level);
+        Assert.Equal(300, c.Exp);                       // começo do nível: não sobe sozinho no próximo kill
+        Assert.Equal(66, c.BaseScore.MaxHp);
+        Assert.Equal(77, c.BaseScore.Mp);
+        Assert.Equal(0, WYD.Server.Game.Leveling.Apply(c, table));
+
+        WYD.Server.Game.Leveling.SetLevel(c, 0, table);
+        Assert.Equal(0, c.Exp);
+        Assert.Equal(60, c.BaseScore.MaxHp);
+        Assert.Equal(0, c.ScoreBonus);
+    }
 }

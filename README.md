@@ -19,7 +19,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Ver os outros jogadores, andar (a posição fica salva) e chat local
 - [x] Monstros e NPCs do `NPCGener.txt` original no mapa, andando pela área de cada spawn
 - [x] Lojas dos NPCs abrem com os itens de cada um
-- [x] Comandos no chat: `/item` para GMs e sussurro `/nome texto`
+- [x] Comandos de GM no chat (`/gm item`, `/gm nivel`, `/gm gold`, `/gm ir`, `/gm trazer`…) e sussurro `/nome texto`
 - [x] Combate (1ª etapa): atacar monstros, dano, morte, experiência e renascimento
 - [x] Itens: equipar/mover (conferindo slot e nível), usar barras de gold e poções, comprar e vender nas lojas
 - [x] Combate (2ª etapa): gold dos monstros, subir de nível (com a tabela de experiência do client),
@@ -105,14 +105,30 @@ Dê nível de GM a uma conta (vale a partir do próximo login):
 dotnet run --project src\WYD.Server -- set-access minhaconta 1
 ```
 
-No jogo, digite no chat:
+No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 
 | Comando | O que faz |
 |---------|-----------|
-| `/item 905` | cria o item 905 no primeiro espaço livre do inventário |
-| `/item 905 43 9` | o mesmo, com até 3 pares efeito/valor (ex.: 43 = refinação) |
+| `/gm item 905` | cria o item 905 no primeiro espaço livre do inventário |
+| `/gm item 905 43 9` | o mesmo, com até 3 pares efeito/valor (ex.: 43 = refinação) |
+| `/gm nivel 100` | coloca o seu personagem no nível 100 (vida, mana e pontos de acordo) |
+| `/gm gold 1000000` | define o seu gold (até 2.000.000.000) |
+| `/gm curar` | enche a sua vida e mana |
+| `/gm ir 2100 2100` | teleporta você para a posição X Y |
+| `/gm ir Fulano` | teleporta você até o jogador |
+| `/gm trazer Fulano` | traz o jogador até você |
+| `/gm online` | lista quem está no jogo, com nível e posição |
+| `/gm aviso texto` | mensagem para todos os jogadores |
+| `/gm kick Fulano` | desconecta o jogador |
+| `/gm limpar` | esvazia o seu inventário |
+| `/gm ajuda` | lista os comandos de GM no chat |
+
+Para todos os jogadores:
+
+| Comando | O que faz |
+|---------|-----------|
 | `/ajuda` | lista os comandos |
-| `/Fulano oi` | sussurra "oi" para o jogador Fulano (qualquer conta) |
+| `/Fulano oi` | sussurra "oi" para o jogador Fulano |
 
 Para achar o número de um item: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.
 Com o `ItemList.bin` em `data/`, o servidor recusa índices que não existem.

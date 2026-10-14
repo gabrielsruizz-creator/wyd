@@ -465,13 +465,13 @@ public sealed class ServerFlowTests : IAsyncLifetime
         using var a = await EnterWorldAsync("jogadora", "Alice");
 
         // Sem ser GM: recusado.
-        await a.SendAsync(CommandPacket("item", "905"));
+        await a.SendAsync(CommandPacket("gm", "item 905"));
         Assert.Equal("Comando só para GMs.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
         var account = (await _store.FindByUsernameAsync("jogadora"))!;
         account.AccessLevel = 1; // o mesmo objeto que a sessão usa (no servidor real vale a partir do próximo login)
 
-        await a.SendAsync(CommandPacket("item", "905 43 9"));
+        await a.SendAsync(CommandPacket("gm", "item 905 43 9"));
         var update = await a.ReceiveAsync();
         Assert.Equal(Opcodes.UpdateItem, update.Type);
         Assert.Equal(ServerPackets.UpdateItemSize, update.Length);
@@ -482,7 +482,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal("Espada Longa criado no inventário.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
         // O segundo vai para o slot seguinte, e o inventário fica salvo.
-        await a.SendAsync(CommandPacket("item", "1208"));
+        await a.SendAsync(CommandPacket("gm", "item 1208"));
         var second = await a.ReceiveAsync();
         second.Skip(2);
         Assert.Equal(1, second.ReadInt16());
@@ -491,11 +491,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(new short[] { 905, 1208 }, saved.Take(2).Select(i => i.Index));
 
         // Argumentos inválidos.
-        await a.SendAsync(CommandPacket("item", "abc"));
-        Assert.StartsWith("Uso: /item", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-        await a.SendAsync(CommandPacket("item", "7000"));
+        await a.SendAsync(CommandPacket("gm", "item abc"));
+        Assert.StartsWith("Uso: /gm item", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        await a.SendAsync(CommandPacket("gm", "item 7000"));
         Assert.StartsWith("Índice inválido", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-        await a.SendAsync(CommandPacket("item", "777"));
+        await a.SendAsync(CommandPacket("gm", "item 777"));
         Assert.Equal("O item 777 não existe no ItemList.bin.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
@@ -700,16 +700,68 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
         (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
-        await a.SendAsync(CommandPacket("ajuda", ""));
+        await a.SendAsync(CommandPacket("gm", "ajuda"));
         var lines = new List<string>();
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < CommandHandler.GmCommands.Length; i++)
         {
             var p = await a.ReceiveAsync();
             Assert.Equal(Opcodes.Command, p.Type);
             Assert.Equal("Sistema", p.ReadString(16));
             lines.Add(p.ReadString(96));
         }
-        Assert.Contains(lines, l => l.StartsWith("/item"));
+        Assert.Contains(lines, l => l.StartsWith("/gm item"));
+        Assert.Contains(lines, l => l.StartsWith("/gm nivel"));
+    }
+
+    [Fact]
+    public async Task Gm_commands_change_level_gold_and_position()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
+
+        // Quem não é GM não usa.
+        await b.SendAsync(CommandPacket("gm", "gold 5"));
+        Assert.Equal("Comando só para GMs.", (await b.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+
+        await a.SendAsync(CommandPacket("gm", "nivel 3"));     // tabela do teste: 100/200/300/400
+        var score = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateScore, score.Type);
+        Assert.Equal(2, score.ReadInt16());
+        var etc = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateEtc, etc.Type);
+        etc.Skip(4);
+        Assert.Equal(200, etc.ReadInt32());
+        Assert.Equal(Opcodes.UpdateHpMp, (await a.ReceiveAsync()).Type);
+        Assert.Equal("Agora você está no nível 3.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "gold 123456"));
+        var coin = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateCoin, coin.Type);
+        Assert.Equal(123456, coin.ReadInt32());
+        await a.ReceiveAsync();
+        Assert.Equal(123456, (await CharacterOf("jogadora")).Coin);
+
+        // Teleporte para longe: Bruno deixa de vê-la.
+        await a.SendAsync(CommandPacket("gm", "ir 2500 2600"));
+        Assert.Equal(Opcodes.RemoveMob, (await a.ReceiveAsync()).Type);
+        var teleport = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.Move, teleport.Type);
+        Assert.Equal((2500, 2600), (teleport.ReadInt16(), teleport.ReadInt16()));
+        Assert.Equal(Opcodes.RemoveMob, (await b.ReceiveAsync()).Type);
+
+        // Trazer o Bruno: os dois voltam a se ver.
+        await a.SendAsync(CommandPacket("gm", "trazer bruno"));
+        var moved = await b.ReceiveAsync();
+        Assert.Equal(Opcodes.Move, moved.Type);
+        Assert.Equal((2500, 2600), (moved.ReadInt16(), moved.ReadInt16()));
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+
+        await a.SendAsync(CommandPacket("gm", "kick ninguem"));
+        Assert.Equal("ninguem não está online.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
     private async Task<Character> CharacterOf(string account) =>

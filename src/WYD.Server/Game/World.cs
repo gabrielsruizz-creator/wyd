@@ -205,7 +205,7 @@ public sealed class World(
         {
             var me = session.Character!;
             if (!_players.ContainsKey(session.Id) || IsDead(me)) return false;
-            if (destX is < 0 or > 4095 || destY is < 0 or > 4095) return false;
+            if (destX is < 0 or >= MapSize || destY is < 0 or >= MapSize) return false;
             if (Math.Abs(destX - me.PosX) > MaxMoveDistance || Math.Abs(destY - me.PosY) > MaxMoveDistance) return false;
 
             me.PosX = destX;
@@ -465,6 +465,22 @@ public sealed class World(
         await SendAllAsync(outgoing);
         logger.LogInformation("[{Id}] {Name} renasceu em ({X}, {Y}).", session.Id, me.Name, me.PosX, me.PosY);
         await SaveAsync(me);
+    }
+
+    /// <summary>Tamanho do mapa em células (0 a 4095).</summary>
+    public const int MapSize = 4096;
+
+    /// <summary>Teleporta o jogador (comandos de GM) e grava a posição.</summary>
+    public async Task TeleportAsync(ClientSession session, short x, short y)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            if (!_players.ContainsKey(session.Id)) return;
+            TeleportLocked(session, x, y, outgoing);
+        }
+        await SendAllAsync(outgoing);
+        await SaveAsync(session.Character!);
     }
 
     /// <summary>Leva o jogador direto para (x, y) e refaz quem ele vê e quem o vê (chamar com o lock).</summary>
