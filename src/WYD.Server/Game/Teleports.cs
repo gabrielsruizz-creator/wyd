@@ -28,7 +28,7 @@ public sealed class TeleportTable
     public static readonly TeleportPoint[] Defaults =
     [
         new(2117, 2102, 1045, 1725, 700, "Noatun"),   // círculo de Armia
-        new(1046, 1718, 2488, 1696, 700, "Azran"),    // círculo de Noatun: centro de Azran (entre Guarda Carga, Ruti, Perzen e Teresa)
+        new(1046, 1718, 2482, 1718, 700, "Azran"),    // círculo de Noatun
     ];
 
     public TeleportTable(IOptions<ServerOptions> options, ILogger<TeleportTable> logger)
