@@ -343,4 +343,16 @@ public class ToolTests
         Assert.Equal(2480, table.Find(2118, 2101)!.DestX);          // a 2 células do centro
         Assert.Null(table.Find(2130, 2099));
     }
+
+    [Fact]
+    public void Perforation_and_absorption_change_the_damage()
+    {
+        var attacker = new WYD.Server.Protocol.Score { Damage = 200 };
+        var target = new WYD.Server.Protocol.Score { Ac = 400 };
+        int plain = WYD.Server.Game.Combat.Damage(attacker, target, new Random(7));
+        int pierced = WYD.Server.Game.Combat.Damage(attacker, target, new Random(7), perforation: 10);
+        int absorbed = WYD.Server.Game.Combat.Damage(attacker, target, new Random(7), absorption: 10);
+        Assert.Equal(plain + 400 * 10 / 100 / 4, pierced);         // 10% da defesa ignorada
+        Assert.Equal(plain * 90 / 100, absorbed);                    // 10% a menos de dano
+    }
 }

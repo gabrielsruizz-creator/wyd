@@ -179,11 +179,30 @@ public static class Stats
             Special1: EquipAbility(c, items, EfSpecial1) + specialAll,
             Special2: EquipAbility(c, items, EfSpecial2) + specialAll,
             Special3: EquipAbility(c, items, EfSpecial3) + specialAll,
-            Special4: EquipAbility(c, items, EfSpecial4) + specialAll);
+            Special4: EquipAbility(c, items, EfSpecial4) + specialAll,
+            Perforation: AncientPercent(c, items, AncientEffect.Perforation),
+            Absorption: AncientPercent(c, items, AncientEffect.Absorption),
+            ExpBonus: AncientPercent(c, items, AncientEffect.Exp),
+            DropBonus: AncientPercent(c, items, AncientEffect.Drop));
+    }
+
+    /// <summary>Soma do efeito ancient (em %) dos itens +10 ou mais equipados.</summary>
+    public static int AncientPercent(Character c, ItemList? items, AncientEffect effect)
+    {
+        if (items is null) return 0;
+        int total = 0;
+        for (int slot = 1; slot < c.Equip.Length; slot++)
+        {
+            var item = c.Equip[slot];
+            if (!item.IsEmpty && Ancient.EffectOf(items[item.Index]) == effect && Refine(item) >= Ancient.MinRefine)
+                total += Ancient.BonusPercent;
+        }
+        return total;
     }
 }
 
 /// <summary>O que o equipamento soma aos atributos base.</summary>
 public readonly record struct ItemBonus(
     int Damage, int Ac, int MaxHp, int MaxMp, int Str, int Int, int Dex, int Con,
-    int Special1, int Special2, int Special3, int Special4);
+    int Special1, int Special2, int Special3, int Special4,
+    int Perforation = 0, int Absorption = 0, int ExpBonus = 0, int DropBonus = 0);

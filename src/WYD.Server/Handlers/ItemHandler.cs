@@ -111,6 +111,7 @@ public sealed class ItemHandler(
     public async Task HandleUseAsync(ClientSession session, PacketReader packet)
     {
         int srcType = packet.ReadInt32(), srcPos = packet.ReadInt32();
+        int destType = packet.ReadInt32(), destPos = packet.ReadInt32();   // item em que a gema foi arrastada
         var place = Place(session, srcType);
         var c = session.Character!;
         if (place is null || srcType == 0 || srcPos < 0 || srcPos >= place.Length || place[srcPos].IsEmpty) return;
@@ -135,6 +136,10 @@ public sealed class ItemHandler(
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)srcType, srcPos, place[srcPos]));
             await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
         }
+        else if (usable == Game.Ancient.UsableGem && Game.Ancient.GemEffect(item.Index) is { } gemEffect)
+        {
+            if (!await ApplyGemAsync(session, place, srcPos, srcType, destType, destPos, gemEffect)) return;
+        }
         else if (usable == UsablePotion)
         {
             c.BaseScore.Hp = Math.Min(c.MaxHp, c.BaseScore.Hp + Effect(def, EfHp));
@@ -151,6 +156,53 @@ public sealed class ItemHandler(
 
         logger.LogInformation("[{Id}] {Name} usou {Item}.", session.Id, c.Name, Name(def));
         await SaveAsync(session, cargo: srcType == 2);
+    }
+
+    /// <summary>Gema arrastada num item ancient: troca o efeito dele pelo da gema (o item vira a cópia do grupo).</summary>
+    private async Task<bool> ApplyGemAsync(ClientSession session, Item[] gems, int gemPos, int gemType, int destType, int destPos,
+        Game.AncientEffect effect)
+    {
+        var c = session.Character!;
+        var dest = Place(session, destType);
+        if (dest is null || destPos < 0 || destPos >= dest.Length || dest[destPos].IsEmpty || (destType == gemType && destPos == gemPos))
+        {
+            await session.SendMessageAsync("Arraste a gema em cima do item ancient.");
+            return false;
+        }
+
+        var target = dest[destPos];
+        var current = Game.Ancient.EffectOf(catalog.List![target.Index]);
+        if (current is null)
+        {
+            await session.SendMessageAsync("A gema só funciona em itens ancient.");
+            return false;
+        }
+        if (current == effect)
+        {
+            await session.SendMessageAsync($"Este item já tem o efeito de {Game.Ancient.Name(effect)}.");
+            return false;
+        }
+        if (Game.Ancient.Variant(target.Index, catalog.List, effect) is not { } index)
+        {
+            await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
+            return false;
+        }
+
+        dest[destPos] = target with { Index = index };                 // refinação e adicionais continuam
+        Consume(gems, gemPos);
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)gemType, gemPos, gems[gemPos]));
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
+        if (destType == 0)
+        {
+            Game.Stats.Recalculate(c, catalog.List);
+            await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            foreach (var viewer in world.Viewers(session))
+                await viewer.SendAsync(update);
+        }
+        await session.SendMessageAsync($"Efeito do ancient trocado para {Game.Ancient.Name(effect)}.");
+        if (destType == 2 || gemType == 2) await SaveAsync(session, cargo: true);
+        return true;
     }
 
     /// <summary>Gasta uma unidade: itens empilhados (efeito 61 = quantidade) diminuem; os outros somem.</summary>

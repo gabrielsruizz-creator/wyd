@@ -314,7 +314,7 @@ public sealed class World(
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
                     && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
                 {
-                    damage = (short)Combat.Damage(me.CurrentScore, mob.Template.Score);
+                    damage = (short)Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation);
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
@@ -329,7 +329,8 @@ public sealed class World(
 
             foreach (var mob in killed)
             {
-                me.Exp = Math.Min(uint.MaxValue, me.Exp + Math.Max(0, mob.Template.Exp));
+                long gained = Math.Max(0, mob.Template.Exp) * (100 + me.ItemBonus.ExpBonus) / 100;   // ancient de experiência
+                me.Exp = Math.Min(uint.MaxValue, me.Exp + gained);
                 me.Coin = (int)Math.Min(Handlers.ItemHandler.MaxCoin, (long)me.Coin + Math.Max(0, mob.Template.Coin));
             }
             exp = me.Exp;
@@ -419,7 +420,7 @@ public sealed class World(
 
                 if (mob.NextAttack > now) continue;
                 mob.NextAttack = now + MobAttackInterval;
-                int damage = Combat.Damage(mob.Template.Score, c.CurrentScore);
+                int damage = Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
                 var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);

@@ -27,6 +27,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Gemas nos itens ancient: Diamante (experiência), Esmeralda (absorção), Coral (perfuração), Garnet (drop),
+      cada ancient +10 equipado vale 10%
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] Equipamento soma dano, defesa, HP, MP, atributos e especiais, com refinação (+1 a +15) como o client
 - [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6

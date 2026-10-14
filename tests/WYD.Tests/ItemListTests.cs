@@ -50,6 +50,15 @@ public class ItemListTests
         Put(1208, "Elmo", 2, 0, 1000);
         Put(1300, "Espada_Lendaria", 64, 99, 1_000_000);
         Put(2370, "Parade_Horse", 16384, 0, 0, (18, 255));
+        Put(2443, "Coral", 0, 0, 600, (38, 9), (33, 0));
+        Put(2441, "Diamond", 0, 0, 600, (38, 9), (33, 0));
+        for (short g = 5; g <= 8; g++)
+        {
+            Put(2451 + g - 5, "Club_(Ancient)", 192, 0, 350, (2, 83));
+            var d = plain.AsSpan((2451 + g - 5) * ItemDefinition.Size, ItemDefinition.Size);
+            BinaryPrimitives.WriteInt16LittleEndian(d[64..], 801);   // Mesh
+            BinaryPrimitives.WriteInt16LittleEndian(d[138..], g);    // Grade: o efeito ancient
+        }
         Put(4011, "Silver_Wyden(1_billion_gold)", 0, 0, 50000, (38, 185), (33, 0), (43, 4));
         Put(5000, "Pedra_Sem_Uso", 0, 0, 10);
 

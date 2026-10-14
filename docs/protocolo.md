@@ -283,3 +283,16 @@ O GM monta a lista no jogo com `/gm tp add`.
 
 O client também tem as áreas das cidades em `0x5C7E58` (Armia 2052-2171 × 2052-2163, Azran 2432-2675 ×
 1536-1767, Erion 2448-2476 × 1966-2024 e mais duas) e manda o `0x291` ao mudar de área.
+
+## Gemas e itens ancient
+
+Os itens `(Ancient)` vêm em grupos de 4 cópias seguidas no ItemList, iguais a não ser pelo `Grade` (5 a 8).
+O `0x373` traz o item usado em `0x0C`/`0x10` e o item de destino em `0x14`/`0x18` (tipo e slot), além de
+`short X, Y` em `0x1C`. Arrastar uma gema (uso 9) num ancient troca o item pela cópia do grupo:
+
+| Gema | Grade | Efeito (com o item +10 ou mais equipado) |
+|------|-------|-------------------------------------------|
+| Diamante (2441) | 5 | +10% de experiência |
+| Esmeralda (2442) | 6 | absorção: 10% a menos de dano recebido |
+| Coral (2443) | 7 | perfuração: ignora 10% da defesa do alvo |
+| Garnet (2444) | 8 | +10% de drop (quando os drops existirem) |
