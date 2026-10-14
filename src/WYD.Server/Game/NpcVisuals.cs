@@ -6,9 +6,10 @@ using WYD.Server.Config;
 namespace WYD.Server.Game;
 
 /// <summary>
-/// Troca de aparência de NPCs na tela (só o 0x364; o NPC continua igual no servidor). Os reis usam o conjunto
-/// Orange King (rosto 304, armaduras 160-163) e a arma Heaven of Garve (999), que só eles têm e que derrubam o
-/// client 7.54 testado; por padrão eles aparecem com peças que o client desenha bem. data/npc-visual.txt
+/// Troca de aparência de NPCs na tela (só o 0x364; o NPC continua igual no servidor). Os reis derrubam o client
+/// 7.54 testado ao aparecer; eles são os únicos NPCs com o conjunto Orange King (rosto 304, armaduras 160-163), a
+/// arma Heaven of Garve (999) e as capas Elite do reino (3191/3192), então por padrão aparecem com as peças dos
+/// guardas, que o client desenha bem. data/npc-visual.txt
 /// ("Nome slot item", uma por linha; item 0 tira a peça) soma ou troca essas regras.
 /// </summary>
 public sealed class NpcVisuals
@@ -25,6 +26,7 @@ public sealed class NpcVisuals
         [0] = 305,                                   // Orange_Guard (no lugar de Orange_King)
         [2] = 165, [3] = 166, [4] = 167, [5] = 168,  // Blue_Guard (no lugar do conjunto Orange King)
         [6] = 997,                                   // Heaven_Of_Shard (no lugar de Heaven_Of_Garve)
+        [15] = 734,                                  // Cape_Of_CruSader dos guardas (no lugar das capas Elite do reino)
     };
 
     private readonly Dictionary<string, Dictionary<int, short>> _rules;

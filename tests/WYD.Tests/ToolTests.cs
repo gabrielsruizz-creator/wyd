@@ -421,6 +421,7 @@ public class ToolTests
         Assert.Equal(305, visuals.Visible("Rei_Harabard", 0, 304));       // rosto Orange_King trocado
         Assert.Equal(997, visuals.Visible("Rei_Harabard", 6, 999));       // arma trocada
         Assert.Equal(747, visuals.Visible("Rei_Harabard", 1, 747));       // coroa fica
+        Assert.Equal(734, visuals.Visible("Rei_Harabard", 15, 3191));     // capa Elite trocada pela dos guardas
         Assert.Equal(999, visuals.Visible("Rei_Glantuar", 6, 999));       // o arquivo pode voltar a arma original
         Assert.Equal(300, visuals.Visible("Lobo", 0, 299));
         Assert.Equal(52, visuals.Visible("Averest", 0, 52));              // os outros NPCs não mudam
