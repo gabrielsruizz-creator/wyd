@@ -618,7 +618,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(280, saved.Exp);
             Assert.Equal(50, saved.Coin);
             Assert.Equal(2, saved.BaseScore.Level);
-            Assert.Equal(saved.BaseScore.MaxHp, saved.BaseScore.Hp);
+            Assert.Equal(saved.MaxHp, saved.BaseScore.Hp);                 // cheia no máximo atual (com a CON)
             var back = await a.ReceiveAsync();
             Assert.Equal(Opcodes.CreateMob, back.Type);
             back.Skip(4);

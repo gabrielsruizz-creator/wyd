@@ -210,7 +210,8 @@ public class ToolTests
 
         Assert.Null(WYD.Server.Game.Points.Apply(c, 0, 3));         // CON
         Assert.Equal(1, c.BaseScore.Con);
-        Assert.Equal(100 + WYD.Server.Game.Points.HpPerCon, c.BaseScore.MaxHp);
+        Assert.Equal(100, c.BaseScore.MaxHp);                         // a CON entra na ficha atual
+        Assert.Equal(100 + WYD.Server.Game.Points.HpPerCon, c.MaxHp);
         Assert.Null(WYD.Server.Game.Points.Apply(c, 0, 0));         // FOR
         Assert.Equal(1, c.BaseScore.Str);
         Assert.NotNull(WYD.Server.Game.Points.Apply(c, 0, 0));      // acabaram os pontos
@@ -381,5 +382,21 @@ public class ToolTests
         var fm = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.Foema, SkillBonus = 12 };
         Assert.Null(WYD.Server.Game.Skills.Learn(fm, 5024, null, data));
         Assert.Equal(1u, fm.LearnedSkill);                       // bit 0 da classe (24 % 24)
+    }
+
+    [Fact]
+    public void Attributes_and_accessories_shape_the_current_score()
+    {
+        var items = ItemListTests.TestItems();
+        var c = new WYD.Server.Game.Character();
+        c.Equip[0] = new WYD.Server.Protocol.Item(1);                  // rosto de mortal
+        c.BaseScore = new WYD.Server.Protocol.Score { Level = 99, Damage = 10, MaxHp = 1000, MaxMp = 500, Str = 300, Dex = 80, Con = 100, Int = 50, Special1 = 20 };
+        c.Equip[8] = new WYD.Server.Protocol.Item(1208) { Effect1 = 45, Value1 = 10 };   // anel com +10% de HP
+
+        WYD.Server.Game.Stats.Recalculate(c, items);
+        var s = c.CurrentScore;
+        Assert.Equal(10 + 300 / 3 + 80 / 8 + 20 + 99, s.Damage);
+        Assert.Equal((1000 + 100 * WYD.Server.Game.Points.HpPerCon) * 110 / 100, s.MaxHp);
+        Assert.Equal(500 + 50 * WYD.Server.Game.Points.MpPerInt, s.MaxMp);
     }
 }

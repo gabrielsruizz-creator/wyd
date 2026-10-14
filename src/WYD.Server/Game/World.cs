@@ -544,8 +544,9 @@ public sealed class World(
             {
                 var s = player.Character!;
                 if (IsDead(s) || (s.BaseScore.Hp >= s.MaxHp && s.BaseScore.Mp >= s.MaxMp)) continue;
-                s.BaseScore.Hp = Math.Min(s.MaxHp, s.BaseScore.Hp + Math.Max(1, s.MaxHp / 20));
-                s.BaseScore.Mp = Math.Min(s.MaxMp, s.BaseScore.Mp + Math.Max(1, s.MaxMp / 20));
+                // 5% do máximo mais a regeneração dos itens (efeitos 47 e 48, como os anéis de vida)
+                s.BaseScore.Hp = Math.Min(s.MaxHp, s.BaseScore.Hp + Math.Max(1, s.MaxHp / 20) + s.ItemBonus.RegenHp);
+                s.BaseScore.Mp = Math.Min(s.MaxMp, s.BaseScore.Mp + Math.Max(1, s.MaxMp / 20) + s.ItemBonus.RegenMp);
                 outgoing.Add((player, ServerPackets.UpdateHpMp(player.Id, s.BaseScore.Hp, s.BaseScore.Mp)));
             }
         }

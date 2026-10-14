@@ -204,7 +204,7 @@ public class ProtocolTests
     [Fact]
     public void Damage_is_at_least_one_and_varies_around_base()
     {
-        var attacker = new Score { Damage = 20, Str = 10 };   // base 25
+        var attacker = new Score { Damage = 25 };             // a ficha atual já traz FOR, DES e nível no dano
         var weakTarget = new Score { Ac = 0 };
         var rng = new Random(1);
         var values = Enumerable.Range(0, 500).Select(_ => WYD.Server.Game.Combat.Damage(attacker, weakTarget, rng)).ToList();

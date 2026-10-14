@@ -12,7 +12,7 @@ public static class Points
     public const short MaxAttribute = 32000;
     public const byte MaxSpecial = 255;
 
-    /// <summary>Vida a mais por ponto de CON e mana a mais por ponto de INT.</summary>
+    /// <summary>Vida a mais por ponto de CON e mana a mais por ponto de INT (somadas na ficha atual, ver Character.CurrentScore).</summary>
     public const int HpPerCon = 2, MpPerInt = 2;
 
     /// <summary>Aplica um ponto. Retorna o motivo da recusa, ou null se deu certo.</summary>
@@ -26,9 +26,9 @@ public static class Points
                 switch (which)
                 {
                     case 0: if (s.Str >= MaxAttribute) return Full; s.Str++; break;
-                    case 1: if (s.Int >= MaxAttribute) return Full; s.Int++; s.MaxMp += MpPerInt; break;
+                    case 1: if (s.Int >= MaxAttribute) return Full; s.Int++; break;
                     case 2: if (s.Dex >= MaxAttribute) return Full; s.Dex++; break;
-                    case 3: if (s.Con >= MaxAttribute) return Full; s.Con++; s.MaxHp += HpPerCon; break;
+                    case 3: if (s.Con >= MaxAttribute) return Full; s.Con++; break;
                     default: return "Atributo inválido.";
                 }
                 c.ScoreBonus--;

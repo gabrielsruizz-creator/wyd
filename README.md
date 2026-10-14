@@ -32,6 +32,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Mestres de skill (Cap.Cavaleiros, Foema_Ancian, Mestre_Archi, ForeLearner): lista das skills e aprender,
       gastando os pontos de skill da `SkillData.bin`
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
+- [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
+      MP% e regeneração funcionam
 - [x] Equipamento soma dano, defesa, HP, MP, atributos e especiais, com refinação (+1 a +15) como o client
 - [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6
 - [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha

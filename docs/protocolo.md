@@ -308,3 +308,16 @@ A skill n é o item 5000 + n: TK 0-23 (Cap.Cavaleiros), FM 24-47 (Foema_Ancian),
 (ForeLearner). A aprendida vira o bit `n % 24` do `LearnedSkill` (`0x337`). O ItemList dá a classe (efeito 18),
 o nível e os atributos mínimos; a `SkillData.bin` (registros de 96 bytes em XOR 0x5A, 104 skills + checksum)
 dá o custo em pontos de skill no primeiro int de cada registro.
+
+## Atributos na ficha atual
+
+Como o client calcula (função em `0x55A392`, a mesma conta que o servidor faz em `Character.CurrentScore`):
+
+- Dano = dano base + itens (efeito 2) + FOR/3 + DES/8 + Especial 1 + nível (o dobro do nível quando
+  `rosto % 10 > 5`).
+- Defesa = defesa base + efeitos 3 e 53.
+- Vida máxima = (base + efeito 4 + CON × 2) × (100 + efeito 45) / 100; mana = (base + efeito 5 + INT × 2) ×
+  (100 + efeito 46) / 100 (os efeitos 45 e 46 são %; o "× 2" de CON/INT é deste servidor).
+- Velocidade de ataque: DES/5 + efeito 26 (o client calcula sozinho).
+- Regeneração: o servidor soma os efeitos 47 e 48 (anéis) aos 5% de cada 6 segundos.
+- Magia (60 + 68), crítico (42), economia de mana (44) e resistências (49-54) ficam guardados para as skills.

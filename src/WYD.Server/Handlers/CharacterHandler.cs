@@ -110,7 +110,11 @@ public sealed partial class CharacterHandler(
 
         if (Stats.FixNewMounts(character.Equip) | Stats.FixNewMounts(character.Inventory))
             await characters.SaveItemsAsync(character);
+        // Vida/mana cheias no máximo base continuam cheias no máximo com CON, INT e equipamento.
+        bool fullHp = character.BaseScore.Hp >= character.BaseScore.MaxHp, fullMp = character.BaseScore.Mp >= character.BaseScore.MaxMp;
         Stats.Recalculate(character, catalog.List);
+        if (fullHp) character.BaseScore.Hp = character.MaxHp;
+        if (fullMp) character.BaseScore.Mp = character.MaxMp;
 
         if (character.BaseScore.Hp <= 0)
         {

@@ -70,7 +70,9 @@ public static class Stats
 
     public const int EfDamage = 2, EfAc = 3, EfHp = 4, EfMp = 5, EfStr = 7, EfInt = 8, EfDex = 9, EfCon = 10,
         EfSpecial1 = 11, EfSpecial2 = 12, EfSpecial3 = 13, EfSpecial4 = 14, EfMagic = 60, EfDamage2 = 73,
-        EfSpecialAll = 74, EfSanc = 43, EfRegenHp = 47, EfRegenMp = 48;
+        EfSpecialAll = 74, EfSanc = 43, EfRegenHp = 47, EfRegenMp = 48,
+        EfAttackSpeed = 26, EfCritical = 42, EfSaveMana = 44, EfHpPercent = 45, EfMpPercent = 46,
+        EfResist1 = 49, EfResist2 = 50, EfResist3 = 51, EfResist4 = 52, EfAcAdd = 53, EfResistAll = 54, EfMagicAdd = 68;
 
     /// <summary>Efeitos que a refinação não multiplica (como no client, em 0x557507).</summary>
     private static readonly HashSet<int> NotRefined =
@@ -169,7 +171,7 @@ public static class Stats
         int specialAll = EquipAbility(c, items, EfSpecialAll);
         c.ItemBonus = new ItemBonus(
             Damage: EquipAbility(c, items, EfDamage),
-            Ac: EquipAbility(c, items, EfAc),
+            Ac: EquipAbility(c, items, EfAc) + EquipAbility(c, items, EfAcAdd),
             MaxHp: EquipAbility(c, items, EfHp),
             MaxMp: EquipAbility(c, items, EfMp),
             Str: EquipAbility(c, items, EfStr),
@@ -183,7 +185,16 @@ public static class Stats
             Perforation: AncientPercent(c, items, AncientEffect.Perforation),
             Absorption: AncientPercent(c, items, AncientEffect.Absorption),
             ExpBonus: AncientPercent(c, items, AncientEffect.Exp),
-            DropBonus: AncientPercent(c, items, AncientEffect.Drop));
+            DropBonus: AncientPercent(c, items, AncientEffect.Drop),
+            HpPercent: EquipAbility(c, items, EfHpPercent),
+            MpPercent: EquipAbility(c, items, EfMpPercent),
+            RegenHp: EquipAbility(c, items, EfRegenHp),
+            RegenMp: EquipAbility(c, items, EfRegenMp),
+            Magic: EquipAbility(c, items, EfMagic) + EquipAbility(c, items, EfMagicAdd),
+            Critical: EquipAbility(c, items, EfCritical),
+            AttackSpeed: EquipAbility(c, items, EfAttackSpeed),
+            SaveMana: EquipAbility(c, items, EfSaveMana),
+            ResistAll: EquipAbility(c, items, EfResistAll));
     }
 
     /// <summary>Soma do efeito ancient (em %) dos itens +10 ou mais equipados.</summary>
@@ -205,4 +216,6 @@ public static class Stats
 public readonly record struct ItemBonus(
     int Damage, int Ac, int MaxHp, int MaxMp, int Str, int Int, int Dex, int Con,
     int Special1, int Special2, int Special3, int Special4,
-    int Perforation = 0, int Absorption = 0, int ExpBonus = 0, int DropBonus = 0);
+    int Perforation = 0, int Absorption = 0, int ExpBonus = 0, int DropBonus = 0,
+    int HpPercent = 0, int MpPercent = 0, int RegenHp = 0, int RegenMp = 0, int Magic = 0, int Critical = 0,
+    int AttackSpeed = 0, int SaveMana = 0, int ResistAll = 0);

@@ -58,7 +58,11 @@ public sealed class Character
     /// <summary>O que o equipamento soma (calculado por <see cref="Stats.Recalculate"/>).</summary>
     public ItemBonus ItemBonus { get; set; }
 
-    /// <summary>Os atributos que valem no jogo: os base mais o equipamento, com a velocidade das botas/montaria.</summary>
+    /// <summary>
+    /// Os atributos que valem no jogo, calculados como o client 7.54 (0x55A392): base mais equipamento; o dano
+    /// soma FOR/3 + DES/8 + Especial 1 + nível (o dobro do nível para rostos evoluídos); CON e INT dão vida e mana;
+    /// os efeitos 45 e 46 dos itens aumentam vida e mana em %.
+    /// </summary>
     public Score CurrentScore
     {
         get
@@ -66,10 +70,7 @@ public sealed class Character
             var s = BaseScore;
             var b = ItemBonus;
             s.AttackRun = (byte)((s.AttackRun & 0xF0) | RunSpeed);
-            s.Damage += b.Damage;
             s.Ac += b.Ac;
-            s.MaxHp += b.MaxHp;
-            s.MaxMp += b.MaxMp;
             s.Str = (short)Math.Clamp(s.Str + b.Str, 0, short.MaxValue);
             s.Int = (short)Math.Clamp(s.Int + b.Int, 0, short.MaxValue);
             s.Dex = (short)Math.Clamp(s.Dex + b.Dex, 0, short.MaxValue);
@@ -78,6 +79,11 @@ public sealed class Character
             s.Special2 = (byte)Math.Clamp(s.Special2 + b.Special2, 0, 255);
             s.Special3 = (byte)Math.Clamp(s.Special3 + b.Special3, 0, 255);
             s.Special4 = (byte)Math.Clamp(s.Special4 + b.Special4, 0, 255);
+
+            int levelBonus = Equip[0].Index % 10 > 5 ? s.Level * 2 : s.Level;
+            s.Damage += b.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
+            s.MaxHp = Math.Clamp((s.MaxHp + b.MaxHp + s.Con * Points.HpPerCon) * (100 + b.HpPercent) / 100, 1, 64000);
+            s.MaxMp = Math.Clamp((s.MaxMp + b.MaxMp + s.Int * Points.MpPerInt) * (100 + b.MpPercent) / 100, 0, 64000);
             s.Hp = Math.Min(s.Hp, s.MaxHp);
             s.Mp = Math.Min(s.Mp, s.MaxMp);
             return s;
@@ -85,8 +91,8 @@ public sealed class Character
     }
 
     /// <summary>Vida e mana máximas com o equipamento.</summary>
-    public int MaxHp => Math.Max(1, BaseScore.MaxHp + ItemBonus.MaxHp);
-    public int MaxMp => Math.Max(0, BaseScore.MaxMp + ItemBonus.MaxMp);
+    public int MaxHp => CurrentScore.MaxHp;
+    public int MaxMp => CurrentScore.MaxMp;
 
     /// <summary>Mortal, Arch, Celestial ou Sub Celestial: guardado no rosto, junto com o equipamento.</summary>
     public Evolution Evolution
