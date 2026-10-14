@@ -136,7 +136,7 @@ public sealed class ItemHandler(
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)srcType, srcPos, place[srcPos]));
             await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
         }
-        else if (usable == Game.Ancient.UsableGem && Game.Ancient.GemEffect(item.Index) is { } gemEffect)
+        else if (Game.Ancient.GemEffect(usable) is { } gemEffect)
         {
             if (!await ApplyGemAsync(session, place, srcPos, srcType, destType, destPos, gemEffect)) return;
         }

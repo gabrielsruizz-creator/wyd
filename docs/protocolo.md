@@ -288,11 +288,12 @@ O client também tem as áreas das cidades em `0x5C7E58` (Armia 2052-2171 × 205
 
 Os itens `(Ancient)` vêm em grupos de 4 cópias seguidas no ItemList, iguais a não ser pelo `Grade` (5 a 8).
 O `0x373` traz o item usado em `0x0C`/`0x10` e o item de destino em `0x14`/`0x18` (tipo e slot), além de
-`short X, Y` em `0x1C`. Arrastar uma gema (uso 9) num ancient troca o item pela cópia do grupo:
+`short X, Y` em `0x1C`. Arrastar uma gema (uso 180 a 183 = Grade + 175) num ancient troca o item pela cópia do
+grupo. As pedras 2441 a 2444 (uso 9) são material de composição, não gemas.
 
 | Gema | Grade | Efeito (com o item +10 ou mais equipado) |
 |------|-------|-------------------------------------------|
-| Diamante (2441) | 5 | +10% de experiência |
-| Esmeralda (2442) | 6 | absorção: 10% a menos de dano recebido |
-| Coral (2443) | 7 | perfuração: ignora 10% da defesa do alvo |
-| Garnet (2444) | 8 | +10% de drop (quando os drops existirem) |
+| Diamond_Gem (3386) | 5 | +10% de experiência |
+| Emerald_Gem (3387) | 6 | absorção: 10% a menos de dano recebido |
+| Coral_Gem (3388) | 7 | perfuração: ignora 10% da defesa do alvo |
+| Granet_Gem (3389) | 8 | +10% de drop (quando os drops existirem) |

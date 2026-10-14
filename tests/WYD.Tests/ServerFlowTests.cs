@@ -902,7 +902,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
         var c = await CharacterOf("jogadora");
-        c.Inventory[0] = new Item(2443);                                  // Coral: perfuração
+        c.Inventory[0] = new Item(3388);                                  // Gema de Coral: perfuração
+        c.Inventory[3] = new Item(2443);                                  // pedra Coral: é de composição
         c.Inventory[1] = new Item(2451) { Effect1 = 43, Value1 = 230 };   // Club ancient (experiência) +10
         c.Inventory[2] = new Item(905);
 
@@ -912,7 +913,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
         // Em item que não é ancient: recusado e a gema fica.
         await a.SendAsync(Use(0, 1, 2));
         Assert.Equal("A gema só funciona em itens ancient.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-        Assert.Equal(2443, c.Inventory[0].Index);
+        Assert.Equal(3388, c.Inventory[0].Index);
+
+        // A pedra não é gema.
+        await a.SendAsync(Use(3, 1, 1));
+        Assert.Equal("Coral ainda não tem função neste servidor.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
         await a.SendAsync(Use(0, 1, 1));
         Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);          // a gema sumiu

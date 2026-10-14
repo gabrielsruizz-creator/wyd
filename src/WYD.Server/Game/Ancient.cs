@@ -6,23 +6,25 @@ namespace WYD.Server.Game;
 /// <summary>Efeito especial de um item ancient: cada um dos 4 itens iguais do grupo (Grade 5 a 8) tem um.</summary>
 public enum AncientEffect : byte
 {
-    Exp = 5,         // Diamante
-    Absorption = 6,  // Esmeralda
-    Perforation = 7, // Coral
-    Drop = 8,        // Garnet
+    Exp = 5,         // Gema de Diamante
+    Absorption = 6,  // Gema de Esmeralda
+    Perforation = 7, // Gema de Coral
+    Drop = 8,        // Gema de Garnet
 }
 
 /// <summary>
 /// Itens ancient vêm em grupos de 4 cópias seguidas no ItemList, iguais a não ser pelo Grade (5, 6, 7 e 8).
-/// Usar uma gema (Diamante 2441, Esmeralda 2442, Coral 2443, Garnet 2444) num ancient troca o item pela
-/// cópia do grupo com o efeito da gema. Com o item +10 ou mais equipado, o efeito vale <see cref="BonusPercent"/>%.
+/// Usar uma gema (Diamond_Gem 3386, Emerald_Gem 3387, Coral_Gem 3388, Granet_Gem 3389; uso 180 a 183 no
+/// ItemList, ou seja, Grade + 175) num ancient troca o item pela cópia do grupo com o efeito da gema.
+/// As pedras 2441 a 2444 (Diamond, Emerald, Coral, Garnet) são material de composição, não gemas.
+/// Com o item +10 ou mais equipado, o efeito vale <see cref="BonusPercent"/>%.
 /// </summary>
 public static class Ancient
 {
-    public const short Diamond = 2441, Emerald = 2442, Coral = 2443, Garnet = 2444;
+    public const short DiamondGem = 3386, EmeraldGem = 3387, CoralGem = 3388, GarnetGem = 3389;
 
-    /// <summary>Uso (efeito 38) das gemas no ItemList.</summary>
-    public const short UsableGem = 9;
+    /// <summary>Uso (efeito 38) das gemas no ItemList: 180 a 183, o Grade do efeito + 175.</summary>
+    public const short FirstGemUsable = 180, LastGemUsable = 183;
 
     /// <summary>Quanto cada ancient +10 equipado soma ao efeito dele.</summary>
     public const int BonusPercent = 10;
@@ -30,14 +32,9 @@ public static class Ancient
     /// <summary>Refinação mínima para o efeito valer.</summary>
     public const int MinRefine = 10;
 
-    public static AncientEffect? GemEffect(short gem) => gem switch
-    {
-        Diamond => AncientEffect.Exp,
-        Emerald => AncientEffect.Absorption,
-        Coral => AncientEffect.Perforation,
-        Garnet => AncientEffect.Drop,
-        _ => null,
-    };
+    /// <summary>O efeito que a gema dá, pelo uso dela no ItemList (180 a 183).</summary>
+    public static AncientEffect? GemEffect(short usable) =>
+        usable is >= FirstGemUsable and <= LastGemUsable ? (AncientEffect)(usable - 175) : null;
 
     public static string Name(AncientEffect e) => e switch
     {
