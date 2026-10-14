@@ -12,10 +12,6 @@ namespace WYD.Server.Handlers;
 /// </summary>
 public sealed class KingHandler(World world, KingdomPoints points, ICharacterRepository characters, ILogger<KingHandler> logger)
 {
-    /// <summary>NPCs de reino têm Merchant 15 e o clã do reino (7 ou 8).</summary>
-    public static bool IsKing(Mob npc) =>
-        (npc.Template.Score.Merchant & 0x0F) == 15 && npc.Template.Clan is (byte)Kingdom.Blue or (byte)Kingdom.Red;
-
     /// <summary>
     /// 0x28B: o jogador falou com um NPC que conversa (id do NPC em 0x0C). O client manda com Confirma (0x10) = 0
     /// ao clicar e abrir a pergunta, e com 1 quando o jogador aceita.
@@ -37,7 +33,7 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
             return;
         }
 
-        if (!IsKing(npc))
+        if (!npc.IsKing)
         {
             logger.LogInformation("[{Id}] Clique em {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);
             return;

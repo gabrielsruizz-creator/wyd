@@ -82,10 +82,20 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
             return templates[name] = template;
         }
 
+        // NPC parado repetido no mesmo lugar (o NPCGener traz cada rei duas vezes) nasce uma vez só.
+        var fixedNpcs = new HashSet<(string, int, int)>();
+        int repeated = 0;
+
         foreach (var rule in rules)
         {
             var leader = Template(rule.Leader);
             if (leader is null) continue;
+            if (leader.Merchant != 0 && rule.StartRange == 0
+                && !fixedNpcs.Add((rule.Leader.ToLowerInvariant(), rule.StartX, rule.StartY)))
+            {
+                repeated++;
+                continue;
+            }
             var follower = Template(rule.Follower) ?? leader;
 
             int followers = rule.MaxGroup > rule.MinGroup ? Random.Shared.Next(rule.MinGroup, rule.MaxGroup + 1) : rule.MinGroup;
@@ -105,6 +115,8 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
         }
 
         logger.LogInformation("{Count} monstros e NPCs criados a partir de {Rules} spawns.", spawned, rules.Count);
+        if (repeated > 0)
+            logger.LogInformation("{Count} NPCs repetidos no mesmo lugar foram ignorados.", repeated);
         if (spawned >= limit)
             logger.LogWarning("Limite de {Limit} monstros atingido; os spawns restantes foram ignorados.", limit);
         if (missing.Count > 0)

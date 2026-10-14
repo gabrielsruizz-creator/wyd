@@ -245,6 +245,11 @@ O reino é a capa (`Equip[15]`), pela mesma tabela do client (função `0x564783
 Os reis têm `Merchant` 15 e o clã do reino (7 ou 8). Clicar neles faz o client mandar o `0x28B`
 (20 bytes: `int IdDoNpc`, `int Confirma`).
 
+Os dados originais dos reis derrubam o client 7.54 (testado: tirando o rei do mapa com `/gm npc remover` o crash
+some; trocar só o visual ou só o tipo não resolveu). Por isso o `0x364` dos reis vai com o visual e a ficha do
+Guarda_Real do castelo (rosto 60 ou 305, armadura 165-168 ou 170-173, capa 734 ou 735), mantendo o nome e o
+`Merchant` do rei. O NPCGener traz cada rei duas vezes no mesmo lugar; NPC parado repetido nasce uma vez só.
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos

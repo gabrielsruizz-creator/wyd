@@ -468,13 +468,16 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var npcDir = Directory.CreateTempSubdirectory().FullName;
         try
         {
-            // O NPCGener traz cada rei duas vezes na mesma célula: o segundo vai para a célula livre do lado.
+            // NPC repetido no mesmo lugar nasce uma vez; outro NPC na mesma célula vai para a célula livre do lado.
             File.WriteAllBytes(Path.Combine(npcDir, "Rei_Teste"), NpcDataTests.NpcFile("Rei_Teste", 304, 1, 100, merchant: 1));
+            File.WriteAllBytes(Path.Combine(npcDir, "Guarda"), NpcDataTests.NpcFile("Guarda", 60, 1, 100, merchant: 1));
             await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
             [
                 new() { Leader = "Rei_Teste", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
                 new() { Leader = "Rei_Teste", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
+                new() { Leader = "Guarda", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
             ], npcDir);
+            Assert.Equal(2, _host.Services.GetRequiredService<World>().MobCount);
 
             using var a = await EnterWorldAsync("jogadora", "Alice");
             var cells = new HashSet<(short, short)>();
@@ -490,8 +493,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
             await a.SendAsync(CommandPacket("gm", "npc remover Rei_Teste"));
             Assert.Equal(Opcodes.RemoveMob, (await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Type);
-            Assert.Equal(Opcodes.RemoveMob, (await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Type);
-            Assert.Equal(0, _host.Services.GetRequiredService<World>().WatchedMobs().Count);
+            Assert.Single(_host.Services.GetRequiredService<World>().WatchedMobs());
         }
         finally
         {
@@ -812,6 +814,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
             var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
             created.Skip(4);
             ushort kingId = created.ReadUInt16();
+            // O client recebe o rei com o visual e a ficha do Guarda_Real (os originais o derrubam), mas com o tipo do rei.
+            created.Skip(12 + 4);
+            Assert.Equal(60, created.ReadInt16());                          // rosto do Guarda_Real, não o 304 do rei
+            created.Skip(15 * 2 + 32 + 2 + 6);
+            Assert.Equal(0x6F, created.ReadByte());                         // Merchant do rei: o clique abre a evolução
             (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
             var me = await CharacterOf("jogadora");
 

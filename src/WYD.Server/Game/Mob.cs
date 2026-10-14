@@ -69,9 +69,13 @@ public sealed class Mob
     /// <summary>Trocas de aparência (ver <see cref="NpcVisuals"/>); definido pelo MobService.</summary>
     public NpcVisuals? Visuals { get; set; }
 
-    /// <summary>O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>).</summary>
-    public byte[] CreatePacket() =>
-        ServerPackets.CreateMob(Id, Template.Name, X, Y,
+    /// <summary>Rei do reino (Rei Harabard, azul; Rei Glantuar, vermelho): Merchant 15 e o clã do reino (7 ou 8).</summary>
+    public bool IsKing => (Template.Score.Merchant & 0x0F) == 15 && Template.Clan is (byte)Kingdom.Blue or (byte)Kingdom.Red;
+
+    /// <summary>O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>); reis vão com o <see cref="KingLook"/>.</summary>
+    public byte[] CreatePacket() => IsKing
+        ? ServerPackets.CreateMob(Id, Template.Name, X, Y, KingLook.Equip((Kingdom)Template.Clan), 0, KingLook.Score(Template.Score.Merchant))
+        : ServerPackets.CreateMob(Id, Template.Name, X, Y,
             Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
             Template.Guild, Score);
 }
