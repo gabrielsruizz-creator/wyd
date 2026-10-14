@@ -462,6 +462,43 @@ public sealed class ServerFlowTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task Npcs_never_share_a_cell_and_gm_can_remove_them()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // O NPCGener traz cada rei duas vezes na mesma célula: o segundo vai para a célula livre do lado.
+            File.WriteAllBytes(Path.Combine(npcDir, "Rei_Teste"), NpcDataTests.NpcFile("Rei_Teste", 304, 1, 100, merchant: 1));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+            [
+                new() { Leader = "Rei_Teste", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
+                new() { Leader = "Rei_Teste", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
+            ], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var cells = new HashSet<(short, short)>();
+            for (int i = 0; i < 2; i++)
+            {
+                var p = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+                short x = p.ReadInt16(), y = p.ReadInt16();
+                Assert.InRange(Math.Max(Math.Abs(x - 2102), Math.Abs(y - 2100)), 0, 1);
+                cells.Add((x, y));
+            }
+            Assert.Equal(2, cells.Count);
+
+            (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+            await a.SendAsync(CommandPacket("gm", "npc remover Rei_Teste"));
+            Assert.Equal(Opcodes.RemoveMob, (await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Type);
+            Assert.Equal(Opcodes.RemoveMob, (await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Type);
+            Assert.Equal(0, _host.Services.GetRequiredService<World>().WatchedMobs().Count);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
     private static byte[] CommandPacket(string command, string text) =>
         new PacketWriter(Opcodes.Command, ServerPackets.CommandSize)
             .WriteString(command, 16).WriteString(text, ServerPackets.CommandSize - 28).ToArray();
@@ -1123,7 +1160,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await a.SendAsync(CommandPacket("gm", "trazer bruno"));
         var moved = await b.ReceiveAsync();
         Assert.Equal(Opcodes.Move, moved.Type);
-        Assert.Equal((2500, 2600), (moved.ReadInt16(), moved.ReadInt16()));
+        Assert.Equal((2499, 2599), (moved.ReadInt16(), moved.ReadInt16()));   // do lado: a célula 2500 2600 é dela
         Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
 
         await a.SendAsync(CommandPacket("gm", "kick ninguem"));

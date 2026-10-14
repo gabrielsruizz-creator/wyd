@@ -46,6 +46,8 @@ public sealed class CommandHandler(
         ("/gm aviso <texto>", "mensagem para todos os jogadores"),
         ("/gm kick <nome>", "desconecta o jogador"),
         ("/gm limpar", "esvazia o seu inventário"),
+        ("/gm npc", "lista os NPCs e monstros perto de você (id, nome, posição)"),
+        ("/gm npc remover <id|nome>", "tira o NPC do mapa até reiniciar o servidor (para achar NPC que derruba o client)"),
         ("/gm ajuda", "mostra esta lista"),
     ];
 
@@ -117,6 +119,7 @@ public sealed class CommandHandler(
             case "aviso": await NoticeAsync(session, args); break;
             case "kick": await KickAsync(session, args); break;
             case "limpar": await ClearInventoryAsync(session); break;
+            case "npc": await NpcCommandAsync(session, args); break;
             default:
                 await SystemLinesAsync(session, GmCommands.Select(c => $"{c.Usage} - {c.Description}"));
                 break;
@@ -208,6 +211,39 @@ public sealed class CommandHandler(
                 break;
         }
     }
+
+    /// <summary>/gm npc | /gm npc remover 1035 | /gm npc remover Rei_Harabard</summary>
+    private async Task NpcCommandAsync(ClientSession session, string args)
+    {
+        var parts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            var near = world.NearbyMobs(session, Game.World.ViewRange).OrderBy(m => m.Id).ToList();
+            await SystemLinesAsync(session, near
+                .Select(m => $"{m.Id} {m.Template.Name} {m.X} {m.Y}")
+                .Prepend($"{near.Count} NPC(s)/monstro(s) perto de você:"));
+            return;
+        }
+        if (parts[0].ToLowerInvariant() is not ("remover" or "apagar") || parts.Length < 2)
+        {
+            await session.SendMessageAsync("Uso: /gm npc | /gm npc remover <id|nome>");
+            return;
+        }
+
+        string target = parts[1].Trim();
+        var removed = ushort.TryParse(target, out ushort id)
+            ? await world.RemoveMobsAsync(m => m.Id == id)
+            : await world.RemoveMobsAsync(m => SameNpcName(m.Template.Name, target));
+        await session.SendMessageAsync(removed.Count == 0
+            ? $"Nenhum NPC '{target}' no mapa."
+            : $"{removed.Count} removido(s) até reiniciar o servidor: " +
+              string.Join(", ", removed.Take(8).Select(m => $"{m.Id} {m.Template.Name} ({m.X} {m.Y})")));
+    }
+
+    /// <summary>O nome do NPC no client tem só 12 letras ("Rei_Harabar"): aceita o nome inteiro do arquivo também.</summary>
+    private static bool SameNpcName(string npc, string typed) =>
+        npc.Equals(typed, StringComparison.OrdinalIgnoreCase)
+        || (npc.Length >= 8 && typed.StartsWith(npc, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>/gm curar</summary>
     private async Task HealAsync(ClientSession session)

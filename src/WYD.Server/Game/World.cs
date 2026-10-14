@@ -91,6 +91,7 @@ public sealed class World(
         lock (_lock)
         {
             _mobs[mob.Id] = mob;
+            (mob.X, mob.Y) = FreeCellLocked(mob.X, mob.Y, mob);
             GridAdd(mob);
             foreach (var player in _players.Values)
             {
@@ -140,6 +141,59 @@ public sealed class World(
             }
         }
         return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Até quantas células em volta se procura um lugar livre quando o pedido já está ocupado.</summary>
+    public const int FreeCellRadius = 4;
+
+    /// <summary>Alguém (monstro vivo ou jogador, fora <paramref name="except"/>) está exatamente nessa célula (chamar com o lock).</summary>
+    private bool OccupiedLocked(int x, int y, object? except) =>
+        (_grid.TryGetValue(Cell(x, y), out var list) && list.Any(m => m != except && m.Alive && m.X == x && m.Y == y))
+        || _players.Values.Any(p => p != except && p.Character!.PosX == x && p.Character.PosY == y);
+
+    /// <summary>
+    /// A célula pedida, ou a livre mais perto dela: como no servidor oficial, cada célula tem no máximo um
+    /// monstro/NPC/jogador (o NPCGener traz cada rei duas vezes na mesma célula, e só perto deles o client cai).
+    /// Chamar com o lock.
+    /// </summary>
+    private (short X, short Y) FreeCellLocked(short x, short y, object? except)
+    {
+        for (int r = 0; r <= FreeCellRadius; r++)
+            for (int dy = -r; dy <= r; dy++)
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue;
+                    int cx = x + dx, cy = y + dy;
+                    if (cx is < 0 or >= MapSize || cy is < 0 or >= MapSize) continue;
+                    if (!OccupiedLocked(cx, cy, except)) return ((short)cx, (short)cy);
+                }
+        return (x, y);
+    }
+
+    /// <summary>
+    /// Tira do mapa (até o servidor reiniciar) os NPCs/monstros escolhidos e avisa quem os via. Ferramenta do GM
+    /// para descobrir qual NPC derruba o client.
+    /// </summary>
+    public async Task<List<Mob>> RemoveMobsAsync(Func<Mob, bool> which)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        List<Mob> removed;
+        lock (_lock)
+        {
+            removed = _mobs.Values.Where(m => m.Alive && which(m)).ToList();
+            foreach (var mob in removed)
+            {
+                mob.Alive = false;
+                mob.Target = 0;
+                mob.RespawnAt = DateTime.MaxValue;
+                GridRemove(mob);
+                foreach (var player in _players.Values)
+                    if (_visible[player.Id].Remove(mob.Id))
+                        outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
+            }
+        }
+        await SendAllAsync(outgoing);
+        return removed;
     }
 
     private void GridAdd(Mob mob)
@@ -553,6 +607,7 @@ public sealed class World(
             outgoing.Add((other, ServerPackets.RemoveMob(session.Id)));
         }
 
+        (x, y) = FreeCellLocked(x, y, session);
         me.PosX = x;
         me.PosY = y;
         outgoing.Add((session, ServerPackets.Teleport(session.Id, x, y)));
@@ -605,8 +660,7 @@ public sealed class World(
             if (mob.Alive) return Task.CompletedTask;
             mob.Alive = true;
             mob.Hp = mob.Template.Score.MaxHp;
-            mob.X = x;
-            mob.Y = y;
+            (mob.X, mob.Y) = FreeCellLocked(x, y, mob);
             GridAdd(mob);
             foreach (var player in _players.Values)
             {
