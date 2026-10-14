@@ -25,7 +25,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Combate (2ª etapa): gold dos monstros, subir de nível (com a tabela de experiência do client),
       monstros revidam e perseguem, morte e renascer na cidade, vida e mana voltando com o tempo
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
-      com `/evoluir` no nível máximo
+      feita no nível máximo com o rei do seu reino
+- [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
 - [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
@@ -133,7 +134,11 @@ Para todos os jogadores:
 | Comando | O que faz |
 |---------|-----------|
 | `/ajuda` | lista os comandos |
-| `/evoluir` | no nível máximo, evolui (Mortal 400 → Arch, Arch 400 → Celestial, Celestial 200 → Sub Celestial) |
+| `/kingdom` ou `/king` | vai para o castelo do seu reino (neutros vão para o centro do reino) |
+
+**Evolução:** no nível máximo (Mortal 400 → Arch, Arch 400 → Celestial, Celestial 200 → Sub Celestial), fale
+com o rei do seu reino. O reino é a capa: azul (Hekalotia) evolui com o Rei Harabard, vermelha (Akeronia) com o
+Rei Glantuar, e branca (ou sem capa) com qualquer um dos dois.
 | `/Fulano oi` | sussurra "oi" para o jogador Fulano |
 
 Para achar o número de um item: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.

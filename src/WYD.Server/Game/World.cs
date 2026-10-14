@@ -370,7 +370,7 @@ public sealed class World(
                 logger.LogInformation("[{Id}] {Name} subiu para o nível {Level}.", session.Id, me.Name, me.BaseScore.Level + 1);
                 if (Leveling.CanEvolve(me))
                     await session.SendMessageAsync(
-                        $"Nível máximo de {Evolutions.Name(me.Evolution)}! Digite /evoluir para virar {Evolutions.Name(me.Evolution + 1)}.");
+                        $"Nível máximo de {Evolutions.Name(me.Evolution)}! Fale com o rei do seu reino (/kingdom) para virar {Evolutions.Name(me.Evolution + 1)}.");
             }
             logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}, gold {Coin}).", session.Id, me.Name,
                 string.Join(", ", killed.Select(m => m.Template.Name)), exp, me.Coin);

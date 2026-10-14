@@ -17,6 +17,7 @@ public sealed class CommandHandler(
     ICharacterRepository characters,
     SessionManager sessions,
     Game.World world,
+    KingHandler kings,
     ILogger<CommandHandler> logger)
 {
     /// <summary>Inventário básico (sem bolsas): os slots que o client mostra.</summary>
@@ -49,14 +50,15 @@ public sealed class CommandHandler(
             case "gm":
                 await GmAsync(session, request.Text.Trim());
                 break;
-            case "evoluir":
-                await EvolveAsync(session);
+            case "kingdom" or "king" or "reino":
+                await kings.GoToKingdomAsync(session);
                 break;
             case "ajuda" or "help":
                 var lines = new List<string>
                 {
                     "/nome texto - sussurra para o jogador 'nome'",
-                    "/evoluir - no nível máximo: Mortal 400 > Arch 400 > Celestial 200 > Sub Celestial 200",
+                    "/kingdom ou /king - vai para o castelo do seu reino",
+                    "Evolução: no nível máximo, fale com o rei do seu reino (Mortal 400 > Arch 400 > Celestial 200 > Sub Celestial 200)",
                 };
                 if (session.Account!.AccessLevel > 0)
                     lines.Add("/gm ajuda - lista os comandos de GM");
@@ -323,24 +325,6 @@ public sealed class CommandHandler(
         await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, c.BaseScore.Hp, c.BaseScore.Mp));
     }
 
-    /// <summary>/evoluir: no nível máximo, Mortal vira Arch, Arch vira Celestial e Celestial vira Sub Celestial.</summary>
-    private async Task EvolveAsync(ClientSession session)
-    {
-        var c = session.Character!;
-        if (c.Evolution >= Game.Evolution.SubCelestial)
-        {
-            await session.SendMessageAsync("Sub Celestial já é a última evolução.");
-            return;
-        }
-        if (!Game.Leveling.CanEvolve(c))
-        {
-            await session.SendMessageAsync(
-                $"Chegue ao nível {Game.Evolutions.MaxShownLevel(c.Evolution)} de {Game.Evolutions.Name(c.Evolution)} para evoluir.");
-            return;
-        }
-        await ChangeEvolutionAsync(session, c.Evolution + 1);
-    }
-
     /// <summary>/gm evoluir arch: muda a evolução direto (nível 1).</summary>
     private async Task SetEvolutionAsync(ClientSession session, string args)
     {
@@ -349,20 +333,7 @@ public sealed class CommandHandler(
             await session.SendMessageAsync("Uso: /gm evoluir <mortal|arch|celestial|sub>");
             return;
         }
-        await ChangeEvolutionAsync(session, to);
-    }
-
-    private async Task ChangeEvolutionAsync(ClientSession session, Game.Evolution to)
-    {
-        var c = session.Character!;
-        Game.Leveling.Evolve(c, to);
-        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, c.Equip[0]));
-        await SendProgressAsync(session);
-        await characters.SaveItemsAsync(c);
-        await characters.SaveProgressAsync(c);
-
-        logger.LogInformation("[{Id}] {Name} agora é {Evolution}.", session.Id, c.Name, Game.Evolutions.Name(to));
-        await session.SendMessageAsync($"Parabéns! Agora você é {Game.Evolutions.Name(to)} (nível 1).");
+        await kings.ChangeEvolutionAsync(session, to);
     }
 
     private async Task WhisperAsync(ClientSession session, string target, string text)

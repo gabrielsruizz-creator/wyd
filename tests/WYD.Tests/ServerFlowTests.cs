@@ -739,31 +739,70 @@ public sealed class ServerFlowTests : IAsyncLifetime
         etc.Skip(12);
         Assert.Equal(2, etc.ReadInt16());                           // sobraram 2 pontos de atributo
 
-        // /evoluir só no nível máximo; o GM pode mudar direto.
-        await a.SendAsync(CommandPacket("evoluir", ""));
-        Assert.Equal("Chegue ao nível 400 de Mortal para evoluir.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-
-        await a.SendAsync(CommandPacket("gm", "nivel 400"));
-        for (int i = 0; i < 4; i++) await a.ReceiveAsync();
-        await a.SendAsync(CommandPacket("evoluir", ""));
-        var face = await a.ReceiveAsync();
-        Assert.Equal(Opcodes.UpdateItem, face.Type);
-        Assert.Equal(0, face.ReadInt16());                          // equipamento
-        Assert.Equal(0, face.ReadInt16());                          // slot 0: rosto
-        face.Skip(2 + 3);
-        Assert.Equal((byte)Evolution.Arch, face.ReadByte());        // segundo valor de efeito
-        Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
-        Assert.Equal(Opcodes.UpdateEtc, (await a.ReceiveAsync()).Type);
-        Assert.Equal(Opcodes.UpdateHpMp, (await a.ReceiveAsync()).Type);
-        Assert.Equal("Parabéns! Agora você é Arch (nível 1).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-        Assert.Equal(Evolution.Arch, me.Evolution);
-        Assert.Equal(0, me.BaseScore.Level);
-
         await a.SendAsync(CommandPacket("gm", "evoluir sub"));
         for (int i = 0; i < 5; i++) await a.ReceiveAsync();
         Assert.Equal(Evolution.SubCelestial, me.Evolution);
         await a.SendAsync(CommandPacket("gm", "nivel 201"));
         Assert.StartsWith("Uso: /gm nivel <1 a 200>", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    private static byte[] NpcClickPacket(ushort npc) =>
+        new PacketWriter(Opcodes.NpcClick, 20, 1).WriteInt32(npc).WriteInt32(0).ToArray();
+
+    [Fact]
+    public async Task Evolution_happens_at_the_king_of_your_kingdom()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Rei azul (clã 7, Merchant 15) ao lado de quem entra.
+            var king = NpcDataTests.NpcFile("Rei_Harabard", 304, 1, 100_000, merchant: 0x6F);
+            king[0x10] = (byte)Kingdom.Blue;
+            File.WriteAllBytes(Path.Combine(npcDir, "Rei_Harabard"), king);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Rei_Harabard", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort kingId = created.ReadUInt16();
+            (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+            var me = await CharacterOf("jogadora");
+
+            // Antes do nível máximo: só o aviso.
+            await a.SendAsync(NpcClickPacket(kingId));
+            Assert.Equal("Volte quando chegar ao nível 400 de Mortal para virar Arch.",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            await a.SendAsync(CommandPacket("gm", "nivel 400"));
+            for (int i = 0; i < 4; i++) await a.ReceiveAsync();
+
+            // Capa vermelha: este rei não evolui.
+            me.Equip[Kingdoms.CapeSlot] = new Item(3192);
+            await a.SendAsync(NpcClickPacket(kingId));
+            Assert.Equal("Você é do reino Vermelho. Evolua com o Rei Glantuar.",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            // Capa azul: evolui para Arch, com o rosto atualizado.
+            me.Equip[Kingdoms.CapeSlot] = new Item(3191);
+            await a.SendAsync(NpcClickPacket(kingId));
+            var face = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateItem, face.Type);
+            face.Skip(4 + 2 + 3);
+            Assert.Equal((byte)Evolution.Arch, face.ReadByte());
+            for (int i = 0; i < 3; i++) await a.ReceiveAsync();
+            Assert.Equal("Parabéns! Agora você é Arch (nível 1).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            Assert.Equal(Evolution.Arch, me.Evolution);
+
+            // /kingdom leva para a frente do Rei Harabard.
+            await a.SendAsync(CommandPacket("kingdom", ""));
+            var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
+            Assert.Equal(Kingdoms.Destination(Kingdom.Blue), (teleport.ReadInt16(), teleport.ReadInt16()));
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
     }
 
     [Fact]

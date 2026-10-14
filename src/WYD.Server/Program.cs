@@ -125,6 +125,7 @@ public static class Program
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<ItemHandler>();
         services.AddSingleton<PointsHandler>();
+        services.AddSingleton<KingHandler>();
         services.AddSingleton<World>();
         services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();

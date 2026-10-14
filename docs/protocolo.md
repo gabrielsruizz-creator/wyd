@@ -63,6 +63,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
 | `0x277` | Distribuir ponto     | 20      | `short Tipo` (0 atributo, 1 especial, 2 skill no mestre), `short Qual` (0 FOR/1 INT/2 DES/3 CON ou especial 1-4), `short Extra` | ✅ |
+| `0x28B` | Falar com NPC        | 20      | `int IdDoNpc`, `int Confirma` (reis, NPCs de quest) | ✅ layout |
 | `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
 | `0x376` | Mover/equipar item | 20      | `byte TipoDest, SlotDest, TipoOrig, SlotOrig` (0 equip, 1 inventário, 2 baú); o servidor devolve o pedido para o client fazer a troca | ✅ layout |
 | `0x373` | Usar item          | 36      | `int TipoOrig, SlotOrig, TipoDest, SlotDest`                              | ✅ layout |
@@ -210,7 +211,7 @@ tabelas para `data/`; sem elas ninguém sobe de nível.
 A evolução fica no rosto (`Equip[0]`), no segundo valor de efeito: o client (função em `0x50437E`) trata 0
 como Mortal, outro valor como evoluído, e usa a tabela de Celestial se a capa (`Equip[15]`) for uma das
 capas de Celestial (3197, 3198, 3199, 573, 1767, 1770). O servidor usa 0 Mortal, 1 Arch, 2 Celestial e
-3 Sub Celestial. Nível máximo: 400, 400, 200 e 200; no máximo, `/evoluir` passa para a próxima com nível 1 e
+3 Sub Celestial. Nível máximo: 400, 400, 200 e 200; no máximo, falar com o rei passa para a próxima com nível 1 e
 experiência zerada, mantendo atributos e pontos.
 
 Pontos (`0x277`): atributo gasta `ScoreBonus` (CON dá +2 de vida máxima, INT +2 de mana máxima), especial
@@ -229,3 +230,16 @@ quando o jogador clica para renascer (ou 3 minutos depois), manda o `0x289`. O s
 leva o personagem para `StartX`/`StartY` com um `0x366` de teleporte.
 
 Os vivos recuperam 5% da vida e da mana máximas a cada 6 segundos (`0x181`).
+
+## Reinos e reis
+
+O reino é a capa (`Equip[15]`), pela mesma tabela do client (função `0x564783`):
+
+| Reino | Número | Capas | Rei |
+|-------|--------|-------|-----|
+| Azul (Hekalotia) | 7 | 543, 545, 1766, 1767, 1768, 3191, 3194, 3197 | Rei Harabard (1755, 1573), oráculo azul no castelo |
+| Vermelho (Akeronia) | 8 | 544, 546, 1769, 1770, 1771, 3192, 3195, 3198 | Rei Glantuar (1757, 1880), oráculo vermelho no castelo |
+| Neutro (Adventurer) | 6 | 548, 549, 573, 3193, 3196, 3199 | qualquer um |
+
+Os reis têm `Merchant` 15 e o clã do reino (7 ou 8). Clicar neles faz o client mandar o `0x28B`
+(20 bytes: `int IdDoNpc`, `int Confirma`).
