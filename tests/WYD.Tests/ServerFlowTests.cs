@@ -838,7 +838,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var me = await CharacterOf("jogadora");
         var request = new PacketWriter(Opcodes.Teleport, 16, 1).WriteInt32(0).ToArray();
 
-        // Sem destino cadastrado aqui (o padrão é o de Armia, em 2117 2102): o GM recebe a dica.
+        // Sem destino cadastrado aqui (o de Armia fica em 2117 2102): o GM recebe a dica.
         await a.SendAsync(request);
         Assert.StartsWith("Teleporte sem destino em 2100 2100", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
@@ -858,6 +858,23 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(ServerPackets.MoveTeleport, move.ReadInt32());
         Assert.Equal((2480, 1700), (move.ReadInt16(), move.ReadInt16()));
         Assert.Equal((2480, 1700), (me.PosX, me.PosY));
+    }
+
+    [Fact]
+    public async Task Armia_circle_goes_to_Noatun_for_700_gold()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+        await a.SendAsync(CommandPacket("gm", "ir 2117 2102"));
+        await ReceiveTypeAsync(a, Opcodes.Move);
+
+        me.Coin = 1000;
+        await a.SendAsync(new PacketWriter(Opcodes.Teleport, 16, 1).WriteInt32(0).ToArray());
+        Assert.Equal(300, (await ReceiveTypeAsync(a, Opcodes.UpdateCoin)).ReadInt32());
+        var move = await ReceiveTypeAsync(a, Opcodes.Move);
+        move.Skip(12);
+        Assert.Equal((1045, 1725), (move.ReadInt16(), move.ReadInt16()));
     }
 
     [Fact]

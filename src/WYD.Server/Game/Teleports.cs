@@ -23,22 +23,24 @@ public sealed class TeleportTable
     private readonly object _lock = new();
 
     /// <summary>
-    /// Teleportes já conhecidos, usados enquanto não existe data/teleports.txt. (Noatun em 1056 1730 derrubou o
-    /// client 7.54 de teste: a área existe na tabela de cidades do client, mas o mapa dela não abre.)
+    /// Teleportes que já vêm no servidor. O data/teleports.txt é somado a eles (uma linha no mesmo lugar troca o padrão).
     /// </summary>
-    public static readonly TeleportPoint[] Defaults = [];
+    public static readonly TeleportPoint[] Defaults =
+    [
+        new(2117, 2102, 1045, 1725, 700, "Noatun"),   // círculo de Armia
+    ];
 
     public TeleportTable(IOptions<ServerOptions> options, ILogger<TeleportTable> logger)
     {
         _path = PathResolver.Resolve(options.Value.TeleportsPath);
-        if (!File.Exists(_path))
-        {
-            _points.AddRange(Defaults);
-            logger.LogInformation("Sem {Path}: monte os teleportes no jogo com /gm tp add <x> <y> [preço] [nome].", _path);
-            return;
-        }
-        _points.AddRange(Parse(File.ReadAllLines(_path)));
-        logger.LogInformation("{Count} teleporte(s) lido(s) de {Path}.", _points.Count, _path);
+        _points.AddRange(Defaults);
+        if (File.Exists(_path))
+            foreach (var point in Parse(File.ReadAllLines(_path)))
+            {
+                _points.RemoveAll(p => p.X == point.X && p.Y == point.Y);
+                _points.Add(point);
+            }
+        logger.LogInformation("{Count} teleporte(s) carregado(s) (padrão + {Path}).", _points.Count, _path);
     }
 
     public TeleportTable(IEnumerable<TeleportPoint> points, string path)
