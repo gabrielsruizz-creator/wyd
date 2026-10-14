@@ -415,17 +415,13 @@ public class ToolTests
     }
 
     [Fact]
-    public void Kings_look_is_replaced_and_can_be_overridden()
+    public void Npc_items_missing_from_the_item_list_are_not_shown()
     {
-        var visuals = WYD.Server.Game.NpcVisuals.With([("Rei_Glantuar", 6, (short)999), ("Lobo", 0, (short)300)]);
-        Assert.Equal(305, visuals.Visible("Rei_Harabard", 0, 304));       // rosto Orange_King trocado
-        Assert.Equal(997, visuals.Visible("Rei_Harabard", 6, 999));       // arma trocada
-        Assert.Equal(747, visuals.Visible("Rei_Harabard", 1, 747));       // coroa fica
-        Assert.Equal(734, visuals.Visible("Rei_Harabard", 15, 3191));     // capa Elite trocada pela dos guardas
-        Assert.Equal(999, visuals.Visible("Rei_Glantuar", 6, 999));       // o arquivo pode voltar a arma original
-        Assert.Equal(300, visuals.Visible("Lobo", 0, 299));
-        Assert.Equal(52, visuals.Visible("Averest", 0, 52));              // os outros NPCs não mudam
-        Assert.Equal(0x6C, visuals.VisibleMerchant("Rei_Harabard", 0x6F)); // rei aparece como tipo 12
-        Assert.Equal(0x64, visuals.VisibleMerchant("Guarda_Real", 0x64));
+        var visuals = WYD.Server.Game.NpcVisuals.With([("Rei_Glantuar", 6, (short)905)], ItemListTests.TestItems());
+        Assert.Equal(0, visuals.Visible("BlackOracle", 1, 13));            // item 13 não existe: o client fecharia
+        Assert.Equal(905, visuals.Visible("Lobo", 6, 905));                // existe: vai igual
+        Assert.Equal(905, visuals.Visible("Rei_Glantuar", 6, 999));        // regra do arquivo
+        Assert.Equal(0, visuals.Visible("Lobo", 0, 0));
+        Assert.Equal(13, WYD.Server.Game.NpcVisuals.With([]).Visible("X", 1, 13));   // sem ItemList não dá para saber
     }
 }

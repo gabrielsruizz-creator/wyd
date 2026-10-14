@@ -347,10 +347,8 @@ Com a Eternal Stone (1742) no slot 10, clicar num mestre de skill não pede o me
 (Kocuna, Veean, Keced, Gebra, Tipalet, Nechark, Yesord, Marcute: 1744 a 1751) no inventário e 30 milhões de gold,
 o servidor troca tudo pelo Sefirot da classe do mestre: 1760 TK, 1761 FM, 1762 BM, 1763 HT.
 
-## Reis e o client 7.54
+## NPCs com itens que o client não tem
 
-Os reis (Rei_Harabard e Rei_Glantuar) são os únicos NPCs com `Score.Merchant & 0xF` = 15. O client 7.54 testado
-fecha uns 2 segundos depois de desenhá-los, mesmo com outro visual (rosto, armadura, arma e capa trocados, sem
-montaria). Por isso o servidor os mostra como tipo 12 (NPC comum que conversa): o clique continua mandando o
-`0x28B` direto (o caminho genérico do clique em `0x45DFD1`) e a evolução funciona igual. As trocas de visual
-continuam ligadas por segurança e podem ser desfeitas em `data/npc-visual.txt`.
+O client 7.54 fecha (uns segundos depois) ao desenhar um NPC com um item que não existe no ItemList dele. Os
+arquivos de NPC do servidor 7.56 têm alguns: o Black Oracle e o Red Oracle dos castelos (item 13 no elmo) e o
+Argus de Noatun (rosto 348). Por isso o servidor troca por 0, no `0x364`, todo item de NPC vazio no ItemList.

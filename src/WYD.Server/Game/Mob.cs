@@ -69,18 +69,9 @@ public sealed class Mob
     /// <summary>Trocas de aparência (ver <see cref="NpcVisuals"/>); definido pelo MobService.</summary>
     public NpcVisuals? Visuals { get; set; }
 
-    /// <summary>
-    /// O 0x364 do mob, com as trocas de aparência (os reis aparecem com peças que o client desenha bem). A montaria
-    /// (slot 14) dos NPCs não vai para a tela: nenhum NPC montado foi testado no client 7.54 (o jogador montado sim).
-    /// </summary>
-    public byte[] CreatePacket()
-    {
-        var score = Score;
-        if (Visuals is not null) score.Merchant = Visuals.VisibleMerchant(Template.Name, score.Merchant);
-        return ServerPackets.CreateMob(Id, Template.Name, X, Y,
-            Template.Equip.Select((item, slot) => slot == Stats.MountSlot
-                ? (short)0
-                : Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
-            Template.Guild, score);
-    }
+    /// <summary>O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>).</summary>
+    public byte[] CreatePacket() =>
+        ServerPackets.CreateMob(Id, Template.Name, X, Y,
+            Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
+            Template.Guild, Score);
 }

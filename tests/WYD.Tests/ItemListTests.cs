@@ -45,6 +45,10 @@ public class ItemListTests
         }
         Put(1, "Transknight", 1, 0, 0);
         Put(11, "Foema", 1, 0, 0);
+        Put(58, "Blacksmith", 1, 0, 0);                 // modelos de NPC usados nos testes
+        Put(202, "Gremlin", 1, 0, 0);
+        Put(299, "Wolf", 1, 0, 0);
+        Put(304, "Orange_King", 1, 0, 0);
         Put(400, "Healing_Potion(S)", 0, 0, 150, (18, 255), (38, 1), (4, 50));
         Put(905, "Espada_Longa", 64, 0, 3500, (2, 25));
         Put(1208, "Elmo", 2, 0, 1000);

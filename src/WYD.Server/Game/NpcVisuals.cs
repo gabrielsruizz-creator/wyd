@@ -2,45 +2,34 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WYD.Server.Config;
+using WYD.Server.Data;
 
 namespace WYD.Server.Game;
 
 /// <summary>
-/// Troca de aparência de NPCs na tela (só o 0x364; o NPC continua igual no servidor). Os reis derrubam o client
-/// 7.54 testado ao aparecer; eles são os únicos NPCs com o conjunto Orange King (rosto 304, armaduras 160-163), a
-/// arma Heaven of Garve (999) e as capas Elite do reino (3191/3192), então por padrão aparecem com as peças dos
-/// guardas, que o client desenha bem. data/npc-visual.txt
-/// ("Nome slot item", uma por linha; item 0 tira a peça) soma ou troca essas regras.
+/// O que o client vê do equipamento dos NPCs (só o 0x364; o NPC continua igual no servidor).
+/// <para>
+/// Itens que não existem no ItemList.bin do client nunca vão para a tela: o client 7.54 fecha ao tentar desenhar
+/// um (o Black Oracle e o Red Oracle dos castelos têm o item 13 no elmo, o Argus de Noatun tem o rosto 348, e os
+/// dois estão vazios no ItemList).
+/// </para>
+/// data/npc-visual.txt ("Nome slot item", uma por linha; item 0 tira a peça) troca peças à vontade.
 /// </summary>
 public sealed class NpcVisuals
 {
-    public static readonly IReadOnlyDictionary<string, Dictionary<int, short>> Defaults =
-        new Dictionary<string, Dictionary<int, short>>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Rei_Harabard"] = KingLook(),
-            ["Rei_Glantuar"] = KingLook(),
-        };
+    private readonly Dictionary<string, Dictionary<int, short>> _rules = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ItemList? _items;
 
-    private static Dictionary<int, short> KingLook() => new()
+    public NpcVisuals(IOptions<ServerOptions> options, ItemCatalog catalog, ILogger<NpcVisuals> logger)
+        : this(Load(PathResolver.Resolve(options.Value.NpcVisualPath), logger), catalog.List) { }
+
+    /// <summary>Regras e ItemList dados (para os testes).</summary>
+    public static NpcVisuals With(IEnumerable<(string Npc, int Slot, short Item)> rules, ItemList? items = null) => new(rules, items);
+
+    private NpcVisuals(IEnumerable<(string Npc, int Slot, short Item)> rules, ItemList? items)
     {
-        [0] = 305,                                   // Orange_Guard (no lugar de Orange_King)
-        [2] = 165, [3] = 166, [4] = 167, [5] = 168,  // Blue_Guard (no lugar do conjunto Orange King)
-        [6] = 997,                                   // Heaven_Of_Shard (no lugar de Heaven_Of_Garve)
-        [15] = 734,                                  // Cape_Of_CruSader dos guardas (no lugar das capas Elite do reino)
-    };
-
-    private readonly Dictionary<string, Dictionary<int, short>> _rules;
-
-    public NpcVisuals(IOptions<ServerOptions> options, ILogger<NpcVisuals> logger)
-        : this(Load(PathResolver.Resolve(options.Value.NpcVisualPath), logger), 0) { }
-
-    /// <summary>As regras padrão mais as <paramref name="extra"/> (para os testes).</summary>
-    public static NpcVisuals With(IEnumerable<(string Npc, int Slot, short Item)> extra) => new(extra, 0);
-
-    private NpcVisuals(IEnumerable<(string Npc, int Slot, short Item)> extra, int _)
-    {
-        _rules = Defaults.ToDictionary(kv => kv.Key, kv => new Dictionary<int, short>(kv.Value), StringComparer.OrdinalIgnoreCase);
-        foreach (var (npc, slot, item) in extra)
+        _items = items;
+        foreach (var (npc, slot, item) in rules)
         {
             if (!_rules.TryGetValue(npc, out var slots)) _rules[npc] = slots = [];
             slots[slot] = item;
@@ -63,17 +52,10 @@ public sealed class NpcVisuals
         return list;
     }
 
-    /// <summary>
-    /// Tipo de NPC que o client vê (Score.Merchant &amp; 0xF). Os reis são do tipo 15, o único que só eles têm, e o client
-    /// 7.54 fecha ao desenhá-los mesmo com outro visual; como tipo 12 (NPC comum que conversa) o clique continua
-    /// mandando o 0x28B direto e a evolução funciona igual (o servidor segue tratando o rei pelo arquivo dele).
-    /// </summary>
-    public const int KingVisibleType = 12;
-
-    public byte VisibleMerchant(string npc, byte merchant) =>
-        (merchant & 0x0F) == 15 && Defaults.ContainsKey(npc) ? (byte)((merchant & 0xF0) | KingVisibleType) : merchant;
-
-    /// <summary>O item que aparece na tela no slot do NPC.</summary>
-    public short Visible(string npc, int slot, short item) =>
-        _rules.TryGetValue(npc, out var slots) && slots.TryGetValue(slot, out var replaced) ? replaced : item;
+    /// <summary>O item que aparece na tela no slot do NPC (0 se ele não existir no ItemList do client).</summary>
+    public short Visible(string npc, int slot, short item)
+    {
+        if (_rules.TryGetValue(npc, out var slots) && slots.TryGetValue(slot, out var replaced)) item = replaced;
+        return item > 0 && _items is not null && _items[item] is null ? (short)0 : item;
+    }
 }

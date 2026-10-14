@@ -69,11 +69,5 @@ gasta os pontos de skill certos de cada uma; sem ela, aprender não custa pontos
 
 ## `npc-visual.txt` (opcional)
 
-Troca a aparência de NPCs na tela, uma regra por linha: `Nome slot item` (item 0 tira a peça). Os reis
-(Rei_Harabard e Rei_Glantuar) já aparecem por padrão com rosto Orange_Guard (305), armadura de guarda azul
-(165-168), a arma Heaven_Of_Shard (997) e a capa dos guardas (734), porque o visual original deles (Orange_King
-304, armaduras 160-163, Heaven_Of_Garve 999, capas Elite 3191/3192) derruba o client 7.54. Para testar o original de volta, por exemplo só a arma:
-
-```
-Rei_Harabard 6 999
-```
+Troca a aparência de NPCs na tela, uma regra por linha: `Nome slot item` (item 0 tira a peça). Independente disso,
+o servidor nunca manda para a tela um item que não existe no `ItemList.bin` (o client fecharia ao desenhá-lo).
