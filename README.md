@@ -22,14 +22,17 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Comandos no chat: `/item` para GMs e sussurro `/nome texto`
 - [x] Combate (1ª etapa): atacar monstros, dano, morte, experiência e renascimento
 - [x] Itens: equipar/mover (conferindo slot e nível), usar barras de gold e poções, comprar e vender nas lojas
+- [x] Combate (2ª etapa, parte 1): gold dos monstros e subir de nível (com a tabela de experiência do client)
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
 
 ## Próximas etapas
 
-1. Combate (2ª etapa): monstros revidam, subir de nível, drops e gold.
-2. Baú, mestres de skill e NPCs de quest, skills, drops, NPCs de loja, baú, grupo, guild, quests…
+1. Combate (2ª etapa, parte 2): monstros revidam, morte e renascer do personagem, drops no chão.
+2. Baú, mestres de skill, skills, NPCs de quest e distribuição de pontos.
+3. Grupo, troca, guild.
+4. Teleportes, quests.
 
 ## Requisitos
 
@@ -78,7 +81,13 @@ dotnet run --project src\WYD.Server -- find-keytable "C:\caminho\do\jogo\WYD.exe
 Com o comando esperando, abra o jogo, escolha o servidor e tente logar com a conta que você criou.
 O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir, tente logar de novo.
 
-**3. Inicie o servidor e entre no jogo:**
+**3. Copie a tabela de experiência** (sem ela os personagens não sobem de nível):
+
+```powershell
+dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.exe"
+```
+
+**4. Inicie o servidor e entre no jogo:**
 
 ```powershell
 dotnet run --project src\WYD.Server -- --Server:LogPackets=true
@@ -122,6 +131,7 @@ sobrescrever qualquer opção pela linha de comando, por exemplo `--Server:LogPa
 | `Server:StrictChecksum`        | `false`             | Derruba quem mandar pacote com checksum errado              |
 | `Server:StatusPort`            | `80`                | Porta das páginas de status dos canais (0 desliga)          |
 | `Server:StartX` / `StartY`     | `2100` / `2100`     | Onde os personagens novos começam                           |
+| `Server:ExpTablePath`          | `data/ExpTable.txt` | Experiência de cada nível (`extract-exptable`)              |
 | `Database:ConnectionString`    | `…Database=wyd…`    | Conexão com o MySQL                                         |
 
 ## Testes

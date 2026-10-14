@@ -34,6 +34,9 @@ public interface ICharacterRepository
 
     Task SaveExpAsync(int characterId, long exp);
 
+    /// <summary>Grava experiência, nível, gold, vida/mana e pontos (depois de matar ou subir de nível).</summary>
+    Task SaveProgressAsync(Character character);
+
     /// <summary>Grava equipamentos, inventário, gold e HP/MP do personagem.</summary>
     Task SaveItemsAsync(Character character);
 }

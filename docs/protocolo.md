@@ -82,6 +82,8 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x3AF` | UpdateCoin          | 16      | `int Gold`                                                                 | ✅ layout |
 | `0x181` | UpdateHpMp          | 20      | `int Hp`, `int Mp`                                                         | ✅ layout |
 | `0x36B` | UpdateEquip         | 60      | `ushort Equip[16]`, `byte Refino[16]` (para quem está vendo)               | ⚠️ |
+| `0x337` | UpdateEtc           | 36      | `int Hold`, `int Exp`, `uint LearnedSkill`, `short ScoreBonus, SpecialBonus, SkillBonus`, 2 de folga, `int Gold` | ✅ layout |
+| `0x336` | UpdateScore         | 92      | `SCORE` (28) @0x0C, Critical/SaveMana @0x28, `Affect[32]` @0x2A, Guild @0x4A, GuildLevel @0x4C | ⚠️ |
 | `0x182` | UpdateItem          | 24      | `short Tipo` (0 equip, 1 inventário, 2 baú), `short Slot`, `ITEM`          | ✅ |
 | `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
@@ -191,3 +193,13 @@ Efeitos do ItemList.bin usados pelo servidor: `4` = cura HP, `5` = cura MP, `38`
 (`1` = poção, `185` = barra de gold: 4010 vale 100 milhões e 4011 vale 1 bilhão), `61` = quantidade
 de itens empilhados. Equipar confere a máscara `Pos` (bit *n* = slot *n* do Equip) e o nível mínimo.
 Comprar cobra o preço do ItemList.bin; vender devolve 1/4 dele. O gold máximo é 2 bilhões.
+
+## Experiência e nível
+
+A tabela de experiência fica no `WYD.exe` 7.54 (351 números de 32 bits, começando em 500, 1124, 1826, 2610).
+`Next[n]` é a experiência acumulada que o nível `n` precisa para virar `n + 1` (o nível 0 aparece como 1 na tela).
+O comando `extract-exptable` copia a tabela para `data/ExpTable.txt`; sem ela ninguém sobe de nível.
+
+Ao matar um monstro o jogador recebe a `Exp` e o `Coin` da ficha do monstro e, a cada nível: 5 pontos de
+atributo, 1 especial, 1 de skill e vida/mana máximas a mais (TK +5/+1, FM +2/+4, BM +3/+3, HT +4/+2), com
+vida e mana cheias. O servidor manda `0x337` (exp, gold e pontos) e, se subiu, `0x336` e `0x181`.

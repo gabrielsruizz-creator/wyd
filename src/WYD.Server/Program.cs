@@ -32,6 +32,8 @@ public static class Program
                 return ToolCommands.ItemsCommand(itemList, null);
             case ["items", var itemList, var filter]:
                 return ToolCommands.ItemsCommand(itemList, filter);
+            case ["extract-exptable", var exe]:
+                return ToolCommands.ExtractExpTableCommand(exe);
             case ["find-keytable", var clientFile, .. var options]:
                 return await ToolCommands.FindKeyTableAsync(
                     clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"), OptionValue(options, "--status"));
@@ -86,6 +88,7 @@ public static class Program
                       WYD.Server set-access <conta> <nivel>         0 = jogador, 1 = GM (libera /item no jogo)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
+                      WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
                 return 2;
@@ -118,6 +121,7 @@ public static class Program
         services.AddSingleton<ICharacterRepository, MySqlCharacterRepository>();
 
         services.AddSingleton<ItemCatalog>();
+        services.AddSingleton<ExpCatalog>();
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<ItemHandler>();
         services.AddSingleton<World>();

@@ -11,7 +11,11 @@ namespace WYD.Server.Game;
 /// Quando algo entra no campo de visão o jogador recebe o 0x364; quando sai, o 0x165.
 /// Os monstros ficam numa grade de <see cref="CellSize"/> células para a busca por proximidade ser rápida.
 /// </summary>
-public sealed class World(ICharacterRepository characters, Microsoft.Extensions.Options.IOptions<WYD.Server.Config.ServerOptions> options, ILogger<World> logger)
+public sealed class World(
+    ICharacterRepository characters,
+    Microsoft.Extensions.Options.IOptions<WYD.Server.Config.ServerOptions> options,
+    WYD.Server.Data.ExpCatalog expTable,
+    ILogger<World> logger)
 {
     /// <summary>Distância máxima entre quem ataca e o alvo (ataques à distância e magias incluídos).</summary>
     public const int AttackRange = 12;
@@ -267,6 +271,7 @@ public sealed class World(ICharacterRepository characters, Microsoft.Extensions.
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
         long exp;
+        int levels;
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id)) return;
@@ -301,8 +306,12 @@ public sealed class World(ICharacterRepository characters, Microsoft.Extensions.
             }
 
             foreach (var mob in killed)
+            {
                 me.Exp = Math.Min(int.MaxValue, me.Exp + Math.Max(0, mob.Template.Exp));
+                me.Coin = (int)Math.Min(Handlers.ItemHandler.MaxCoin, (long)me.Coin + Math.Max(0, mob.Template.Coin));
+            }
             exp = me.Exp;
+            levels = killed.Count > 0 ? Leveling.Apply(me, expTable.Table) : 0;
 
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), (int)exp);
@@ -330,10 +339,18 @@ public sealed class World(ICharacterRepository characters, Microsoft.Extensions.
         await SendAllAsync(outgoing);
         if (killed.Count > 0)
         {
-            logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}).", session.Id, session.Character!.Name,
-                string.Join(", ", killed.Select(m => m.Template.Name)), exp);
-            try { await characters.SaveExpAsync(session.Character.Id, exp); }
-            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar a experiência de {Name}.", session.Character.Name); }
+            var me = session.Character!;
+            await session.SendAsync(ServerPackets.UpdateEtc(session.Id, me));   // exp, gold e pontos
+            if (levels > 0)
+            {
+                await session.SendAsync(ServerPackets.UpdateScore(session.Id, me));
+                await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp));
+                logger.LogInformation("[{Id}] {Name} subiu para o nível {Level}.", session.Id, me.Name, me.BaseScore.Level + 1);
+            }
+            logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}, gold {Coin}).", session.Id, me.Name,
+                string.Join(", ", killed.Select(m => m.Template.Name)), exp, me.Coin);
+            try { await characters.SaveProgressAsync(me); }
+            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", me.Name); }
         }
     }
 

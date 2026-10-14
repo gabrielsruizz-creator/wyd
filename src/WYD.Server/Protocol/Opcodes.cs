@@ -40,6 +40,8 @@ public static class Opcodes
     public const ushort CreateMob = 0x364;             // MSG_CreateMob, 176 bytes: põe um jogador/mob na tela (conferido no WYD.exe 7.54)
     public const ushort RemoveMob = 0x165;
     public const ushort MobKill = 0x338;               // 24 bytes: int Hold, ushort Morto, ushort Matador, int ExpDoMatador (conferido no WYD.exe 7.54)
+    public const ushort UpdateEtc = 0x337;             // 36 bytes: int Hold, int Exp, uint Skills, short Pontos[3], int Gold (conferido no WYD.exe 7.54)
+    public const ushort UpdateScore = 0x336;           // 92 bytes: SCORE em 0x0C, ... (atributos depois de subir de nível)
     public const ushort UpdateCoin = 0x3AF;            // 16 bytes: int Gold (conferido no WYD.exe 7.54)
     public const ushort UpdateHpMp = 0x181;            // 20 bytes: int Hp, int Mp
     public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16], byte Refino[16] (para quem está vendo)
@@ -64,6 +66,8 @@ public static class Opcodes
         Buy => "Buy",
         Sell => "Sell",
         UpdateCoin => "UpdateCoin",
+        UpdateEtc => "UpdateEtc",
+        UpdateScore => "UpdateScore",
         UpdateHpMp => "UpdateHpMp",
         UpdateEquip => "UpdateEquip",
         Move => "Move",

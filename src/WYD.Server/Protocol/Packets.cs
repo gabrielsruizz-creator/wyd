@@ -279,6 +279,31 @@ public static class ServerPackets
             .WriteString(text, CommandSize - PacketHeader.Size - NameLength)
             .ToArray();
 
+    /// <summary>
+    /// 0x337: experiência, skills aprendidas, pontos e gold (o client copia cada campo para a ficha).
+    /// <code>0x0C int Hold, 0x10 int Exp, 0x14 uint Skills, 0x18 short Pontos, 0x1A Especiais, 0x1C Skill, 0x20 int Gold</code>
+    /// </summary>
+    public static byte[] UpdateEtc(ushort id, Character c) =>
+        new PacketWriter(Opcodes.UpdateEtc, 36, id)
+            .WriteInt32(0)
+            .WriteInt32((int)Math.Clamp(c.Exp, 0, int.MaxValue))
+            .WriteUInt32(c.LearnedSkill)
+            .WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus).Skip(2)
+            .WriteInt32(c.Coin)
+            .ToArray();
+
+    /// <summary>0x336: atributos do jogador (nível, vida, mana...), por exemplo depois de subir de nível.</summary>
+    public static byte[] UpdateScore(ushort id, Character c)
+    {
+        var w = new PacketWriter(Opcodes.UpdateScore, 92, id);
+        c.BaseScore.Write(w);                         // 0x0C
+        w.WriteByte(0).WriteByte(0);                  // 0x28 Critical, SaveMana
+        w.Skip(32);                                   // 0x2A Affect
+        w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x4A Guild, GuildLevel
+        w.Skip(92 - w.Position);                      // 0x4E Resist e o resto
+        return w.ToArray();
+    }
+
     /// <summary>0x3AF: novo total de gold do jogador.</summary>
     public static byte[] UpdateCoin(ushort id, int coin) =>
         new PacketWriter(Opcodes.UpdateCoin, 16, id).WriteInt32(coin).ToArray();
@@ -395,8 +420,8 @@ public static class ServerPackets
         c.BaseScore.Write(w);                         // CurrentScore: por enquanto igual ao base (sem bônus de itens)
         foreach (var item in c.Equip) item.Write(w);
         foreach (var item in c.Inventory) item.Write(w);
-        w.WriteUInt32(0);                             // LearnedSkill
-        w.WriteInt16(0).WriteInt16(0).WriteInt16(0);  // ScoreBonus, SpecialBonus, SkillBonus
+        w.WriteUInt32(c.LearnedSkill);
+        w.WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus);
         w.WriteByte(0).WriteByte(0);                  // Critical, SaveMana
         for (int i = 0; i < 4; i++) w.WriteByte(EmptySkill); // SkillBar[4]
         w.WriteByte(0).WriteByte(0);                  // GuildLevel, Magic

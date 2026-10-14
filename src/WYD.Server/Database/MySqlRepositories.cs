@@ -52,6 +52,10 @@ public sealed class MySqlDatabase(IOptions<DatabaseOptions> options, ILogger<MyS
     private static readonly (string Table, string Column, string Definition)[] Migrations =
     [
         ("accounts", "second_password_hash", "VARCHAR(255) NULL AFTER password_hash"),
+        ("characters", "score_bonus", "SMALLINT NOT NULL DEFAULT 0"),
+        ("characters", "special_bonus", "SMALLINT NOT NULL DEFAULT 0"),
+        ("characters", "skill_bonus", "SMALLINT NOT NULL DEFAULT 0"),
+        ("characters", "learned_skill", "INT UNSIGNED NOT NULL DEFAULT 0"),
     ];
 }
 
@@ -158,6 +162,10 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
                 Guild = r.GetUInt16("guild"),
                 PosX = r.GetInt16("pos_x"),
                 PosY = r.GetInt16("pos_y"),
+                ScoreBonus = r.GetInt16("score_bonus"),
+                SpecialBonus = r.GetInt16("special_bonus"),
+                SkillBonus = r.GetInt16("skill_bonus"),
+                LearnedSkill = r.GetUInt32("learned_skill"),
                 Equip = Item.FromBlob(r.IsDBNull(r.GetOrdinal("equip")) ? null : (byte[])r["equip"], GameConstants.MaxEquip),
                 Inventory = Item.FromBlob(r.IsDBNull(r.GetOrdinal("inventory")) ? null : (byte[])r["inventory"], GameConstants.MaxCarry),
             };
@@ -268,6 +276,30 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         command.Parameters.AddWithValue("@inv", Item.ToBlob(c.Inventory));
         command.Parameters.AddWithValue("@hp", c.BaseScore.Hp);
         command.Parameters.AddWithValue("@mp", c.BaseScore.Mp);
+        command.Parameters.AddWithValue("@id", c.Id);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task SaveProgressAsync(Character c)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand("""
+            UPDATE characters SET exp = @exp, level = @level, coin = @coin, max_hp = @maxhp, max_mp = @maxmp,
+                hp = @hp, mp = @mp, score_bonus = @sb, special_bonus = @spb, skill_bonus = @skb, learned_skill = @ls
+            WHERE id = @id
+            """, connection);
+        var s = c.BaseScore;
+        command.Parameters.AddWithValue("@exp", c.Exp);
+        command.Parameters.AddWithValue("@level", s.Level);
+        command.Parameters.AddWithValue("@coin", c.Coin);
+        command.Parameters.AddWithValue("@maxhp", s.MaxHp);
+        command.Parameters.AddWithValue("@maxmp", s.MaxMp);
+        command.Parameters.AddWithValue("@hp", s.Hp);
+        command.Parameters.AddWithValue("@mp", s.Mp);
+        command.Parameters.AddWithValue("@sb", c.ScoreBonus);
+        command.Parameters.AddWithValue("@spb", c.SpecialBonus);
+        command.Parameters.AddWithValue("@skb", c.SkillBonus);
+        command.Parameters.AddWithValue("@ls", c.LearnedSkill);
         command.Parameters.AddWithValue("@id", c.Id);
         await command.ExecuteNonQueryAsync();
     }

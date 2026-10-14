@@ -50,3 +50,13 @@ arquivo é o que o client 7.54 espera:
 ```powershell
 dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada
 ```
+
+## `ExpTable.txt` (opcional)
+
+A experiência que cada nível precisa. Fica dentro do `WYD.exe`; o servidor copia com:
+
+```powershell
+dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\WYD.exe"
+```
+
+Sem ela o jogo funciona, mas ninguém sobe de nível.

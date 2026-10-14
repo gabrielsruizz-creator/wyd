@@ -35,6 +35,12 @@ public sealed class Character
     public CharacterClass Class { get; set; }
     public long Exp { get; set; }
     public int Coin { get; set; }
+
+    /// <summary>Pontos para distribuir em atributos, especiais e skills (ganhos ao subir de nível).</summary>
+    public short ScoreBonus { get; set; }
+    public short SpecialBonus { get; set; }
+    public short SkillBonus { get; set; }
+    public uint LearnedSkill { get; set; }
     public ushort Guild { get; set; }
     public short PosX { get; set; }
     public short PosY { get; set; }

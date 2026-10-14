@@ -159,4 +159,39 @@ public class ToolTests
         var codec = ServerList.Detect(plain);
         Assert.Equal(plain, codec.Decode(plain));
     }
+
+    [Fact]
+    public void Exp_table_is_found_in_the_client_and_round_trips()
+    {
+        var exe = new byte[400];
+        new Random(1).NextBytes(exe);
+        uint[] values = [500, 1124, 1826, 2610, 4000, 9000];
+        for (int i = 0; i < values.Length; i++)
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(100 + i * 4), values[i]);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(100 + values.Length * 4), 0); // fim
+
+        var table = WYD.Server.Data.ExpTable.FindInClient(exe)!;
+        Assert.Equal(values.Select(v => (long)v), table.Next);
+        Assert.Equal(table.Next, WYD.Server.Data.ExpTable.Parse(table.Serialize()).Next);
+        Assert.Null(WYD.Server.Data.ExpTable.FindInClient(new byte[64]));
+    }
+
+    [Fact]
+    public void Leveling_gives_points_life_and_heals()
+    {
+        var c = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.TransKnight, Exp = 150 };
+        c.BaseScore.MaxHp = 80; c.BaseScore.Hp = 10;
+        var table = new WYD.Server.Data.ExpTable([100, 200]);
+
+        Assert.Equal(1, WYD.Server.Game.Leveling.Apply(c, table));
+        Assert.Equal(1, c.BaseScore.Level);
+        Assert.Equal(85, c.BaseScore.MaxHp);
+        Assert.Equal(85, c.BaseScore.Hp);
+        Assert.Equal(WYD.Server.Game.Leveling.ScorePointsPerLevel, c.ScoreBonus);
+
+        c.Exp = 10_000;                                  // no topo da tabela não passa do último nível
+        Assert.Equal(1, WYD.Server.Game.Leveling.Apply(c, table));
+        Assert.Equal(0, WYD.Server.Game.Leveling.Apply(c, table));
+        Assert.Equal(0, WYD.Server.Game.Leveling.Apply(c, null));
+    }
 }

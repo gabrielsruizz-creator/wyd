@@ -40,6 +40,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         builder.Services.AddSingleton<IAccountRepository>(_store);
         builder.Services.AddSingleton<ICharacterRepository>(_store);
         builder.Services.AddSingleton(new WYD.Server.Data.ItemCatalog(ItemListTests.TestItems()));
+        builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
         _host = builder.Build();
         await _host.StartAsync();
@@ -532,7 +533,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Killing_a_monster_gives_exp_and_it_respawns()
+    public async Task Killing_a_monster_gives_exp_gold_levels_and_it_respawns()
     {
         var npcDir = Directory.CreateTempSubdirectory().FullName;
         try
@@ -540,6 +541,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // Monstro com 1 de vida (morre no primeiro golpe) e um NPC de loja ao lado.
             var weak = NpcDataTests.NpcFile("Gremlin", 202, 4, 1);
             System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(weak.AsSpan(0x20), 280); // Exp
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(weak.AsSpan(0x1C), 50);  // Gold
             File.WriteAllBytes(Path.Combine(npcDir, "Gremlin"), weak);
             File.WriteAllBytes(Path.Combine(npcDir, "Ferreiro"), NpcDataTests.NpcFile("Ferreiro", 58, 1, 100, merchant: 1));
             await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
@@ -591,8 +593,30 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(ids["Gremlin"], removed.Id);
             Assert.Equal(ServerPackets.RemoveDead, removed.ReadInt32());
 
-            // A experiência ficou salva e o monstro renasce (RespawnSeconds = 1 no teste).
-            Assert.Equal(280, (await _store.ListByAccountAsync(account.Id))[0].Exp);
+            // Exp, gold e pontos novos; com 280 de exp e a tabela 100/200/300 sobe dois níveis.
+            var etc = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateEtc, etc.Type);
+            Assert.Equal(36, etc.Length);
+            etc.Skip(4);
+            Assert.Equal(280, etc.ReadInt32());
+            etc.Skip(4);
+            Assert.Equal(2 * Leveling.ScorePointsPerLevel, etc.ReadInt16());
+            etc.Skip(6);
+            Assert.Equal(50, etc.ReadInt32());
+
+            var score = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateScore, score.Type);
+            Assert.Equal(92, score.Length);
+            Assert.Equal(2, score.ReadInt16());          // nível (0 = nível 1 na tela)
+            var hpMp = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateHpMp, hpMp.Type);
+
+            // O progresso ficou salvo e o monstro renasce (RespawnSeconds = 1 no teste).
+            var saved = (await _store.ListByAccountAsync(account.Id))[0];
+            Assert.Equal(280, saved.Exp);
+            Assert.Equal(50, saved.Coin);
+            Assert.Equal(2, saved.BaseScore.Level);
+            Assert.Equal(saved.BaseScore.MaxHp, saved.BaseScore.Hp);
             var back = await a.ReceiveAsync();
             Assert.Equal(Opcodes.CreateMob, back.Type);
             back.Skip(4);
@@ -871,6 +895,8 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
     }
 
     public Task SaveItemsAsync(Character character) => Task.CompletedTask; // os objetos já são os mesmos da sessão
+
+    public Task SaveProgressAsync(Character character) => Task.CompletedTask;
 
     public Task SaveCargoAsync(Account account) => Task.CompletedTask;
 

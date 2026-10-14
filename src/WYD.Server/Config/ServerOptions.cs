@@ -50,6 +50,9 @@ public sealed class ServerOptions
     /// <summary>Lista de itens do client (opcional): usada para conferir os itens criados por GMs.</summary>
     public string ItemListPath { get; set; } = "data/ItemList.bin";
 
+    /// <summary>Experiência de cada nível (gerada pelo comando extract-exptable a partir do WYD.exe).</summary>
+    public string ExpTablePath { get; set; } = "data/ExpTable.txt";
+
     /// <summary>Lista de spawns de monstros e NPCs do servidor original.</summary>
     public string NpcGenerPath { get; set; } = "data/NPCGener.txt";
 

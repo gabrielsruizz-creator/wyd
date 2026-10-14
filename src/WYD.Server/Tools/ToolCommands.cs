@@ -253,6 +253,28 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
+    public static int ExtractExpTableCommand(string exePath)
+    {
+        if (!File.Exists(exePath))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {exePath}");
+            return 1;
+        }
+
+        var table = Data.ExpTable.FindInClient(File.ReadAllBytes(exePath));
+        if (table is null)
+        {
+            Console.Error.WriteLine("Tabela de experiência não encontrada neste arquivo (o executável pode estar protegido ou ser de outra versão).");
+            return 1;
+        }
+
+        Directory.CreateDirectory("data");
+        File.WriteAllText("data/ExpTable.txt", table.Serialize());
+        Console.WriteLine($"Tabela com {table.MaxLevel} níveis salva em data/ExpTable.txt (nível 0→1: {table.Next[0]} de exp; último: {table.Next[^1]}).");
+        return 0;
+    }
+
     private static void PrintStrings(string title, List<(int Offset, string Text)> strings)
     {
         Console.WriteLine(title);
