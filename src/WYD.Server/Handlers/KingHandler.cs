@@ -33,6 +33,12 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
             return;
         }
 
+        if (npc.OracleKingdom is { } oracleKingdom)
+        {
+            await EternalStoneAsync(session, npc, oracleKingdom);
+            return;
+        }
+
         if (!npc.IsKing)
         {
             logger.LogInformation("[{Id}] Clique em {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);
@@ -94,6 +100,31 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
 
         logger.LogInformation("[{Id}] {Name} criou o {Item} com {Npc}.", session.Id, c.Name, name, master.Template.Name);
         await session.SendMessageAsync($"Você recebeu o {name}.");
+    }
+
+    /// <summary>Oracle do reino: Unicorn's Spirit + Phoenix's Spirit + 10 Sapphires viram a Eternal Stone.</summary>
+    private async Task EternalStoneAsync(ClientSession session, Mob oracle, Kingdom kingdom)
+    {
+        var c = session.Character!;
+        var mine = Kingdoms.Of(c);
+        if (!Kingdoms.IsNeutral(mine) && mine != kingdom)
+        {
+            await session.SendMessageAsync($"Você é do reino {Kingdoms.Name(mine)}. Fale com o Oracle do seu reino.");
+            return;
+        }
+        if (Oracle.Missing(c, CommandHandler.BasicInventorySlots) is { } missing)
+        {
+            await session.SendMessageAsync($"Para a Eternal Stone falta: {missing}.");
+            return;
+        }
+
+        var changed = Oracle.Create(c, CommandHandler.BasicInventorySlots)!;
+        foreach (int slot in changed)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+        await characters.SaveItemsAsync(c);
+
+        logger.LogInformation("[{Id}] {Name} criou a Eternal Stone com o {Npc}.", session.Id, c.Name, oracle.Template.Name);
+        await session.SendMessageAsync("Você recebeu a Eternal Stone.");
     }
 
     /// <summary>/kingdom ou /king: vai para o castelo do seu reino (neutros vão para o centro do reino).</summary>

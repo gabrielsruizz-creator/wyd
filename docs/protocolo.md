@@ -250,6 +250,12 @@ some; trocar só o visual ou só o tipo não resolveu). Por isso o `0x364` dos r
 Guarda_Real do castelo (rosto 60 ou 305, armadura 165-168 ou 170-173, capa 734 ou 735), mantendo o nome e o
 `Merchant` do rei. O NPCGener traz cada rei duas vezes no mesmo lugar; NPC parado repetido nasce uma vez só.
 
+Os Oracles (`BlueOracle` em 1760,1582 e `RedOracle` em 1760,1890) fazem a Eternal Stone (1742) com Unicorn's
+Spirit (1740), Phoenix's Spirit (1741) e 10 Sapphires (697). Com o tipo original (`Merchant & 0xF` = 14) o client
+(0x45D9DD) só abre a pergunta se tiver 20 safiras, os dois Spirits em slots vizinhos e nível 300, e então manda o
+`0x28B` com Confirma 1; o servidor manda o Oracle como tipo 13, que sempre abre a pergunta (`0x28B` com Confirma 0),
+e confere a receita ele mesmo. O `BlueOracle` vem vazio em alguns pacotes de dados e nasce como cópia do `RedOracle`.
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos

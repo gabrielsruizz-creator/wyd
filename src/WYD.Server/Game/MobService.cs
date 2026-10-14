@@ -78,6 +78,9 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
             {
                 logger.LogDebug("{Message}", ex.Message);
             }
+            // NPC com arquivo vazio que tem um igual (BlueOracle = RedOracle com outro nome).
+            if (template is null && Oracle.TemplateFallbacks.TryGetValue(name, out var fallback) && Template(fallback) is { } copy)
+                template = copy with { Name = name };
             if (template is null) missing.Add(name);
             return templates[name] = template;
         }

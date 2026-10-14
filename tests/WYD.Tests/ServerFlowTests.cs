@@ -859,6 +859,56 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Oracle_turns_the_spirits_and_ten_sapphires_into_the_eternal_stone()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // O BlueOracle vem com o arquivo vazio em alguns pacotes de dados: nasce como cópia do RedOracle.
+            File.WriteAllBytes(Path.Combine(npcDir, "RedOracle"), NpcDataTests.NpcFile("RedOracle", 53, 1, 9000, merchant: 0x4E));
+            File.WriteAllBytes(Path.Combine(npcDir, "BlueOracle"), []);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "BlueOracle", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort oracle = created.ReadUInt16();
+            Assert.Equal("BlueOracle", created.ReadString(12));
+            created.Skip(4 + 16 * 2 + 32 + 2 + 6);
+            Assert.Equal(13, created.ReadByte() & 0x0F);                     // tipo que sempre abre a pergunta
+
+            await a.SendAsync(NpcClickPacket(oracle));
+            Assert.Equal("Para a Eternal Stone falta: Unicorn's Spirit, Phoenix's Spirit, 10 Sapphire(s) (tem 0 de 10).",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            var me = await CharacterOf("jogadora");
+            me.Inventory[15] = new Item(Oracle.UnicornSpirit);
+            me.Inventory[16] = new Item(Oracle.PhoenixSpirit);
+            for (int i = 0; i < 11; i++) me.Inventory[17 + i] = new Item(Oracle.Sapphire);
+
+            // Capa vermelha: o Oracle azul não atende.
+            me.Equip[Kingdoms.CapeSlot] = new Item(3192);
+            await a.SendAsync(NpcClickPacket(oracle));
+            Assert.Equal("Você é do reino Vermelho. Fale com o Oracle do seu reino.",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            // Neutro: troca os 2 Spirits e 10 safiras pela Eternal Stone (sobra 1 safira).
+            me.Equip[Kingdoms.CapeSlot] = default;
+            await a.SendAsync(NpcClickPacket(oracle));
+            for (int i = 0; i < 12; i++) Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
+            Assert.Equal("Você recebeu a Eternal Stone.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            Assert.Equal(Sefirot.EternalStone, me.Inventory[15].Index);
+            Assert.Single(me.Inventory, i => i.Index == Oracle.Sapphire);
+            Assert.DoesNotContain(me.Inventory, i => i.Index is Oracle.UnicornSpirit or Oracle.PhoenixSpirit);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
     public async Task Mount_runs_fast_once_equipped()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");

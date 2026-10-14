@@ -32,6 +32,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Mestres de skill (Cap.Cavaleiros, Foema_Ancian, Mestre_Archi, ForeLearner): lista das skills e aprender,
       gastando os pontos de skill da `SkillData.bin`
 - [x] Sefirot no mestre de skill: Eternal Stone no slot 10 + 8 pedras + 30 milhões de gold
+- [x] Eternal Stone no Oracle do reino (BlueOracle no castelo azul, RedOracle no vermelho; neutros em qualquer um):
+      Unicorn's Spirit + Phoenix's Spirit + 10 Sapphires
 - [x] Usar skills: dano físico, dano mágico e cura, gastando mana (buffs ainda não)
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,

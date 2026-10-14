@@ -72,10 +72,23 @@ public sealed class Mob
     /// <summary>Rei do reino (Rei Harabard, azul; Rei Glantuar, vermelho): Merchant 15 e o clã do reino (7 ou 8).</summary>
     public bool IsKing => (Template.Score.Merchant & 0x0F) == 15 && Template.Clan is (byte)Kingdom.Blue or (byte)Kingdom.Red;
 
-    /// <summary>O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>); reis vão com o <see cref="KingLook"/>.</summary>
-    public byte[] CreatePacket() => IsKing
-        ? ServerPackets.CreateMob(Id, Template.Name, X, Y, KingLook.Equip((Kingdom)Template.Clan), 0, KingLook.Score(Template.Score.Merchant))
-        : ServerPackets.CreateMob(Id, Template.Name, X, Y,
+    /// <summary>Oracle do reino que faz a Eternal Stone (ver <see cref="Oracle"/>), ou null.</summary>
+    public Kingdom? OracleKingdom => Oracle.KingdomOf(Template.Name);
+
+    /// <summary>
+    /// O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>); reis vão com o
+    /// <see cref="KingLook"/> e os Oracles com o tipo que sempre abre a pergunta.
+    /// </summary>
+    public byte[] CreatePacket()
+    {
+        if (IsKing)
+            return ServerPackets.CreateMob(Id, Template.Name, X, Y, KingLook.Equip((Kingdom)Template.Clan), 0,
+                KingLook.Score(Template.Score.Merchant));
+
+        var score = Score;
+        if (OracleKingdom is not null) score.Merchant = (byte)((score.Merchant & 0xF0) | Oracle.ClientMerchant);
+        return ServerPackets.CreateMob(Id, Template.Name, X, Y,
             Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
-            Template.Guild, Score);
+            Template.Guild, score);
+    }
 }
