@@ -11,8 +11,22 @@ public static class Leveling
     /// <summary>Vida e mana a mais por nível, por classe (TK, FM, BM, HT).</summary>
     private static readonly (int Hp, int Mp)[] GrowthPerClass = [(5, 1), (2, 4), (3, 3), (4, 2)];
 
-    /// <summary>Nível máximo (0 = nível 1 na tela) sem a tabela de experiência.</summary>
-    public const int DefaultMaxLevel = 399;
+    /// <summary>Chegou ao nível máximo da evolução e ainda pode evoluir.</summary>
+    public static bool CanEvolve(Character c) =>
+        c.Evolution < Evolution.SubCelestial && c.BaseScore.Level >= Evolutions.MaxLevel(c.Evolution);
+
+    /// <summary>
+    /// Passa para a evolução <paramref name="to"/> no nível 1, com a experiência zerada e vida/mana cheias.
+    /// Atributos e pontos ganhos até aqui continuam.
+    /// </summary>
+    public static void Evolve(Character c, Evolution to)
+    {
+        c.Evolution = to;
+        c.BaseScore.Level = 0;
+        c.Exp = 0;
+        c.BaseScore.Hp = c.BaseScore.MaxHp;
+        c.BaseScore.Mp = c.BaseScore.MaxMp;
+    }
 
     /// <summary>
     /// Leva o personagem direto ao nível <paramref name="level"/> (0 = nível 1 na tela), somando ou tirando os
@@ -28,8 +42,8 @@ public static class Leveling
         c.ScoreBonus = (short)Math.Clamp(c.ScoreBonus + ScorePointsPerLevel * delta, 0, short.MaxValue);
         c.SpecialBonus = (short)Math.Clamp(c.SpecialBonus + SpecialPointsPerLevel * delta, 0, short.MaxValue);
         c.SkillBonus = (short)Math.Clamp(c.SkillBonus + SkillPointsPerLevel * delta, 0, short.MaxValue);
-        if (table is not null)
-            c.Exp = level == 0 ? 0 : table.Next[level - 1];
+        if (table is not null && table.MaxLevel > 0)
+            c.Exp = level == 0 ? 0 : table.Next[Math.Min(level, table.MaxLevel) - 1];
         c.BaseScore.Hp = c.BaseScore.MaxHp;
         c.BaseScore.Mp = c.BaseScore.MaxMp;
     }
@@ -41,7 +55,8 @@ public static class Leveling
         var (hp, mp) = GrowthPerClass[Math.Clamp((int)c.Class, 0, GrowthPerClass.Length - 1)];
         int gained = 0;
 
-        while (c.BaseScore.Level < table.MaxLevel && c.Exp >= table.Next[c.BaseScore.Level])
+        int cap = Math.Min(Evolutions.MaxLevel(c.Evolution), table.MaxLevel);
+        while (c.BaseScore.Level < cap && c.Exp >= table.Next[c.BaseScore.Level])
         {
             c.BaseScore.Level++;
             c.BaseScore.MaxHp += hp;

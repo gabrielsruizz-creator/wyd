@@ -262,16 +262,25 @@ public static class ToolCommands
             return 1;
         }
 
-        var table = Data.ExpTable.FindInClient(File.ReadAllBytes(exePath));
-        if (table is null)
+        var tables = Data.ExpTable.FindInClient(File.ReadAllBytes(exePath));
+        if (tables is not { } found)
         {
             Console.Error.WriteLine("Tabela de experiência não encontrada neste arquivo (o executável pode estar protegido ou ser de outra versão).");
             return 1;
         }
 
         Directory.CreateDirectory("data");
-        File.WriteAllText("data/ExpTable.txt", table.Serialize());
-        Console.WriteLine($"Tabela com {table.MaxLevel} níveis salva em data/ExpTable.txt (nível 0→1: {table.Next[0]} de exp; último: {table.Next[^1]}).");
+        File.WriteAllText("data/ExpTable.txt", found.Mortal.Serialize());
+        Console.WriteLine($"Mortal/Arch: {found.Mortal.MaxLevel} níveis salvos em data/ExpTable.txt.");
+        if (found.Celestial is { } celestial)
+        {
+            File.WriteAllText("data/ExpTableCelestial.txt", celestial.Serialize());
+            Console.WriteLine($"Celestial/Sub Celestial: {celestial.MaxLevel} níveis salvos em data/ExpTableCelestial.txt.");
+        }
+        else
+        {
+            Console.WriteLine("A tabela de Celestial não foi encontrada logo depois da de Mortal.");
+        }
         return 0;
     }
 

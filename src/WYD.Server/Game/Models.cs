@@ -51,4 +51,11 @@ public sealed class Character
     /// <summary>Equip[0] é o "rosto" (modelo do personagem); os demais são os equipamentos.</summary>
     public Item[] Equip { get; set; } = new Item[GameConstants.MaxEquip];
     public Item[] Inventory { get; set; } = new Item[GameConstants.MaxCarry];
+
+    /// <summary>Mortal, Arch, Celestial ou Sub Celestial: guardado no rosto, junto com o equipamento.</summary>
+    public Evolution Evolution
+    {
+        get => (Evolution)Math.Min(Equip[0].Value2, (byte)Evolution.SubCelestial);
+        set => Equip[0].Value2 = (byte)value;
+    }
 }

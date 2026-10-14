@@ -11,4 +11,4 @@ data/capturas/
 # Dados do servidor original (monstros e spawns)
 data/npc/
 data/NPCGener*.txt
-data/ExpTable.txt
+data/ExpTable*.txt

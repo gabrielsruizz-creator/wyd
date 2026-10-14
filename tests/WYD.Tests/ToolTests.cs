@@ -161,19 +161,65 @@ public class ToolTests
     }
 
     [Fact]
-    public void Exp_table_is_found_in_the_client_and_round_trips()
+    public void Exp_tables_are_found_in_the_client_and_round_trip()
     {
         var exe = new byte[400];
         new Random(1).NextBytes(exe);
-        uint[] values = [500, 1124, 1826, 2610, 4000, 9000];
+        // Mortal (com valores repetidos no fim, como no client), depois Celestial começando em 0, depois outra coisa.
+        uint[] values = [500, 1124, 1826, 2610, 4000, 4000, 9000, 0, 100, 300, 600, 5];
         for (int i = 0; i < values.Length; i++)
             System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(100 + i * 4), values[i]);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(100 + values.Length * 4), 0); // fim
 
-        var table = WYD.Server.Data.ExpTable.FindInClient(exe)!;
-        Assert.Equal(values.Select(v => (long)v), table.Next);
-        Assert.Equal(table.Next, WYD.Server.Data.ExpTable.Parse(table.Serialize()).Next);
+        var (mortal, celestial) = WYD.Server.Data.ExpTable.FindInClient(exe)!.Value;
+        Assert.Equal(new long[] { 500, 1124, 1826, 2610, 4000, 4000, 9000 }, mortal.Next);
+        Assert.Equal(new long[] { 100, 300, 600 }, celestial!.Next);   // quanto cada nível precisa para passar
+        Assert.Equal(mortal.Next, WYD.Server.Data.ExpTable.Parse(mortal.Serialize()).Next);
         Assert.Null(WYD.Server.Data.ExpTable.FindInClient(new byte[64]));
+    }
+
+    [Fact]
+    public void Level_stops_at_the_evolution_cap_and_evolves()
+    {
+        var c = new WYD.Server.Game.Character { Exp = long.MaxValue };
+        var big = new WYD.Server.Data.ExpTable(Enumerable.Range(1, 500).Select(i => (long)i).ToList());
+
+        WYD.Server.Game.Leveling.Apply(c, big);
+        Assert.Equal(399, c.BaseScore.Level);                       // Mortal: nível 400 na tela
+        Assert.True(WYD.Server.Game.Leveling.CanEvolve(c));
+
+        WYD.Server.Game.Leveling.Evolve(c, WYD.Server.Game.Evolution.Arch);
+        Assert.Equal(WYD.Server.Game.Evolution.Arch, c.Evolution);
+        Assert.Equal(1, c.Equip[0].Value2);                         // guardado no rosto
+        Assert.Equal(0, c.BaseScore.Level);
+        Assert.Equal(0, c.Exp);
+
+        c.Evolution = WYD.Server.Game.Evolution.Celestial;
+        c.Exp = long.MaxValue;
+        WYD.Server.Game.Leveling.Apply(c, big);
+        Assert.Equal(199, c.BaseScore.Level);                       // Celestial: nível 200 na tela
+
+        c.Evolution = WYD.Server.Game.Evolution.SubCelestial;
+        Assert.False(WYD.Server.Game.Leveling.CanEvolve(c));        // última evolução
+    }
+
+    [Fact]
+    public void Points_go_to_attributes_and_specials()
+    {
+        var c = new WYD.Server.Game.Character { ScoreBonus = 2, SpecialBonus = 1 };
+        c.BaseScore.MaxHp = 100;
+
+        Assert.Null(WYD.Server.Game.Points.Apply(c, 0, 3));         // CON
+        Assert.Equal(1, c.BaseScore.Con);
+        Assert.Equal(100 + WYD.Server.Game.Points.HpPerCon, c.BaseScore.MaxHp);
+        Assert.Null(WYD.Server.Game.Points.Apply(c, 0, 0));         // FOR
+        Assert.Equal(1, c.BaseScore.Str);
+        Assert.NotNull(WYD.Server.Game.Points.Apply(c, 0, 0));      // acabaram os pontos
+        Assert.Equal(1, c.BaseScore.Str);
+
+        Assert.Null(WYD.Server.Game.Points.Apply(c, 1, 2));         // especial 3
+        Assert.Equal(1, c.BaseScore.Special3);
+        Assert.Equal(0, c.SpecialBonus);
+        Assert.NotNull(WYD.Server.Game.Points.Apply(c, 0, 9));
     }
 
     [Fact]

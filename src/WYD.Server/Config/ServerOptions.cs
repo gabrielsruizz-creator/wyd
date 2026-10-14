@@ -53,6 +53,9 @@ public sealed class ServerOptions
     /// <summary>Experiência de cada nível (gerada pelo comando extract-exptable a partir do WYD.exe).</summary>
     public string ExpTablePath { get; set; } = "data/ExpTable.txt";
 
+    /// <summary>Experiência de cada nível de Celestial e Sub Celestial (também gerada pelo extract-exptable).</summary>
+    public string CelestialExpTablePath { get; set; } = "data/ExpTableCelestial.txt";
+
     /// <summary>Lista de spawns de monstros e NPCs do servidor original.</summary>
     public string NpcGenerPath { get; set; } = "data/NPCGener.txt";
 

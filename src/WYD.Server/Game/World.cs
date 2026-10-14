@@ -328,14 +328,14 @@ public sealed class World(
 
             foreach (var mob in killed)
             {
-                me.Exp = Math.Min(int.MaxValue, me.Exp + Math.Max(0, mob.Template.Exp));
+                me.Exp = Math.Min(uint.MaxValue, me.Exp + Math.Max(0, mob.Template.Exp));
                 me.Coin = (int)Math.Min(Handlers.ItemHandler.MaxCoin, (long)me.Coin + Math.Max(0, mob.Template.Coin));
             }
             exp = me.Exp;
-            levels = killed.Count > 0 ? Leveling.Apply(me, expTable.Table) : 0;
+            levels = killed.Count > 0 ? Leveling.Apply(me, expTable.For(me.Evolution)) : 0;
 
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
-            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), (int)exp);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), ServerPackets.ClientExp(exp));
 
             // Quem vê o atacante ou algum dos alvos recebe o ataque com os danos.
             foreach (var player in _players.Values)
@@ -352,7 +352,7 @@ public sealed class World(
                 foreach (var player in _players.Values)
                 {
                     if (!_visible[player.Id].Remove(mob.Id)) continue;
-                    outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, (int)exp)));
+                    outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, unchecked((int)ServerPackets.ClientExp(exp)))));
                     outgoing.Add((player, ServerPackets.RemoveMob(mob.Id, ServerPackets.RemoveDead)));
                 }
             }
@@ -368,6 +368,9 @@ public sealed class World(
                 await session.SendAsync(ServerPackets.UpdateScore(session.Id, me));
                 await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp));
                 logger.LogInformation("[{Id}] {Name} subiu para o nível {Level}.", session.Id, me.Name, me.BaseScore.Level + 1);
+                if (Leveling.CanEvolve(me))
+                    await session.SendMessageAsync(
+                        $"Nível máximo de {Evolutions.Name(me.Evolution)}! Digite /evoluir para virar {Evolutions.Name(me.Evolution + 1)}.");
             }
             logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}, gold {Coin}).", session.Id, me.Name,
                 string.Join(", ", killed.Select(m => m.Template.Name)), exp, me.Coin);

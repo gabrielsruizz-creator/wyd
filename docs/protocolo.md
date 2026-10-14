@@ -62,6 +62,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
+| `0x277` | Distribuir ponto     | 20      | `short Tipo` (0 atributo, 1 especial, 2 skill no mestre), `short Qual` (0 FOR/1 INT/2 DES/3 CON ou especial 1-4), `short Extra` | ✅ |
 | `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
 | `0x376` | Mover/equipar item | 20      | `byte TipoDest, SlotDest, TipoOrig, SlotOrig` (0 equip, 1 inventário, 2 baú); o servidor devolve o pedido para o client fazer a troca | ✅ layout |
 | `0x373` | Usar item          | 36      | `int TipoOrig, SlotOrig, TipoDest, SlotDest`                              | ✅ layout |
@@ -195,11 +196,25 @@ Efeitos do ItemList.bin usados pelo servidor: `4` = cura HP, `5` = cura MP, `38`
 de itens empilhados. Equipar confere a máscara `Pos` (bit *n* = slot *n* do Equip) e o nível mínimo.
 Comprar cobra o preço do ItemList.bin; vender devolve 1/4 dele. O gold máximo é 2 bilhões.
 
-## Experiência e nível
+## Experiência, nível e evolução
 
-A tabela de experiência fica no `WYD.exe` 7.54 (351 números de 32 bits, começando em 500, 1124, 1826, 2610).
-`Next[n]` é a experiência acumulada que o nível `n` precisa para virar `n + 1` (o nível 0 aparece como 1 na tela).
-O comando `extract-exptable` copia a tabela para `data/ExpTable.txt`; sem ela ninguém sobe de nível.
+O `WYD.exe` 7.54 tem duas tabelas seguidas em `0x5CAF9C`:
+
+- Mortal/Arch: 402 números de 32 bits sem sinal (500, 1124, 1826, 2610 … 4.290.000.000). `T[n]` é a
+  experiência acumulada que o nível `n` precisa para virar `n + 1` (o nível 0 aparece como 1 na tela).
+- Celestial/Sub Celestial: 201 números começando em 0 (`C[n]` = experiência no começo do nível `n`).
+
+A experiência é um número sem sinal no client (até 4,29 bilhões). O comando `extract-exptable` copia as duas
+tabelas para `data/`; sem elas ninguém sobe de nível.
+
+A evolução fica no rosto (`Equip[0]`), no segundo valor de efeito: o client (função em `0x50437E`) trata 0
+como Mortal, outro valor como evoluído, e usa a tabela de Celestial se a capa (`Equip[15]`) for uma das
+capas de Celestial (3197, 3198, 3199, 573, 1767, 1770). O servidor usa 0 Mortal, 1 Arch, 2 Celestial e
+3 Sub Celestial. Nível máximo: 400, 400, 200 e 200; no máximo, `/evoluir` passa para a próxima com nível 1 e
+experiência zerada, mantendo atributos e pontos.
+
+Pontos (`0x277`): atributo gasta `ScoreBonus` (CON dá +2 de vida máxima, INT +2 de mana máxima), especial
+gasta `SpecialBonus` (até 255). O servidor responde com `0x336` e `0x337`.
 
 Ao matar um monstro o jogador recebe a `Exp` e o `Coin` da ficha do monstro e, a cada nível: 5 pontos de
 atributo, 1 especial, 1 de skill e vida/mana máximas a mais (TK +5/+1, FM +2/+4, BM +3/+3, HT +4/+2), com

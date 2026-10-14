@@ -24,6 +24,9 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Itens: equipar/mover (conferindo slot e nível), usar barras de gold e poções, comprar e vender nas lojas
 - [x] Combate (2ª etapa): gold dos monstros, subir de nível (com a tabela de experiência do client),
       monstros revidam e perseguem, morte e renascer na cidade, vida e mana voltando com o tempo
+- [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
+      com `/evoluir` no nível máximo
+- [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
@@ -31,7 +34,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 ## Próximas etapas
 
 1. Drops: itens dos monstros caindo no chão e sendo pegos.
-2. Baú, mestres de skill, skills, NPCs de quest e distribuição de pontos.
+2. Baú, mestres de skill (aprender skills com os pontos de skill) e NPCs de quest.
 3. Grupo, troca, guild.
 4. Teleportes, quests.
 
@@ -82,7 +85,7 @@ dotnet run --project src\WYD.Server -- find-keytable "C:\caminho\do\jogo\WYD.exe
 Com o comando esperando, abra o jogo, escolha o servidor e tente logar com a conta que você criou.
 O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir, tente logar de novo.
 
-**3. Copie a tabela de experiência** (sem ela os personagens não sobem de nível):
+**3. Copie as tabelas de experiência** (Mortal/Arch e Celestial; sem elas os personagens não sobem de nível):
 
 ```powershell
 dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.exe"
@@ -112,6 +115,8 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm item 905` | cria o item 905 no primeiro espaço livre do inventário |
 | `/gm item 905 43 9` | o mesmo, com até 3 pares efeito/valor (ex.: 43 = refinação) |
 | `/gm nivel 100` | coloca o seu personagem no nível 100 (vida, mana e pontos de acordo) |
+| `/gm evoluir arch` | muda a sua evolução: `mortal`, `arch`, `celestial` ou `sub` (volta ao nível 1) |
+| `/gm pontos 100` | dá 100 pontos de atributo, especiais e de skill |
 | `/gm gold 1000000` | define o seu gold (até 2.000.000.000) |
 | `/gm curar` | enche a sua vida e mana |
 | `/gm ir 2100 2100` | teleporta você para a posição X Y |
@@ -128,6 +133,7 @@ Para todos os jogadores:
 | Comando | O que faz |
 |---------|-----------|
 | `/ajuda` | lista os comandos |
+| `/evoluir` | no nível máximo, evolui (Mortal 400 → Arch, Arch 400 → Celestial, Celestial 200 → Sub Celestial) |
 | `/Fulano oi` | sussurra "oi" para o jogador Fulano |
 
 Para achar o número de um item: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.

@@ -281,6 +281,9 @@ public static class ServerPackets
 
     public const int AttackOneSize = 48;
 
+    /// <summary>O client guarda a experiência como número sem sinal de 32 bits (até 4.294.967.295).</summary>
+    public static uint ClientExp(long exp) => (uint)Math.Clamp(exp, 0, uint.MaxValue);
+
     public const int MobKillSize = 24;
 
     /// <summary>0x338: <paramref name="killed"/> morreu; se quem recebe é o matador, o client mostra a nova experiência.</summary>
@@ -317,7 +320,7 @@ public static class ServerPackets
     public static byte[] UpdateEtc(ushort id, Character c) =>
         new PacketWriter(Opcodes.UpdateEtc, 36, id)
             .WriteInt32(0)
-            .WriteInt32((int)Math.Clamp(c.Exp, 0, int.MaxValue))
+            .WriteUInt32(ClientExp(c.Exp))
             .WriteUInt32(c.LearnedSkill)
             .WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus).Skip(2)
             .WriteInt32(c.Coin)
@@ -444,7 +447,7 @@ public static class ServerPackets
         w.WriteByte(0);                               // Rsv
         w.WriteUInt16(0);                             // Quest
         w.WriteInt32(c.Coin);
-        w.WriteInt32((int)Math.Clamp(c.Exp, 0, int.MaxValue));
+        w.WriteUInt32(ClientExp(c.Exp));
         w.WriteInt16(c.PosX);
         w.WriteInt16(c.PosY);
         c.BaseScore.Write(w);
@@ -487,6 +490,6 @@ public static class ServerPackets
                 (c?.Equip[i] ?? default).Write(w);
         foreach (var c in slots) w.WriteUInt16(c?.Guild ?? 0);
         foreach (var c in slots) w.WriteInt32(c?.Coin ?? 0);
-        foreach (var c in slots) w.WriteInt32((int)Math.Clamp(c?.Exp ?? 0, 0, int.MaxValue));
+        foreach (var c in slots) w.WriteUInt32(ClientExp(c?.Exp ?? 0));
     }
 }

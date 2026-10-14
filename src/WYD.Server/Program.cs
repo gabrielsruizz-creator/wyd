@@ -124,6 +124,7 @@ public static class Program
         services.AddSingleton<ExpCatalog>();
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<ItemHandler>();
+        services.AddSingleton<PointsHandler>();
         services.AddSingleton<World>();
         services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();

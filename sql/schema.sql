@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS characters (
     `int`       SMALLINT     NOT NULL,
     dex         SMALLINT     NOT NULL,
     con         SMALLINT     NOT NULL,
+    special1    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    special2    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    special3    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    special4    TINYINT UNSIGNED NOT NULL DEFAULT 0,
     equip       BLOB         NULL,            -- STRUCT_ITEM[16]
     inventory   BLOB         NULL,            -- STRUCT_ITEM[64]
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

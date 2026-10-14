@@ -56,6 +56,10 @@ public sealed class MySqlDatabase(IOptions<DatabaseOptions> options, ILogger<MyS
         ("characters", "special_bonus", "SMALLINT NOT NULL DEFAULT 0"),
         ("characters", "skill_bonus", "SMALLINT NOT NULL DEFAULT 0"),
         ("characters", "learned_skill", "INT UNSIGNED NOT NULL DEFAULT 0"),
+        ("characters", "special1", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
+        ("characters", "special2", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
+        ("characters", "special3", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
+        ("characters", "special4", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
     ];
 }
 
@@ -183,6 +187,10 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
                 Int = r.GetInt16("int"),
                 Dex = r.GetInt16("dex"),
                 Con = r.GetInt16("con"),
+                Special1 = r.GetByte("special1"),
+                Special2 = r.GetByte("special2"),
+                Special3 = r.GetByte("special3"),
+                Special4 = r.GetByte("special4"),
             };
             list.Add(c);
         }
@@ -285,7 +293,9 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await using var connection = await db.OpenAsync();
         await using var command = new MySqlCommand("""
             UPDATE characters SET exp = @exp, level = @level, coin = @coin, max_hp = @maxhp, max_mp = @maxmp,
-                hp = @hp, mp = @mp, score_bonus = @sb, special_bonus = @spb, skill_bonus = @skb, learned_skill = @ls
+                hp = @hp, mp = @mp, score_bonus = @sb, special_bonus = @spb, skill_bonus = @skb, learned_skill = @ls,
+                str = @str, `int` = @int, dex = @dex, con = @con,
+                special1 = @s1, special2 = @s2, special3 = @s3, special4 = @s4
             WHERE id = @id
             """, connection);
         var s = c.BaseScore;
@@ -300,6 +310,14 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         command.Parameters.AddWithValue("@spb", c.SpecialBonus);
         command.Parameters.AddWithValue("@skb", c.SkillBonus);
         command.Parameters.AddWithValue("@ls", c.LearnedSkill);
+        command.Parameters.AddWithValue("@str", s.Str);
+        command.Parameters.AddWithValue("@int", s.Int);
+        command.Parameters.AddWithValue("@dex", s.Dex);
+        command.Parameters.AddWithValue("@con", s.Con);
+        command.Parameters.AddWithValue("@s1", s.Special1);
+        command.Parameters.AddWithValue("@s2", s.Special2);
+        command.Parameters.AddWithValue("@s3", s.Special3);
+        command.Parameters.AddWithValue("@s4", s.Special4);
         command.Parameters.AddWithValue("@id", c.Id);
         await command.ExecuteNonQueryAsync();
     }

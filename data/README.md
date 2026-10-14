@@ -51,9 +51,10 @@ arquivo é o que o client 7.54 espera:
 dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada
 ```
 
-## `ExpTable.txt` (opcional)
+## `ExpTable.txt` e `ExpTableCelestial.txt` (opcionais)
 
-A experiência que cada nível precisa. Fica dentro do `WYD.exe`; o servidor copia com:
+A experiência que cada nível precisa: uma tabela para Mortal e Arch (até o 400) e outra para Celestial e
+Sub Celestial (até o 200). As duas ficam dentro do `WYD.exe`; o servidor copia com:
 
 ```powershell
 dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\WYD.exe"

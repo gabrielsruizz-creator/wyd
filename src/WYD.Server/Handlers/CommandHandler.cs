@@ -27,6 +27,8 @@ public sealed class CommandHandler(
     [
         ("/gm item <índice> [efeito valor]...", "cria um item no inventário (até 3 efeitos)"),
         ("/gm nivel <número>", "muda o seu nível"),
+        ("/gm evoluir <mortal|arch|celestial|sub>", "muda a sua evolução (nível 1)"),
+        ("/gm pontos <quantia>", "dá pontos de atributo, especiais e de skill"),
         ("/gm gold <quantia>", "define o seu gold"),
         ("/gm curar", "enche a sua vida e mana"),
         ("/gm ir <x> <y>", "teleporta você para a posição"),
@@ -47,8 +49,15 @@ public sealed class CommandHandler(
             case "gm":
                 await GmAsync(session, request.Text.Trim());
                 break;
+            case "evoluir":
+                await EvolveAsync(session);
+                break;
             case "ajuda" or "help":
-                var lines = new List<string> { "/nome texto - sussurra para o jogador 'nome'" };
+                var lines = new List<string>
+                {
+                    "/nome texto - sussurra para o jogador 'nome'",
+                    "/evoluir - no nível máximo: Mortal 400 > Arch 400 > Celestial 200 > Sub Celestial 200",
+                };
                 if (session.Account!.AccessLevel > 0)
                     lines.Add("/gm ajuda - lista os comandos de GM");
                 await SystemLinesAsync(session, lines);
@@ -83,6 +92,8 @@ public sealed class CommandHandler(
             case "item": await GiveItemAsync(session, args); break;
             case "nivel" or "nível" or "level": await SetLevelAsync(session, args); break;
             case "gold": await SetGoldAsync(session, args); break;
+            case "evoluir": await SetEvolutionAsync(session, args); break;
+            case "pontos": await GivePointsAsync(session, args); break;
             case "curar": await HealAsync(session); break;
             case "ir": await GoAsync(session, args); break;
             case "trazer": await BringAsync(session, args); break;
@@ -115,6 +126,23 @@ public sealed class CommandHandler(
         await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
         await characters.SaveProgressAsync(c);
         await session.SendMessageAsync($"Gold: {c.Coin:N0}");
+    }
+
+    /// <summary>/gm pontos 100: soma pontos de atributo, especiais e de skill.</summary>
+    private async Task GivePointsAsync(ClientSession session, string args)
+    {
+        if (!short.TryParse(args, out short amount) || amount <= 0)
+        {
+            await session.SendMessageAsync("Uso: /gm pontos <quantia>");
+            return;
+        }
+        var c = session.Character!;
+        c.ScoreBonus = (short)Math.Min(short.MaxValue, c.ScoreBonus + amount);
+        c.SpecialBonus = (short)Math.Min(short.MaxValue, c.SpecialBonus + amount);
+        c.SkillBonus = (short)Math.Min(short.MaxValue, c.SkillBonus + amount);
+        await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
+        await characters.SaveProgressAsync(c);
+        await session.SendMessageAsync($"+{amount} pontos de atributo, especiais e de skill.");
     }
 
     /// <summary>/gm curar</summary>
@@ -271,21 +299,70 @@ public sealed class CommandHandler(
         var account = session.Account!;
         var character = session.Character!;
 
-        int max = (expTable.Table?.MaxLevel ?? Game.Leveling.DefaultMaxLevel) + 1;
+        int max = Game.Evolutions.MaxShownLevel(character.Evolution);
         if (!int.TryParse(args.Trim(), out int shown) || shown < 1 || shown > max)
         {
-            await session.SendMessageAsync($"Uso: /gm nivel <1 a {max}>");
+            await session.SendMessageAsync($"Uso: /gm nivel <1 a {max}> ({Game.Evolutions.Name(character.Evolution)} vai até o {max})");
             return;
         }
 
-        Game.Leveling.SetLevel(character, shown - 1, expTable.Table);
-        await session.SendAsync(ServerPackets.UpdateScore(session.Id, character));
-        await session.SendAsync(ServerPackets.UpdateEtc(session.Id, character));
-        await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, character.BaseScore.Hp, character.BaseScore.Mp));
+        Game.Leveling.SetLevel(character, shown - 1, expTable.For(character.Evolution));
+        await SendProgressAsync(session);
         await characters.SaveProgressAsync(character);
 
         logger.LogInformation("[{Id}] GM '{Account}' colocou {Name} no nível {Level}.", session.Id, account.Username, character.Name, shown);
         await session.SendMessageAsync($"Agora você está no nível {shown}.");
+    }
+
+    /// <summary>Ficha, experiência/pontos e vida/mana novas para o próprio jogador.</summary>
+    private static async Task SendProgressAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+        await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
+        await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, c.BaseScore.Hp, c.BaseScore.Mp));
+    }
+
+    /// <summary>/evoluir: no nível máximo, Mortal vira Arch, Arch vira Celestial e Celestial vira Sub Celestial.</summary>
+    private async Task EvolveAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        if (c.Evolution >= Game.Evolution.SubCelestial)
+        {
+            await session.SendMessageAsync("Sub Celestial já é a última evolução.");
+            return;
+        }
+        if (!Game.Leveling.CanEvolve(c))
+        {
+            await session.SendMessageAsync(
+                $"Chegue ao nível {Game.Evolutions.MaxShownLevel(c.Evolution)} de {Game.Evolutions.Name(c.Evolution)} para evoluir.");
+            return;
+        }
+        await ChangeEvolutionAsync(session, c.Evolution + 1);
+    }
+
+    /// <summary>/gm evoluir arch: muda a evolução direto (nível 1).</summary>
+    private async Task SetEvolutionAsync(ClientSession session, string args)
+    {
+        if (Game.Evolutions.Parse(args) is not { } to)
+        {
+            await session.SendMessageAsync("Uso: /gm evoluir <mortal|arch|celestial|sub>");
+            return;
+        }
+        await ChangeEvolutionAsync(session, to);
+    }
+
+    private async Task ChangeEvolutionAsync(ClientSession session, Game.Evolution to)
+    {
+        var c = session.Character!;
+        Game.Leveling.Evolve(c, to);
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, c.Equip[0]));
+        await SendProgressAsync(session);
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+
+        logger.LogInformation("[{Id}] {Name} agora é {Evolution}.", session.Id, c.Name, Game.Evolutions.Name(to));
+        await session.SendMessageAsync($"Parabéns! Agora você é {Game.Evolutions.Name(to)} (nível 1).");
     }
 
     private async Task WhisperAsync(ClientSession session, string target, string text)

@@ -714,6 +714,59 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Points_and_evolution_through_the_game()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+        short str = me.BaseScore.Str;
+
+        // Sem pontos: recusa e devolve os pontos do servidor.
+        await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(0).WriteInt16(0).Skip(4).ToArray());
+        Assert.Equal("Sem pontos de atributo.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal(Opcodes.UpdateEtc, (await a.ReceiveAsync()).Type);
+
+        await a.SendAsync(CommandPacket("gm", "pontos 3"));
+        Assert.Equal(Opcodes.UpdateEtc, (await a.ReceiveAsync()).Type);
+        await a.ReceiveAsync();
+
+        await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(0).WriteInt16(0).Skip(4).ToArray());
+        var score = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateScore, score.Type);
+        score.Skip(0x10);                                           // Level, Ac, Damage, Merchant, AttackRun, MaxHp, MaxMp, Hp, Mp
+        Assert.Equal(str + 1, score.ReadInt16());                   // FOR na ficha
+        var etc = await a.ReceiveAsync();
+        etc.Skip(12);
+        Assert.Equal(2, etc.ReadInt16());                           // sobraram 2 pontos de atributo
+
+        // /evoluir só no nível máximo; o GM pode mudar direto.
+        await a.SendAsync(CommandPacket("evoluir", ""));
+        Assert.Equal("Chegue ao nível 400 de Mortal para evoluir.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "nivel 400"));
+        for (int i = 0; i < 4; i++) await a.ReceiveAsync();
+        await a.SendAsync(CommandPacket("evoluir", ""));
+        var face = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, face.Type);
+        Assert.Equal(0, face.ReadInt16());                          // equipamento
+        Assert.Equal(0, face.ReadInt16());                          // slot 0: rosto
+        face.Skip(2 + 3);
+        Assert.Equal((byte)Evolution.Arch, face.ReadByte());        // segundo valor de efeito
+        Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.UpdateEtc, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.UpdateHpMp, (await a.ReceiveAsync()).Type);
+        Assert.Equal("Parabéns! Agora você é Arch (nível 1).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal(Evolution.Arch, me.Evolution);
+        Assert.Equal(0, me.BaseScore.Level);
+
+        await a.SendAsync(CommandPacket("gm", "evoluir sub"));
+        for (int i = 0; i < 5; i++) await a.ReceiveAsync();
+        Assert.Equal(Evolution.SubCelestial, me.Evolution);
+        await a.SendAsync(CommandPacket("gm", "nivel 201"));
+        Assert.StartsWith("Uso: /gm nivel <1 a 200>", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    [Fact]
     public async Task Gm_commands_change_level_gold_and_position()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
