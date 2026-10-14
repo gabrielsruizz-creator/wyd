@@ -66,11 +66,17 @@ public sealed class Mob
         }
     }
 
+    /// <summary>Trocas de aparência (ver <see cref="NpcVisuals"/>); definido pelo MobService.</summary>
+    public NpcVisuals? Visuals { get; set; }
+
     /// <summary>
-    /// O 0x364 do mob. A montaria (slot 14) não vai para a tela: NPC montado (os reis andam no Parade Horse)
-    /// derrubou o client 7.54 ao aparecer; a pé ele funciona igual.
+    /// O 0x364 do mob, com as trocas de aparência (os reis aparecem com peças que o client desenha bem). A montaria
+    /// (slot 14) dos NPCs não vai para a tela: nenhum NPC montado foi testado no client 7.54 (o jogador montado sim).
     /// </summary>
     public byte[] CreatePacket() =>
         ServerPackets.CreateMob(Id, Template.Name, X, Y,
-            Template.Equip.Select((item, slot) => slot == Stats.MountSlot ? (short)0 : item.Index), Template.Guild, Score);
+            Template.Equip.Select((item, slot) => slot == Stats.MountSlot
+                ? (short)0
+                : Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
+            Template.Guild, Score);
 }

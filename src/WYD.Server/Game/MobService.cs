@@ -11,7 +11,7 @@ namespace WYD.Server.Game;
 /// Cada entrada nasce como um grupo: o líder mais MinGroup..MaxGroup seguidores (no máximo MaxNumMob),
 /// espalhados num raio de StartRange em volta de (StartX, StartY).
 /// </summary>
-public sealed class MobService(IOptions<ServerOptions> options, World world, ILogger<MobService> logger) : BackgroundService
+public sealed class MobService(IOptions<ServerOptions> options, World world, NpcVisuals visuals, ILogger<MobService> logger) : BackgroundService
 {
     private readonly ServerOptions _options = options.Value;
 
@@ -96,6 +96,7 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, ILo
                 var (x, y) = Around(rule.StartX, rule.StartY, i == 0 ? 0 : rule.StartRange);
                 var mob = new Mob(nextId++, i == 0 ? leader : follower, rule, x, y)
                 {
+                    Visuals = visuals,
                     NextMove = DateTime.UtcNow + TimeSpan.FromSeconds(Random.Shared.Next(MinWaitSeconds, MinWaitSeconds * 3)),
                 };
                 await world.AddMobAsync(mob);

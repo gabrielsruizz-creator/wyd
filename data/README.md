@@ -66,3 +66,14 @@ Sem ela o jogo funciona, mas ninguém sobe de nível.
 
 As skills do client (fica na pasta do jogo, junto do `ItemList.bin`). Com ela, aprender uma skill no mestre
 gasta os pontos de skill certos de cada uma; sem ela, aprender não custa pontos.
+
+## `npc-visual.txt` (opcional)
+
+Troca a aparência de NPCs na tela, uma regra por linha: `Nome slot item` (item 0 tira a peça). Os reis
+(Rei_Harabard e Rei_Glantuar) já aparecem por padrão com rosto Orange_Guard (305), armadura de guarda azul
+(165-168) e a arma Heaven_Of_Shard (997), porque o visual original deles (Orange_King 304, armaduras 160-163,
+Heaven_Of_Garve 999) derruba o client 7.54. Para testar o original de volta, por exemplo só a arma:
+
+```
+Rei_Harabard 6 999
+```

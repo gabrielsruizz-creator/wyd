@@ -80,6 +80,9 @@ public sealed class ServerOptions
     public int KingdomNeutralX { get; set; } = 1760;
     public int KingdomNeutralY { get; set; } = 1725;
 
+    /// <summary>Trocas de aparência de NPCs ("Nome slot item" por linha).</summary>
+    public string NpcVisualPath { get; set; } = "data/npc-visual.txt";
+
     /// <summary>Os círculos de teleporte das cidades (montados pelo GM com /gm tp add).</summary>
     public string TeleportsPath { get; set; } = "data/teleports.txt";
 

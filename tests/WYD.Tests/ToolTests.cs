@@ -413,4 +413,16 @@ public class ToolTests
         Assert.Null(WYD.Server.Game.Skills.Learn(ht, 5076, items, null));
         Assert.True(WYD.Server.Game.Skills.Knows(ht, 5076 - 5000));
     }
+
+    [Fact]
+    public void Kings_look_is_replaced_and_can_be_overridden()
+    {
+        var visuals = WYD.Server.Game.NpcVisuals.With([("Rei_Glantuar", 6, (short)999), ("Lobo", 0, (short)300)]);
+        Assert.Equal(305, visuals.Visible("Rei_Harabard", 0, 304));       // rosto Orange_King trocado
+        Assert.Equal(997, visuals.Visible("Rei_Harabard", 6, 999));       // arma trocada
+        Assert.Equal(747, visuals.Visible("Rei_Harabard", 1, 747));       // coroa fica
+        Assert.Equal(999, visuals.Visible("Rei_Glantuar", 6, 999));       // o arquivo pode voltar a arma original
+        Assert.Equal(300, visuals.Visible("Lobo", 0, 299));
+        Assert.Equal(52, visuals.Visible("Averest", 0, 52));              // os outros NPCs não mudam
+    }
 }
