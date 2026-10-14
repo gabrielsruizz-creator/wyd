@@ -25,6 +25,14 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
         if (npc is null || Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
             return;
 
+        if (npc.IsSkillMaster)
+        {
+            // Com a Eternal Stone (1742) no slot 10 o client pergunta "deseja continuar?" e manda o 0x28B em vez
+            // do 0x27B: abre o menu de skills do mesmo jeito.
+            await session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry, type: ServerPackets.ShopTypeSkillMaster));
+            return;
+        }
+
         if (!IsKing(npc))
         {
             logger.LogInformation("[{Id}] Clique em {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);

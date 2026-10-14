@@ -967,6 +967,12 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(ServerPackets.ShopTypeSkillMaster, list.ReadInt32());   // janela de skills, não de loja
             Assert.Equal(5000, list.ReadInt16());
 
+            // Pelo 0x28B (o client usa quando a Eternal Stone está equipada) abre o mesmo menu.
+            await a.SendAsync(NpcClickPacket(masterId));
+            var again = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.ShopList, again.Type);
+            Assert.Equal(ServerPackets.ShopTypeSkillMaster, again.ReadInt32());
+
             // Tipo 2 do 0x277: aprender a skill do item 5000.
             await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5000).WriteInt16((short)masterId).Skip(2).ToArray());
             var etc = await a.ReceiveAsync();
