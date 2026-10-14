@@ -62,6 +62,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
+| `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
 | `0x376` | Mover/equipar item | 20      | `byte TipoDest, SlotDest, TipoOrig, SlotOrig` (0 equip, 1 inventário, 2 baú); o servidor devolve o pedido para o client fazer a troca | ✅ layout |
 | `0x373` | Usar item          | 36      | `int TipoOrig, SlotOrig, TipoDest, SlotDest`                              | ✅ layout |
 | `0x379` | Comprar            | 24      | `short Npc`, `short SlotDoNpc` (linha×9+coluna = slot do Carry), `short SlotMeu` | ✅ layout |
@@ -88,7 +89,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
 | `0x165` | RemoveMob           | 16      | id no cabeçalho, `int Tipo` (0x0C)                                         | ✅ |
-| `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho              | ✅ |
+| `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho; `int Tipo` (0x14) = 1 teleporta direto para (DestX, DestY) | ✅ |
 | `0x333` | Chat                | 108     | o mesmo pacote do client, com o id de quem falou (não volta para ele)      | ✅ |
 | `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
 | `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
@@ -203,3 +204,13 @@ O comando `extract-exptable` copia a tabela para `data/ExpTable.txt`; sem ela ni
 Ao matar um monstro o jogador recebe a `Exp` e o `Coin` da ficha do monstro e, a cada nível: 5 pontos de
 atributo, 1 especial, 1 de skill e vida/mana máximas a mais (TK +5/+1, FM +2/+4, BM +3/+3, HT +4/+2), com
 vida e mana cheias. O servidor manda `0x337` (exp, gold e pontos) e, se subiu, `0x336` e `0x181`.
+
+## Monstros revidando, morte e renascer
+
+Um monstro que leva dano passa a perseguir quem bateu: anda até ficar a 2 células e bate a cada 2 segundos com
+o `0x39D` (ele como atacante, skill -1, o jogador como alvo com o dano). Quem apanhou recebe também o `0x181` com
+a vida nova. Com a vida em zero, o servidor manda `0x338` com o jogador como morto: o client mostra a morte e,
+quando o jogador clica para renascer (ou 3 minutos depois), manda o `0x289`. O servidor enche vida e mana e
+leva o personagem para `StartX`/`StartY` com um `0x366` de teleporte.
+
+Os vivos recuperam 5% da vida e da mana máximas a cada 6 segundos (`0x181`).

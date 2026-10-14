@@ -204,11 +204,24 @@ public static class ServerPackets
         return new PacketWriter(Opcodes.Move, MoveSize, id)
             .WriteInt16(x).WriteInt16(y)
             .WriteInt32(speed)
-            .WriteInt32(0)                            // tipo: andar
+            .WriteInt32(MoveWalk)
             .WriteInt16(destX).WriteInt16(destY)
             .WriteString(Route(x, y, destX, destY), MaxRoute)
             .ToArray();
     }
+
+    /// <summary>Tipo do 0x366 em 0x14: 0 (ou 2) anda pela rota; 1 aparece direto no destino com o efeito de teleporte.</summary>
+    public const int MoveWalk = 0, MoveTeleport = 1;
+
+    /// <summary>0x366 de teleporte: o client põe o personagem direto em (x, y).</summary>
+    public static byte[] Teleport(ushort id, short x, short y) =>
+        new PacketWriter(Opcodes.Move, MoveSize, id)
+            .WriteInt16(x).WriteInt16(y)
+            .WriteInt32(0)
+            .WriteInt32(MoveTeleport)
+            .WriteInt16(x).WriteInt16(y)
+            .Skip(MaxRoute)
+            .ToArray();
 
     public const int MaxRoute = 24;
 
@@ -249,6 +262,24 @@ public static class ServerPackets
         public const int TargetSize = 4;
         public const int MaxTargets = 13;
     }
+
+    /// <summary>
+    /// 0x39D de um monstro batendo num jogador: atacante e posições em 0x0C..0x16, skill -1 (golpe normal)
+    /// em 0x18 e o alvo com o dano em 0x2C, como no ataque que o client manda.
+    /// </summary>
+    public static byte[] MobAttack(ushort attacker, short x, short y, ushort target, short targetX, short targetY, short damage) =>
+        new PacketWriter(Opcodes.AttackOne, AttackOneSize, attacker)
+            .WriteUInt16(attacker).WriteInt16(0)
+            .WriteInt16(x).WriteInt16(y).WriteInt16(targetX).WriteInt16(targetY)
+            .WriteInt16(-1)                              // skill: nenhuma
+            .WriteInt16(-1)                              // mana atual (não muda)
+            .WriteByte(0xFF).Skip(3)                     // movimento: o client escolhe
+            .WriteInt32(0).WriteInt32(0)                 // Hold, Exp: só valem para o atacante jogador
+            .Skip(4)
+            .WriteUInt16(target).WriteInt16(damage)
+            .ToArray();
+
+    public const int AttackOneSize = 48;
 
     public const int MobKillSize = 24;
 

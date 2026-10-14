@@ -32,7 +32,7 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, ILo
 
         // O ciclo roda mesmo sem o NPCGener, para os monstros criados depois (renascer e andar).
 
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             var now = DateTime.UtcNow;
@@ -43,9 +43,12 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, ILo
                 await world.RespawnAsync(mob, x, y);
             }
 
+            var busy = await world.MobActionsAsync(now);   // perseguir e bater em quem os atacou
+            await world.RegenerateAsync(now);
+
             foreach (var mob in world.WatchedMobs())
             {
-                if (!mob.Wanders || mob.NextMove > now) continue;
+                if (!mob.Wanders || mob.NextMove > now || busy.Contains(mob)) continue;
                 var (x, y) = PickDestination(mob);
                 mob.NextMove = now + Wait(mob);
                 if (x != mob.X || y != mob.Y)

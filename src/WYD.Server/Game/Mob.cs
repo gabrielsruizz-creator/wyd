@@ -42,6 +42,12 @@ public sealed class Mob
     /// <summary>O client só pede a lista da loja quando os 4 bits de baixo de Score.Merchant valem 1.</summary>
     public bool IsShop => (Template.Score.Merchant & 0x0F) == 1;
 
+    /// <summary>Jogador que o monstro está perseguindo (0 = nenhum): quem bateu nele por último.</summary>
+    public ushort Target { get; set; }
+
+    /// <summary>Quando o monstro pode bater de novo.</summary>
+    public DateTime NextAttack { get; set; }
+
     /// <summary>Quando o monstro pode andar de novo.</summary>
     public DateTime NextMove { get; set; }
 

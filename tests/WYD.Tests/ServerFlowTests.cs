@@ -569,7 +569,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             onNpc.Skip(0x2C - 12 + 2);
             Assert.Equal(0, onNpc.ReadInt16());
 
-            await Task.Delay(World.MinAttackInterval);
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
             await a.SendAsync(AttackPacket(me, ids["Gremlin"]));
             var hit = await a.ReceiveAsync();
             Assert.Equal(Opcodes.AttackOne, hit.Type);
@@ -621,6 +621,73 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(Opcodes.CreateMob, back.Type);
             back.Skip(4);
             Assert.Equal(ids["Gremlin"], back.ReadUInt16());
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    private static async Task<PacketReader> ReceiveTypeAsync(FakeClient client, ushort type)
+    {
+        while (true)
+        {
+            var p = await client.ReceiveAsync();
+            if (p.Type == type) return p;
+        }
+    }
+
+    [Fact]
+    public async Task Monster_hits_back_kills_and_player_revives_in_town()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Monstro forte (não morre com um golpe e mata com um) parado ao lado de quem entra.
+            var ogre = NpcDataTests.NpcFile("Ogro", 202, 40, 100_000);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(ogre.AsSpan(0x34), 30_000); // Damage
+            File.WriteAllBytes(Path.Combine(npcDir, "Ogro"), ogre);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Ogro", MaxNumMob = 1, StartX = 2101, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort ogreId = created.ReadUInt16();
+            const ushort me = 1;
+
+            await a.SendAsync(AttackPacket(me, ogreId));
+            Assert.Equal(me, (await ReceiveTypeAsync(a, Opcodes.AttackOne)).Id);
+
+            // O ogro revida: ataque com ele como atacante e eu como alvo, depois a vida nova e a morte.
+            var hit = await ReceiveTypeAsync(a, Opcodes.AttackOne);
+            Assert.Equal(ogreId, hit.Id);
+            Assert.Equal(ServerPackets.AttackOneSize, hit.Length);
+            Assert.Equal(ogreId, hit.ReadUInt16());
+            hit.Skip(0x2C - 0x0E);
+            Assert.Equal(me, hit.ReadUInt16());
+            Assert.True(hit.ReadInt16() > 0);
+
+            var hp = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateHpMp, hp.Type);
+            Assert.Equal(0, hp.ReadInt32());
+            var death = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.MobKill, death.Type);
+            death.Skip(4);
+            Assert.Equal(me, death.ReadUInt16());
+            Assert.Equal(ogreId, death.ReadUInt16());
+
+            // Morto não anda; ao pedir para renascer volta para a cidade com a vida cheia.
+            await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, me).ToArray());
+            var teleport = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.Move, teleport.Type);
+            teleport.Skip(8);
+            Assert.Equal(ServerPackets.MoveTeleport, teleport.ReadInt32());
+            Assert.Equal(2100, teleport.ReadInt16());
+            Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
+            var full = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateHpMp, full.Type);
+            Assert.True(full.ReadInt32() > 0);
         }
         finally
         {

@@ -36,6 +36,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.AttackOne, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.AttackTwo, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.Attack, oneTarget, SessionState.InGame, world.HandleAttackAsync);
+        Register(Opcodes.Revive, PacketHeader.Size, SessionState.InGame, world.HandleReviveAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

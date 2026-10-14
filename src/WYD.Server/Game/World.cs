@@ -30,6 +30,22 @@ public sealed class World(
 
     private const int CellSize = 32;
 
+    /// <summary>Distância em que um monstro consegue bater (corpo a corpo).</summary>
+    public const int MobAttackRange = 2;
+
+    /// <summary>Intervalo entre dois golpes do mesmo monstro.</summary>
+    public static readonly TimeSpan MobAttackInterval = TimeSpan.FromSeconds(2);
+
+    /// <summary>Quantas células um monstro anda de cada vez quando persegue alguém.</summary>
+    public const int ChaseStep = 6;
+
+    private static bool IsDead(Character c) => c.BaseScore.Hp <= 0;
+
+    /// <summary>A cada quanto tempo os vivos recuperam vida e mana (1/20 do máximo).</summary>
+    public static readonly TimeSpan RegenInterval = TimeSpan.FromSeconds(6);
+
+    private DateTime _nextRegen;
+
     private readonly object _lock = new();
     private readonly Dictionary<ushort, ClientSession> _players = new();
     private readonly Dictionary<ushort, HashSet<ushort>> _visible = new();
@@ -188,7 +204,7 @@ public sealed class World(
         lock (_lock)
         {
             var me = session.Character!;
-            if (!_players.ContainsKey(session.Id)) return false;
+            if (!_players.ContainsKey(session.Id) || IsDead(me)) return false;
             if (destX is < 0 or > 4095 || destY is < 0 or > 4095) return false;
             if (Math.Abs(destX - me.PosX) > MaxMoveDistance || Math.Abs(destY - me.PosY) > MaxMoveDistance) return false;
 
@@ -274,7 +290,7 @@ public sealed class World(
         int levels;
         lock (_lock)
         {
-            if (!_players.ContainsKey(session.Id)) return;
+            if (!_players.ContainsKey(session.Id) || IsDead(session.Character!)) return;
             var now = DateTime.UtcNow;
             if (now - session.LastAttack < MinAttackInterval) return;
             session.LastAttack = now;
@@ -301,6 +317,11 @@ public sealed class World(
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
+                    else if (mob.Target == 0)
+                    {
+                        mob.Target = session.Id;                 // revida: passa a perseguir quem bateu
+                        if (mob.NextAttack < now) mob.NextAttack = now + MobAttackInterval / 2;
+                    }
                 }
                 System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(o + 2), damage);
             }
@@ -325,6 +346,7 @@ public sealed class World(
             {
                 mob.Alive = false;
                 mob.Hp = 0;
+                mob.Target = 0;
                 mob.RespawnAt = now + TimeSpan.FromSeconds(Math.Max(1, options.Value.RespawnSeconds));
                 GridRemove(mob);
                 foreach (var player in _players.Values)
@@ -352,6 +374,146 @@ public sealed class World(
             try { await characters.SaveProgressAsync(me); }
             catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", me.Name); }
         }
+    }
+
+    /// <summary>
+    /// Monstros que estão perseguindo alguém: chegam perto e batem a cada <see cref="MobAttackInterval"/>.
+    /// Desistem se o jogador sair, morrer ou se afastar mais que o campo de visão.
+    /// Retorna os monstros que estão ocupados (não devem passear).
+    /// </summary>
+    public async Task<HashSet<Mob>> MobActionsAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        var chases = new List<(Mob Mob, short X, short Y)>();
+        var busy = new HashSet<Mob>();
+        var deaths = new List<ClientSession>();
+        lock (_lock)
+        {
+            foreach (var mob in _mobs.Values)
+            {
+                if (!mob.Alive || mob.Target == 0) continue;
+                if (!_players.TryGetValue(mob.Target, out var victim) || IsDead(victim.Character!)
+                    || !InRange(victim.Character!, mob))
+                {
+                    mob.Target = 0;
+                    continue;
+                }
+                busy.Add(mob);
+
+                var c = victim.Character!;
+                int dx = c.PosX - mob.X, dy = c.PosY - mob.Y;
+                if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > MobAttackRange)
+                {
+                    if (mob.NextMove > now) continue;
+                    // Para uma célula antes do jogador, andando no máximo ChaseStep.
+                    int stepX = Math.Clamp(dx - Math.Sign(dx), -ChaseStep, ChaseStep);
+                    int stepY = Math.Clamp(dy - Math.Sign(dy), -ChaseStep, ChaseStep);
+                    mob.NextMove = now + TimeSpan.FromSeconds(1);
+                    chases.Add((mob, (short)(mob.X + stepX), (short)(mob.Y + stepY)));
+                    continue;
+                }
+
+                if (mob.NextAttack > now) continue;
+                mob.NextAttack = now + MobAttackInterval;
+                int damage = Combat.Damage(mob.Template.Score, c.BaseScore);
+                c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
+
+                var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);
+                foreach (var player in _players.Values)
+                    if (player == victim || InRange(player.Character!, mob) || InRange(player.Character!, c))
+                        outgoing.Add((player, attack));
+                outgoing.Add((victim, ServerPackets.UpdateHpMp(victim.Id, c.BaseScore.Hp, c.BaseScore.Mp)));
+
+                if (IsDead(c))
+                {
+                    deaths.Add(victim);
+                    // Todos que veem o jogador recebem a morte; os monstros param de persegui-lo.
+                    foreach (var player in _players.Values)
+                        if (player == victim || _visible[player.Id].Contains(victim.Id))
+                            outgoing.Add((player, ServerPackets.MobKill(victim.Id, mob.Id, 0)));
+                    foreach (var other in _mobs.Values.Where(m => m.Target == victim.Id))
+                        other.Target = 0;
+                }
+            }
+        }
+
+        await SendAllAsync(outgoing);
+        foreach (var (mob, x, y) in chases)
+            await MoveMobAsync(mob, x, y);
+        foreach (var victim in deaths)
+            logger.LogInformation("[{Id}] {Name} morreu.", victim.Id, victim.Character!.Name);
+        return busy;
+    }
+
+    /// <summary>
+    /// 0x289: o personagem morto renasce com vida e mana cheias na cidade (StartX/StartY). Quem o via perde o
+    /// corpo e quem estiver perto do novo lugar passa a vê-lo.
+    /// </summary>
+    public async Task ReviveAsync(ClientSession session)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        var me = session.Character!;
+        lock (_lock)
+        {
+            if (!_players.ContainsKey(session.Id) || !IsDead(me)) return;
+            me.BaseScore.Hp = me.BaseScore.MaxHp;
+            me.BaseScore.Mp = me.BaseScore.MaxMp;
+            TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
+            outgoing.Add((session, ServerPackets.UpdateScore(session.Id, me)));
+            outgoing.Add((session, ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp)));
+        }
+        await SendAllAsync(outgoing);
+        logger.LogInformation("[{Id}] {Name} renasceu em ({X}, {Y}).", session.Id, me.Name, me.PosX, me.PosY);
+        await SaveAsync(me);
+    }
+
+    /// <summary>Leva o jogador direto para (x, y) e refaz quem ele vê e quem o vê (chamar com o lock).</summary>
+    private void TeleportLocked(ClientSession session, short x, short y, List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        var me = session.Character!;
+        var mine = _visible[session.Id];
+        foreach (var id in mine.Where(id => id < Mob.FirstId).ToList())
+        {
+            mine.Remove(id);
+            if (!_players.TryGetValue(id, out var other)) continue;
+            _visible[id].Remove(session.Id);
+            outgoing.Add((session, ServerPackets.RemoveMob(id)));
+            outgoing.Add((other, ServerPackets.RemoveMob(session.Id)));
+        }
+
+        me.PosX = x;
+        me.PosY = y;
+        outgoing.Add((session, ServerPackets.Teleport(session.Id, x, y)));
+
+        foreach (var other in _players.Values)
+        {
+            if (other == session || !InRange(me, other.Character!)) continue;
+            mine.Add(other.Id);
+            _visible[other.Id].Add(session.Id);
+            outgoing.Add((session, ServerPackets.CreateMob(other.Id, other.Character!)));
+            outgoing.Add((other, ServerPackets.CreateMob(session.Id, me)));
+        }
+        RefreshMobs(session, outgoing);
+    }
+
+    /// <summary>Recuperação natural: a cada <see cref="RegenInterval"/>, 5% da vida e da mana máximas.</summary>
+    public Task RegenerateAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            if (now < _nextRegen) return Task.CompletedTask;
+            _nextRegen = now + RegenInterval;
+            foreach (var player in _players.Values)
+            {
+                var s = player.Character!;
+                if (IsDead(s) || (s.BaseScore.Hp >= s.BaseScore.MaxHp && s.BaseScore.Mp >= s.BaseScore.MaxMp)) continue;
+                s.BaseScore.Hp = Math.Min(s.BaseScore.MaxHp, s.BaseScore.Hp + Math.Max(1, s.BaseScore.MaxHp / 20));
+                s.BaseScore.Mp = Math.Min(s.BaseScore.MaxMp, s.BaseScore.Mp + Math.Max(1, s.BaseScore.MaxMp / 20));
+                outgoing.Add((player, ServerPackets.UpdateHpMp(player.Id, s.BaseScore.Hp, s.BaseScore.Mp)));
+            }
+        }
+        return SendAllAsync(outgoing);
     }
 
     /// <summary>Monstros mortos cujo tempo de renascer já passou.</summary>

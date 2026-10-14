@@ -22,14 +22,15 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Comandos no chat: `/item` para GMs e sussurro `/nome texto`
 - [x] Combate (1ª etapa): atacar monstros, dano, morte, experiência e renascimento
 - [x] Itens: equipar/mover (conferindo slot e nível), usar barras de gold e poções, comprar e vender nas lojas
-- [x] Combate (2ª etapa, parte 1): gold dos monstros e subir de nível (com a tabela de experiência do client)
+- [x] Combate (2ª etapa): gold dos monstros, subir de nível (com a tabela de experiência do client),
+      monstros revidam e perseguem, morte e renascer na cidade, vida e mana voltando com o tempo
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
 
 ## Próximas etapas
 
-1. Combate (2ª etapa, parte 2): monstros revidam, morte e renascer do personagem, drops no chão.
+1. Drops: itens dos monstros caindo no chão e sendo pegos.
 2. Baú, mestres de skill, skills, NPCs de quest e distribuição de pontos.
 3. Grupo, troca, guild.
 4. Teleportes, quests.

@@ -107,6 +107,14 @@ public sealed partial class CharacterHandler(
             return;
         }
 
+        if (character.BaseScore.Hp <= 0)
+        {
+            // Saiu morto: volta vivo na cidade.
+            character.BaseScore.Hp = Math.Max(1, character.BaseScore.MaxHp);
+            character.PosX = (short)_options.StartX;
+            character.PosY = (short)_options.StartY;
+        }
+
         session.Character = character;
         session.State = SessionState.InGame;
         logger.LogInformation("[{Id}] '{Account}' entrou no mundo com {Name} em ({X}, {Y}).",

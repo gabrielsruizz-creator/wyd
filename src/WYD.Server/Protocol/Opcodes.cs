@@ -24,6 +24,7 @@ public static class Opcodes
     public const ushort Attack = 0x36C;            // até 13 alvos (96 bytes), nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort AttackOne = 0x39D;         // 1 alvo (48 bytes)
     public const ushort AttackTwo = 0x39E;         // 2 alvos (52 bytes)
+    public const ushort Revive = 0x289;            // só o cabeçalho: o personagem morto pede para renascer (botão ou 3 minutos depois; conferido no WYD.exe 7.54)
     public const ushort RequestMob = 0x369;        // client pede o 0x364 de um id que ele não conhece (conferido no WYD.exe 7.54)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
     public const ushort SecondPassword = 0xFDE;    // MSG_SecondPassword, 32 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
@@ -77,6 +78,7 @@ public static class Opcodes
         AttackOne => "AttackOne",
         AttackTwo => "AttackTwo",
         MobKill => "MobKill",
+        Revive => "Revive",
         RequestShop => "RequestShop",
         ShopList => "ShopList",
         CreateMob => "CreateMob",

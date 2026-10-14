@@ -47,4 +47,7 @@ public sealed class WorldHandler(World world)
     /// <summary>0x39D / 0x39E / 0x36C: ataque com 1, 2 ou até 13 alvos.</summary>
     public Task HandleAttackAsync(ClientSession session, PacketReader packet) =>
         world.AttackAsync(session, packet.ToArray());
+
+    /// <summary>0x289: o personagem morto pede para renascer.</summary>
+    public Task HandleReviveAsync(ClientSession session, PacketReader packet) => world.ReviveAsync(session);
 }
