@@ -219,6 +219,28 @@ public static class ServerPackets
         return route.ToString();
     }
 
+    public const int ShopListSize = 236;
+    public const int ShopSlots = 27;
+
+    /// <summary>
+    /// 0x17C: abre a janela da loja (tipo 1 = itens). As 3 abas de 9 itens vêm dos slots 0–8, 27–35 e
+    /// 54–62 do inventário do NPC, como no servidor original.
+    /// </summary>
+    public static byte[] ShopList(ushort npcId, IReadOnlyList<Item> carry, int tax = 0)
+    {
+        var w = new PacketWriter(Opcodes.ShopList, ShopListSize, npcId);
+        w.WriteInt32(1);
+        for (int i = 0; i < ShopSlots; i++)
+        {
+            int slot = ShopSlotToCarry(i);
+            (slot < carry.Count ? carry[slot] : default).Write(w);
+        }
+        w.WriteInt32(tax);
+        return w.ToArray();
+    }
+
+    public static int ShopSlotToCarry(int shopSlot) => shopSlot / 9 * 27 + shopSlot % 9;
+
     /// <summary>0x165: tira o id da tela de quem recebe (tipo 0 = simplesmente some).</summary>
     public static byte[] RemoveMob(ushort mobId, int type = 0) =>
         new PacketWriter(Opcodes.RemoveMob, RemoveMobSize, mobId).WriteInt32(type).ToArray();

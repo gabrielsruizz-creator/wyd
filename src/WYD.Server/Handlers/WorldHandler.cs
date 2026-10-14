@@ -27,4 +27,20 @@ public sealed class WorldHandler(World world)
         raw[^1] = 0; // garante o fim da string
         return world.ChatAsync(session, raw);
     }
+
+    /// <summary>Distância máxima para abrir a loja de um NPC.</summary>
+    public const int ShopDistance = 8;
+
+    /// <summary>0x27B: o jogador clicou num NPC de loja. Responde com a lista de itens (0x17C).</summary>
+    public Task HandleRequestShopAsync(ClientSession session, PacketReader packet)
+    {
+        ushort npcId = packet.ReadUInt16();
+        var npc = world.VisibleMob(session, npcId);
+        var me = session.Character!;
+        if (npc is null || !npc.IsShop
+            || Math.Abs(npc.X - me.PosX) > ShopDistance || Math.Abs(npc.Y - me.PosY) > ShopDistance)
+            return Task.CompletedTask;
+
+        return session.SendAsync(ServerPackets.ShopList(npc.Id, npc.Template.Carry));
+    }
 }

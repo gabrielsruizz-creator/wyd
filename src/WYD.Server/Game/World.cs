@@ -235,6 +235,15 @@ public sealed class World(ICharacterRepository characters, ILogger<World> logger
         return packet is null ? Task.CompletedTask : session.SendAsync(packet);
     }
 
+    /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
+    public Mob? VisibleMob(ClientSession session, ushort mobId)
+    {
+        lock (_lock)
+            return _visible.TryGetValue(session.Id, out var mine) && mine.Contains(mobId) && _mobs.TryGetValue(mobId, out var mob)
+                ? mob
+                : null;
+    }
+
     /// <summary>Chat (0x333): repassa a quem vê o jogador. O próprio client já mostra a mensagem de quem falou.</summary>
     public Task ChatAsync(ClientSession session, byte[] packet)
     {

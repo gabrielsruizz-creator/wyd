@@ -26,6 +26,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.MoveStop, ServerPackets.MoveSize, SessionState.InGame, world.HandleMoveAsync);
         Register(Opcodes.RequestMob, PacketHeader.Size + 2, SessionState.InGame, world.HandleRequestMobAsync);
         Register(Opcodes.Chat, ServerPackets.ChatSize, SessionState.InGame, world.HandleChatAsync);
+        Register(Opcodes.RequestShop, PacketHeader.Size + 2, SessionState.InGame, world.HandleRequestShopAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

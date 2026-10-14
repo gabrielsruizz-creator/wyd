@@ -406,6 +406,52 @@ public sealed class ServerFlowTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task Clicking_a_shop_npc_opens_its_item_list()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Uma loja com um item em cada aba (slots 0, 27 e 54 do inventário) e um item fora das abas (slot 10).
+            File.WriteAllBytes(Path.Combine(npcDir, "Ferreiro"),
+                NpcDataTests.NpcFile("Ferreiro", 58, 1, 100, merchant: 1, carry: [(0, 905), (27, 1208), (54, 3407), (10, 999)]));
+            File.WriteAllBytes(Path.Combine(npcDir, "Lobo"), NpcDataTests.NpcFile("Lobo", 299, 18, 200));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+            [
+                new() { Leader = "Ferreiro", MaxNumMob = 1, StartX = 2102, StartY = 2100 },
+                new() { Leader = "Lobo", MaxNumMob = 1, StartX = 2098, StartY = 2100 },
+            ], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var ids = new Dictionary<string, ushort>();
+            for (int i = 0; i < 2; i++)
+            {
+                var p = await a.ReceiveAsync();
+                p.Skip(4);
+                ushort id = p.ReadUInt16();
+                ids[p.ReadString(12)] = id;
+            }
+
+            // Pedir a loja de um monstro não faz nada; a do Ferreiro responde com a lista.
+            await a.SendAsync(new PacketWriter(Opcodes.RequestShop, 16).WriteUInt16(ids["Lobo"]).Skip(2).ToArray());
+            await a.SendAsync(new PacketWriter(Opcodes.RequestShop, 16).WriteUInt16(ids["Ferreiro"]).Skip(2).ToArray());
+
+            var shop = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.ShopList, shop.Type);
+            Assert.Equal(ServerPackets.ShopListSize, shop.Length);
+            Assert.Equal(1, shop.ReadInt32());          // tipo 1: loja de itens
+            var list = Enumerable.Range(0, 27).Select(_ => { short idx = shop.ReadInt16(); shop.Skip(6); return idx; }).ToArray();
+            Assert.Equal(905, list[0]);                 // aba 1 <- Carry[0]
+            Assert.Equal(1208, list[9]);                // aba 2 <- Carry[27]
+            Assert.Equal(3407, list[18]);               // aba 3 <- Carry[54]
+            Assert.DoesNotContain((short)999, list);    // Carry[10] não aparece na loja
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
     private static byte[] LoginPacket(string username, string password, int version) =>
         new AccountLoginRequest(username, password, version).Write();
 

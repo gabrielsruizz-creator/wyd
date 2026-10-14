@@ -7,7 +7,7 @@ namespace WYD.Tests;
 public class NpcDataTests
 {
     /// <summary>Monta um arquivo de npc de 816 bytes como os do servidor 7.56 (com os 0xCC de sobra de memória).</summary>
-    internal static byte[] NpcFile(string name, short model, int level, int hp, byte merchant = 0, byte speed = 2)
+    internal static byte[] NpcFile(string name, short model, int level, int hp, byte merchant = 0, byte speed = 2, params (int Slot, short Item)[] carry)
     {
         var d = new byte[NpcTemplate.FileSize];
         Encoding.Latin1.GetBytes(name).CopyTo(d, 0);
@@ -20,6 +20,7 @@ public class NpcDataTests
         BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(0x2C), level);
         BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(0x30), 80);    // Ac
         BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(0x34), 34);    // Damage
+        d[0x38] = merchant;               // Score.Merchant (o client abre a loja quando & 0xF == 1)
         d[0x39] = speed;                  // AttackRun
         d[0x3A] = 0xCC; d[0x3B] = 0xCC;
         BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(0x3C), hp);    // MaxHp
@@ -27,6 +28,8 @@ public class NpcDataTests
         BinaryPrimitives.WriteInt16LittleEndian(d.AsSpan(0x4C), 4);     // Str
         BinaryPrimitives.WriteInt16LittleEndian(d.AsSpan(0x8C), model); // Equip[0]
         BinaryPrimitives.WriteInt16LittleEndian(d.AsSpan(0x10C), 1818); // Carry[0]
+        foreach (var (slot, item) in carry)
+            BinaryPrimitives.WriteInt16LittleEndian(d.AsSpan(0x10C + slot * 8), item);
         return d;
     }
 

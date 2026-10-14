@@ -31,6 +31,9 @@ public sealed class Mob
     /// <summary>NPCs (lojas etc.) e spawns com raio zero ficam parados.</summary>
     public bool Wanders => Template.Merchant == 0 && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;
 
+    /// <summary>O client só pede a lista da loja quando os 4 bits de baixo de Score.Merchant valem 1.</summary>
+    public bool IsShop => (Template.Score.Merchant & 0x0F) == 1;
+
     /// <summary>Quando o monstro pode andar de novo.</summary>
     public DateTime NextMove { get; set; }
 
