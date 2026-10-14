@@ -15,6 +15,7 @@ public sealed class World(
     ICharacterRepository characters,
     Microsoft.Extensions.Options.IOptions<WYD.Server.Config.ServerOptions> options,
     WYD.Server.Data.ExpCatalog expTable,
+    WYD.Server.Data.SkillCatalog skillCatalog,
     ILogger<World> logger)
 {
     /// <summary>Distância máxima entre quem ataca e o alvo (ataques à distância e magias incluídos).</summary>
@@ -302,14 +303,29 @@ public sealed class World(
         var killed = new List<Mob>();
         long exp;
         int levels;
+        bool castSpell = false;
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id) || IsDead(session.Character!)) return;
             var now = DateTime.UtcNow;
             if (now - session.LastAttack < MinAttackInterval) return;
-            session.LastAttack = now;
 
             var me = session.Character!;
+
+            // Skill: número em 0x18 (-1 = ataque normal). Precisa ter aprendido e ter mana.
+            short skill = System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.Skill));
+            WYD.Server.Data.SkillDefinition? spell = null;
+            if (skill >= 0)
+            {
+                if (!SkillUse.CanUse(me, skill)) return;
+                spell = skillCatalog.Data?[skill];
+                int mana = spell is null ? 0 : SkillUse.ManaCost(spell, me.ItemBonus.SaveMana);
+                if (me.BaseScore.Mp < mana) return;
+                me.BaseScore.Mp -= mana;
+                castSpell = mana > 0;
+            }
+            session.LastAttack = now;
+
             var mine = _visible[session.Id];
             var response = ServerPackets.Relay(packet, session.Id);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Attacker), session.Id);
@@ -323,11 +339,27 @@ public sealed class World(
                 ushort targetId = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet.AsSpan(o));
                 short damage = 0;
 
-                if (targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
+                if (spell is { InstanceType: SkillUse.Heal })
+                {
+                    // Cura: em si mesmo ou num jogador que está vendo; aparece como dano negativo.
+                    if ((targetId == session.Id || (targetId < Mob.FirstId && mine.Contains(targetId)))
+                        && _players.TryGetValue(targetId, out var ally) && !IsDead(ally.Character!))
+                    {
+                        var a = ally.Character!;
+                        int healed = Math.Min(SkillUse.HealAmount(me, spell, skill), a.MaxHp - a.BaseScore.Hp);
+                        a.BaseScore.Hp += Math.Max(0, healed);
+                        damage = (short)-Math.Max(0, healed);
+                        outgoing.Add((ally, ServerPackets.UpdateHpMp(ally.Id, a.BaseScore.Hp, a.BaseScore.Mp)));
+                    }
+                }
+                else if (SkillUse.IsDamage(spell)
+                    && targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
                     && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
                 {
-                    damage = (short)Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation);
+                    damage = (short)(spell is null
+                        ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
+                        : SkillUse.Damage(me, spell, skill, mob.Template.Score));
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
@@ -349,6 +381,8 @@ public sealed class World(
             exp = me.Exp;
             levels = killed.Count > 0 ? Leveling.Apply(me, expTable.For(me.Evolution)) : 0;
 
+            System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp),
+                (short)Math.Min(short.MaxValue, me.BaseScore.Mp));
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), ServerPackets.ClientExp(exp));
 
@@ -374,6 +408,8 @@ public sealed class World(
         }
 
         await SendAllAsync(outgoing);
+        if (castSpell)
+            await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, session.Character!.BaseScore.Hp, session.Character.BaseScore.Mp));
         if (killed.Count > 0)
         {
             var me = session.Character!;

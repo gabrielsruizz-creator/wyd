@@ -6,11 +6,14 @@ using WYD.Server.Config;
 namespace WYD.Server.Data;
 
 /// <summary>Uma skill da SkillData.bin: o que interessa ao servidor por enquanto.</summary>
-public sealed record SkillDefinition(int Index, int SkillPoint, int TargetType, int ManaSpent, int Delay, int Range);
+public sealed record SkillDefinition(int Index, int SkillPoint, int TargetType, int ManaSpent, int Delay, int Range,
+    int InstanceType = 0, int InstanceValue = 0, int AffectType = 0, int AffectValue = 0, int AffectTime = 0);
 
 /// <summary>
 /// SkillData.bin do client 7.54: registros de 96 bytes em XOR 0x5A (104 skills) e um int de checksum no fim.
-/// Cada registro começa com int SkillPoint (pontos de skill para aprender), TargetType, ManaSpent, Delay, Range...
+/// Cada registro começa com int SkillPoint (pontos de skill para aprender), TargetType, ManaSpent, Delay, Range,
+/// InstanceType (1 dano físico, 2-5 dano mágico, 6 cura...), InstanceValue, TickType, TickValue, AffectType,
+/// AffectValue, AffectTime.
 /// A skill n é o item 5000 + n do ItemList (24 por classe: TK 0-23, FM 24-47, BM 48-71, HT 72-95).
 /// </summary>
 public sealed class SkillData
@@ -39,7 +42,7 @@ public sealed class SkillData
         for (int k = 0; k < count; k++)
         {
             int I(int field) => BinaryPrimitives.ReadInt32LittleEndian(plain.AsSpan(k * RecordSize + field * 4));
-            skills.Add(new SkillDefinition(k, I(0), I(1), I(2), I(3), I(4)));
+            skills.Add(new SkillDefinition(k, I(0), I(1), I(2), I(3), I(4), I(5), I(6), I(9), I(10), I(11)));
         }
         return new SkillData(skills);
     }
@@ -58,6 +61,11 @@ public sealed class SkillData
             BinaryPrimitives.WriteInt32LittleEndian(span[8..], s.ManaSpent);
             BinaryPrimitives.WriteInt32LittleEndian(span[12..], s.Delay);
             BinaryPrimitives.WriteInt32LittleEndian(span[16..], s.Range);
+            BinaryPrimitives.WriteInt32LittleEndian(span[20..], s.InstanceType);
+            BinaryPrimitives.WriteInt32LittleEndian(span[24..], s.InstanceValue);
+            BinaryPrimitives.WriteInt32LittleEndian(span[36..], s.AffectType);
+            BinaryPrimitives.WriteInt32LittleEndian(span[40..], s.AffectValue);
+            BinaryPrimitives.WriteInt32LittleEndian(span[44..], s.AffectTime);
         }
         for (int i = 0; i < count * RecordSize; i++) data[i] ^= XorKey;
         return data;

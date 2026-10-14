@@ -42,6 +42,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
         builder.Services.AddSingleton<IAccountRepository>(_store);
         builder.Services.AddSingleton<ICharacterRepository>(_store);
         builder.Services.AddSingleton(new WYD.Server.Data.ItemCatalog(ItemListTests.TestItems()));
+        builder.Services.AddSingleton(new WYD.Server.Data.SkillCatalog(WYD.Server.Data.SkillData.Parse(WYD.Server.Data.SkillData.Encode([
+            new(0, 0, 3, 15, 4, 2, 4, 5),                  // Heaven's Dust (de graça no teste)
+            new(8, 0, 1, 12, 15, 1, 1, 15),                // Charge: dano físico 15, 12 de mana
+            new(27, 0, 2, 15, 2, 6, 6, 100),               // Heal: cura 100, 15 de mana
+        ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
         _host = builder.Build();
@@ -519,14 +524,16 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal("Fulano não está online.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
-    private static byte[] AttackPacket(ushort attacker, params ushort[] targets)
+    private static byte[] AttackPacket(ushort attacker, params ushort[] targets) => SkillPacket(attacker, -1, targets);
+
+    private static byte[] SkillPacket(ushort attacker, short skill, params ushort[] targets)
     {
         ushort type = targets.Length switch { 1 => Opcodes.AttackOne, 2 => Opcodes.AttackTwo, _ => Opcodes.Attack };
         int size = targets.Length switch { 1 => 48, 2 => 52, _ => 96 };
         var w = new PacketWriter(type, size, attacker);
         w.WriteUInt16(attacker).Skip(2)
          .WriteInt16(2100).WriteInt16(2100).WriteInt16(2101).WriteInt16(2100)
-         .WriteInt16(-1).WriteInt16(-1)                    // skill, ?
+         .WriteInt16(skill).WriteInt16(-1)                 // skill (-1 = ataque normal), mana
          .WriteByte(0xFF).WriteByte(0).WriteByte(0).WriteByte(0)
          .Skip(12);                                        // Hold, Exp, ?
         foreach (var t in targets) w.WriteUInt16(t).WriteInt16(-1);
@@ -976,6 +983,65 @@ public sealed class ServerFlowTests : IAsyncLifetime
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public async Task Skills_spend_mana_hit_harder_and_heal()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var dummy = NpcDataTests.NpcFile("Boneco", 202, 1, 1_000_000);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(dummy.AsSpan(0x30), 0);   // sem defesa
+            File.WriteAllBytes(Path.Combine(npcDir, "Boneco"), dummy);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Boneco", MaxNumMob = 1, StartX = 2101, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");                     // TK
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort dummyId = created.ReadUInt16();
+            var me = await CharacterOf("jogadora");
+            me.BaseScore.Mp = 50;
+
+            // Sem ter aprendido: ignorado (nem resposta).
+            await a.SendAsync(SkillPacket(1, 8, dummyId));
+            me.LearnedSkill |= 1u << 8;                     // Charge
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
+            await a.SendAsync(SkillPacket(1, 8, dummyId));
+            var hit = await ReceiveTypeAsync(a, Opcodes.AttackOne);
+            hit.Skip(0x1A - 0x0C);
+            Assert.Equal(38, hit.ReadInt16());                                          // mana que sobrou, no próprio ataque
+            hit.Skip(0x2E - 0x1C);
+            Assert.True(hit.ReadInt16() >= me.CurrentScore.Damage * 80 / 100 + 15);     // dano normal + força da skill
+            var mp = await ReceiveTypeAsync(a, Opcodes.UpdateHpMp);
+            mp.Skip(4);
+            Assert.Equal(38, mp.ReadInt32());
+
+            // Sem mana suficiente: ignorado.
+            me.BaseScore.Mp = 5;
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
+            await a.SendAsync(SkillPacket(1, 8, dummyId));
+            Assert.Equal(5, me.BaseScore.Mp);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+
+        // Cura (FM) em si mesma.
+        using var f = await EnterWorldAsync("jogadorb", "Fada");
+        var fm = await CharacterOf("jogadorb");
+        fm.Class = CharacterClass.Foema;
+        fm.LearnedSkill |= 1u << (27 % 24);
+        fm.BaseScore.Mp = 100;
+        fm.BaseScore.Hp = 10;
+        await f.SendAsync(SkillPacket(2, 27, 2));
+        var heal = await ReceiveTypeAsync(f, Opcodes.AttackOne);
+        heal.Skip(0x2E - 0x0C);
+        Assert.True(heal.ReadInt16() < 0);                                               // cura aparece como dano negativo
+        Assert.True(fm.BaseScore.Hp > 10);
+        Assert.Equal(85, fm.BaseScore.Mp);
     }
 
     [Fact]

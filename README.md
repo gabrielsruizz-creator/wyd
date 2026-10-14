@@ -31,6 +31,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
       cada ancient +10 equipado vale 10%
 - [x] Mestres de skill (Cap.Cavaleiros, Foema_Ancian, Mestre_Archi, ForeLearner): lista das skills e aprender,
       gastando os pontos de skill da `SkillData.bin`
+- [x] Usar skills: dano físico, dano mágico e cura, gastando mana (buffs ainda não)
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam
@@ -44,7 +45,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 ## Próximas etapas
 
 1. Drops: itens dos monstros caindo no chão e sendo pegos.
-2. Baú, usar as skills em combate e NPCs de quest.
+2. Buffs das skills, baú e NPCs de quest.
 3. Grupo, troca, guild.
 4. Teleportes, quests.
 

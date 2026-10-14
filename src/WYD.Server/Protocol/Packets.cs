@@ -256,6 +256,7 @@ public static class ServerPackets
     {
         public const int Attacker = 0x0C;
         public const int Skill = 0x18;
+        public const int CurrentMp = 0x1A;
         public const int Hold = 0x20;
         public const int Exp = 0x24;
         public const int Targets = 0x2C;

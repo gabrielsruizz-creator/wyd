@@ -1,3 +1,4 @@
+using WYD.Server.Protocol;
 using WYD.Server.Data;
 
 namespace WYD.Server.Game;
@@ -49,5 +50,57 @@ public static class Skills
         c.SkillBonus -= (short)cost;
         c.LearnedSkill |= 1u << (skill % PerClass);
         return null;
+    }
+}
+
+/// <summary>
+/// Usar uma skill: o client manda o ataque (0x39D/0x39E/0x36C) com o número da skill em 0x18. O efeito vem da
+/// SkillData.bin: InstanceType 1 = dano físico, 2 a 5 = dano mágico de elemento, 6 = cura; InstanceValue é a força.
+/// As fórmulas são deste servidor: a força da skill soma os especiais da árvore dela (e INT/magia nas mágicas).
+/// </summary>
+public static class SkillUse
+{
+    public const int Physical = 1, FirstMagic = 2, LastMagic = 5, Heal = 6;
+
+    /// <summary>A skill pode ser usada: é da classe do personagem e já foi aprendida.</summary>
+    public static bool CanUse(Character c, int skill) =>
+        skill >= 0 && skill < Skills.PerClass * 4 && skill / Skills.PerClass == (int)c.Class && Skills.Knows(c, skill);
+
+    /// <summary>Especial da árvore da skill: 1ª árvore = Especial 2, 2ª = Especial 3, 3ª = Especial 4.</summary>
+    public static int TreeSpecial(Score s, int skill) => ((skill % Skills.PerClass) / 8) switch
+    {
+        0 => s.Special2,
+        1 => s.Special3,
+        _ => s.Special4,
+    };
+
+    /// <summary>Mana gasta, menos a economia de mana dos itens (efeito 44, no máximo metade).</summary>
+    public static int ManaCost(Data.SkillDefinition spell, int saveMana) =>
+        Math.Max(0, spell.ManaSpent * (100 - Math.Clamp(saveMana, 0, 50)) / 100);
+
+    public static bool IsDamage(Data.SkillDefinition? spell) =>
+        spell is null || spell.InstanceType is Physical or >= FirstMagic and <= LastMagic;
+
+    /// <summary>Dano da skill num alvo.</summary>
+    public static int Damage(Character caster, Data.SkillDefinition spell, int skill, Score target, Random? random = null)
+    {
+        random ??= Random.Shared;
+        var s = caster.CurrentScore;
+        int special = TreeSpecial(s, skill);
+        var b = caster.ItemBonus;
+        if (spell.InstanceType == Physical)
+            return Math.Min(short.MaxValue,
+                Combat.Damage(s, target, random, perforation: b.Perforation) + spell.InstanceValue + special);
+
+        int power = (spell.InstanceValue + special + s.Int / 4) * (100 + b.Magic) / 100;
+        int rolled = power * random.Next(90, 111) / 100;
+        return Math.Clamp(rolled - target.Ac / 8, 1, short.MaxValue);
+    }
+
+    /// <summary>Quanto a skill de cura recupera.</summary>
+    public static int HealAmount(Character caster, Data.SkillDefinition spell, int skill)
+    {
+        var s = caster.CurrentScore;
+        return (spell.InstanceValue + TreeSpecial(s, skill) + s.Int / 4) * (100 + caster.ItemBonus.Magic) / 100;
     }
 }

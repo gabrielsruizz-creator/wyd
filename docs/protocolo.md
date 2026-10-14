@@ -323,3 +323,19 @@ Como o client calcula (função em `0x55A392`, a mesma conta que o servidor faz 
 - Velocidade de ataque: DES/5 + efeito 26 (o client calcula sozinho).
 - Regeneração: o servidor soma os efeitos 47 e 48 (anéis) aos 5% de cada 6 segundos.
 - Magia (60 + 68), crítico (42), economia de mana (44) e resistências (49-54) ficam guardados para as skills.
+
+## Usar skills
+
+O client manda o ataque (`0x39D`/`0x39E`/`0x36C`) com o número da skill em `0x18` (-1 = ataque normal). O servidor
+confere se a skill é da classe e foi aprendida, gasta a mana (`ManaSpent` da SkillData, menos a economia de mana
+dos itens) e devolve a mana atual em `0x1A` do próprio ataque e no `0x181`.
+
+Efeito pela SkillData (`InstanceType`, `InstanceValue`):
+
+| Tipo | Efeito | Conta (deste servidor) |
+|------|--------|-------------------------|
+| 1 | dano físico | dano normal + força da skill + especial da árvore |
+| 2-5 | dano mágico de elemento | (força + especial da árvore + INT/4) × (100 + magia dos itens)% ± 10%, menos defesa/8 |
+| 6 | cura (em si ou em quem você vê) | força + especial da árvore + INT/4, com a magia dos itens; aparece como dano negativo |
+
+Buffs (`AffectType`, `AffectValue`, `AffectTime`) ainda não fazem efeito.
