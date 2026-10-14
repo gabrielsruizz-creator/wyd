@@ -23,13 +23,10 @@ public sealed class TeleportTable
     private readonly object _lock = new();
 
     /// <summary>
-    /// Teleportes já conhecidos, usados enquanto não existe data/teleports.txt. O círculo de Armia (2117, 2102)
-    /// leva a Noatun: a área de cidade do client vai de 1036 a 1075 × 1700 a 1775, e o centro livre (sem NPC) é 1056 1730.
+    /// Teleportes já conhecidos, usados enquanto não existe data/teleports.txt. (Noatun em 1056 1730 derrubou o
+    /// client 7.54 de teste: a área existe na tabela de cidades do client, mas o mapa dela não abre.)
     /// </summary>
-    public static readonly TeleportPoint[] Defaults =
-    [
-        new(2117, 2102, 1056, 1730, 0, "Noatun"),
-    ];
+    public static readonly TeleportPoint[] Defaults = [];
 
     public TeleportTable(IOptions<ServerOptions> options, ILogger<TeleportTable> logger)
     {
@@ -37,8 +34,7 @@ public sealed class TeleportTable
         if (!File.Exists(_path))
         {
             _points.AddRange(Defaults);
-            logger.LogInformation("Sem {Path}: usando os teleportes padrão ({Count}). Monte os outros no jogo com /gm tp add.",
-                _path, Defaults.Length);
+            logger.LogInformation("Sem {Path}: monte os teleportes no jogo com /gm tp add <x> <y> [preço] [nome].", _path);
             return;
         }
         _points.AddRange(Parse(File.ReadAllLines(_path)));

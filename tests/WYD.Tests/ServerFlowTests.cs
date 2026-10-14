@@ -861,6 +861,22 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Crash_right_after_teleport_keeps_the_old_position()
+    {
+        var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+
+        await a.SendAsync(CommandPacket("gm", "ir 1056 1730"));
+        await ReceiveTypeAsync(a, Opcodes.Move);
+        Assert.Equal((1056, 1730), (me.PosX, me.PosY));
+
+        a.Dispose();                                        // o client caiu sem andar no lugar novo
+        for (int i = 0; i < 50 && me.PosX != 2100; i++) await Task.Delay(20);
+        Assert.Equal((2100, 2100), (me.PosX, me.PosY));
+    }
+
+    [Fact]
     public async Task Gm_commands_change_level_gold_and_position()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");

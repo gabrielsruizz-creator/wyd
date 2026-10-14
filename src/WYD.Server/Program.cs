@@ -79,6 +79,8 @@ public static class Program
                 return await ResetSecondPasswordAsync(host.Services, args[1]);
             case "set-access" when args.Length == 3 && int.TryParse(args[2], out int level):
                 return await SetAccessAsync(host.Services, args[1], level);
+            case "unstuck" when args.Length == 2:
+                return await UnstuckAsync(host.Services, args[1]);
             default:
                 Console.Error.WriteLine("""
                     Uso:
@@ -86,6 +88,7 @@ public static class Program
                       WYD.Server create-account <conta> <senha>     cria uma conta
                       WYD.Server reset-second-password <conta>      apaga a segunda senha (o próximo login define outra)
                       WYD.Server set-access <conta> <nivel>         0 = jogador, 1 = GM (libera /item no jogo)
+                      WYD.Server unstuck <conta>                    leva os personagens da conta para a cidade inicial
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
@@ -160,6 +163,27 @@ public static class Program
 
         await accounts.SetAccessLevelAsync(account.Id, level);
         Console.WriteLine($"Conta '{username}' agora tem nível de acesso {level}{(level > 0 ? " (GM)" : "")}. Vale a partir do próximo login.");
+        return 0;
+    }
+
+    /// <summary>unstuck: personagem preso num lugar que derruba o client volta para StartX/StartY.</summary>
+    private static async Task<int> UnstuckAsync(IServiceProvider services, string username)
+    {
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+
+        var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>().Value;
+        var characters = services.GetRequiredService<ICharacterRepository>();
+        foreach (var c in await characters.ListByAccountAsync(account.Id))
+        {
+            await characters.SavePositionAsync(c.Id, (short)options.StartX, (short)options.StartY);
+            Console.WriteLine($"{c.Name}: de ({c.PosX}, {c.PosY}) para ({options.StartX}, {options.StartY}).");
+        }
+        Console.WriteLine("Pronto. Se o servidor estiver aberto, o jogador precisa estar fora do jogo.");
         return 0;
     }
 

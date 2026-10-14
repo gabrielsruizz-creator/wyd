@@ -58,6 +58,10 @@ docker compose up -d
 dotnet run --project src\WYD.Server -- create-account minhaconta minhasenha
 ```
 
+Personagem preso num lugar que derruba o client: `dotnet run --project src\WYD.Server -- unstuck minhaconta`
+(leva os personagens da conta para a cidade inicial; o jogador precisa estar fora do jogo). O servidor também
+desfaz sozinho um teleporte quando o client cai logo depois dele, antes de o jogador andar.
+
 A segunda senha (a numérica da tela de personagens) é definida no primeiro login: a primeira senha
 digitada passa a ser a da conta. Para apagá-la: `dotnet run --project src\WYD.Server -- reset-second-password minhaconta`.
 
@@ -130,7 +134,6 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm pos` | mostra a sua posição (X Y) |
 | `/gm reino azul` | o `/kingdom` do reino (`azul`, `vermelho` ou `neutro`) passa a levar para onde você está |
 | `/gm tp add 2480 1700 500 Azran` | o círculo de teleporte onde você está passa a levar para 2480 1700, por 500 de gold |
-| | já vem pronto o teleporte de Armia (2117 2102) para Noatun (1056 1730); `data/teleports.txt`, quando existe, substitui a lista |
 | `/gm tp remover` | apaga o teleporte onde você está |
 | `/gm tp lista` | mostra os teleportes perto de você |
 | `/gm online` | lista quem está no jogo, com nível e posição |

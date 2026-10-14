@@ -210,6 +210,7 @@ public sealed class World(
 
             me.PosX = destX;
             me.PosY = destY;
+            session.TeleportedFrom = null;      // andou no lugar novo: o client carregou bem
 
             var mine = _visible[session.Id];
             var relay = ServerPackets.Relay(packet, session.Id);
@@ -490,6 +491,8 @@ public sealed class World(
     private void TeleportLocked(ClientSession session, short x, short y, List<(ClientSession To, byte[] Packet)> outgoing)
     {
         var me = session.Character!;
+        session.TeleportedFrom ??= (me.PosX, me.PosY, DateTime.UtcNow);
+        session.TeleportedFrom = session.TeleportedFrom.Value with { At = DateTime.UtcNow };
         var mine = _visible[session.Id];
         foreach (var id in mine.Where(id => id < Mob.FirstId).ToList())
         {
@@ -588,8 +591,20 @@ public sealed class World(
             await SaveAsync(c);
     }
 
+    /// <summary>Quanto tempo depois de um teleporte uma queda do client conta como "o client não aguentou o destino".</summary>
+    public static readonly TimeSpan TeleportCrashWindow = TimeSpan.FromSeconds(60);
+
     private void OnClosed(ClientSession session)
     {
+        if (session.TeleportedFrom is { } from && DateTime.UtcNow - from.At < TeleportCrashWindow)
+        {
+            var c = session.Character!;
+            logger.LogWarning("[{Id}] {Name} saiu logo depois de um teleporte para ({X}, {Y}) sem andar: volta para ({FX}, {FY}).",
+                session.Id, c.Name, c.PosX, c.PosY, from.X, from.Y);
+            c.PosX = from.X;
+            c.PosY = from.Y;
+        }
+
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         lock (_lock)
         {

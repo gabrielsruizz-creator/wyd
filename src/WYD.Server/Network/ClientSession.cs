@@ -55,6 +55,12 @@ public sealed class ClientSession
     /// <summary>Hora do último ataque aceito (para limitar a velocidade dos ataques).</summary>
     public DateTime LastAttack { get; set; }
 
+    /// <summary>
+    /// Onde o jogador estava antes do último teleporte, até ele andar no lugar novo. Se o client cair antes disso
+    /// (destino que o client não consegue carregar), a posição salva volta a ser esta.
+    /// </summary>
+    public (short X, short Y, DateTime At)? TeleportedFrom { get; set; }
+
     /// <summary>Personagem em jogo (depois do 0x213).</summary>
     public Character? Character { get; set; }
     public bool IsClosed => Volatile.Read(ref _closed) != 0;
