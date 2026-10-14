@@ -26,6 +26,7 @@ public static class Opcodes
     public const ushort AttackTwo = 0x39E;         // 2 alvos (52 bytes)
     public const ushort ApplyBonus = 0x277;        // 20 bytes: short Tipo (0 atributo, 1 especial, 2 skill), short Qual, short Extra (conferido no WYD.exe 7.54)
     public const ushort NpcClick = 0x28B;          // 20 bytes: int IdDoNpc, int Confirma; NPCs que conversam (reis, quests) (conferido no WYD.exe 7.54)
+    public const ushort Teleport = 0x290;          // 16 bytes: o client confirmou o teleporte num círculo (célula com a flag 0x10 no mapa) (conferido no WYD.exe 7.54)
     public const ushort Revive = 0x289;            // só o cabeçalho: o personagem morto pede para renascer (botão ou 3 minutos depois; conferido no WYD.exe 7.54)
     public const ushort RequestMob = 0x369;        // client pede o 0x364 de um id que ele não conhece (conferido no WYD.exe 7.54)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
@@ -81,6 +82,7 @@ public static class Opcodes
         AttackTwo => "AttackTwo",
         MobKill => "MobKill",
         Revive => "Revive",
+        Teleport => "Teleport",
         NpcClick => "NpcClick",
         ApplyBonus => "ApplyBonus",
         RequestShop => "RequestShop",

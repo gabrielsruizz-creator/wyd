@@ -34,6 +34,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             ["Server:StrictChecksum"] = "true",
             ["Server:StatusPort"] = "0",
             ["Server:RespawnSeconds"] = "1",
+            ["Server:TeleportsPath"] = Path.Combine(Path.GetTempPath(), $"wyd-teleports-{Guid.NewGuid():N}.txt"),
+            ["Server:KingdomPointsPath"] = Path.Combine(Path.GetTempPath(), $"wyd-kingdoms-{Guid.NewGuid():N}.txt"),
         });
         builder.Services.AddWydServer(builder.Configuration);
         builder.Services.AddSingleton(_table);
@@ -826,6 +828,36 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(Opcodes.UpdateScore, score.Type);
         score.Skip(7);
         Assert.Equal(6, score.ReadByte() & 0x0F);                   // AttackRun
+    }
+
+    [Fact]
+    public async Task City_teleport_charges_and_moves()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+        var request = new PacketWriter(Opcodes.Teleport, 16, 1).WriteInt32(0).ToArray();
+
+        // Sem destino cadastrado: o GM recebe a dica.
+        await a.SendAsync(request);
+        Assert.StartsWith("Teleporte sem destino em 2100 2100", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "tp add 2480 1700 500 Azran"));
+        Assert.StartsWith("Teleporte em 2100 2100 -> 2480 1700", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        // Sem gold: recusado. Com gold: cobra e leva.
+        await a.SendAsync(request);
+        Assert.Equal("O teleporte custa 500 de gold.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        me.Coin = 1000;
+        await a.SendAsync(request);
+        var coin = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateCoin, coin.Type);
+        Assert.Equal(500, coin.ReadInt32());
+        var move = await ReceiveTypeAsync(a, Opcodes.Move);
+        move.Skip(8);
+        Assert.Equal(ServerPackets.MoveTeleport, move.ReadInt32());
+        Assert.Equal((2480, 1700), (move.ReadInt16(), move.ReadInt16()));
+        Assert.Equal((2480, 1700), (me.PosX, me.PosY));
     }
 
     [Fact]

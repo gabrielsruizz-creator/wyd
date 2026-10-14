@@ -77,6 +77,9 @@ public sealed class ServerOptions
     public int KingdomNeutralX { get; set; } = 1760;
     public int KingdomNeutralY { get; set; } = 1725;
 
+    /// <summary>Os círculos de teleporte das cidades (montados pelo GM com /gm tp add).</summary>
+    public string TeleportsPath { get; set; } = "data/teleports.txt";
+
     /// <summary>Onde ficam os pontos do /kingdom marcados pelo GM.</summary>
     public string KingdomPointsPath { get; set; } = "data/kingdoms.txt";
 

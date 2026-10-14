@@ -127,6 +127,8 @@ public static class Program
         services.AddSingleton<PointsHandler>();
         services.AddSingleton<KingHandler>();
         services.AddSingleton<KingdomPoints>();
+        services.AddSingleton<TeleportTable>();
+        services.AddSingleton<TeleportHandler>();
         services.AddSingleton<World>();
         services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();

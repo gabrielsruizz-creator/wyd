@@ -27,6 +27,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] Equipamento soma dano, defesa, HP, MP, atributos e especiais, com refinação (+1 a +15) como o client
 - [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6
 - [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha
@@ -128,6 +129,9 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm trazer Fulano` | traz o jogador até você |
 | `/gm pos` | mostra a sua posição (X Y) |
 | `/gm reino azul` | o `/kingdom` do reino (`azul`, `vermelho` ou `neutro`) passa a levar para onde você está |
+| `/gm tp add 2480 1700 500 Azran` | o círculo de teleporte onde você está passa a levar para 2480 1700, por 500 de gold |
+| `/gm tp remover` | apaga o teleporte onde você está |
+| `/gm tp lista` | mostra os teleportes perto de você |
 | `/gm online` | lista quem está no jogo, com nível e posição |
 | `/gm aviso texto` | mensagem para todos os jogadores |
 | `/gm kick Fulano` | desconecta o jogador |

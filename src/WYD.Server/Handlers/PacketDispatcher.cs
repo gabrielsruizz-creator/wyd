@@ -13,7 +13,7 @@ public sealed class PacketDispatcher
     private readonly ILogger<PacketDispatcher> _logger;
 
     public PacketDispatcher(LoginHandler login, CharacterHandler characters, WorldHandler world, CommandHandler commands, ItemHandler items,
-        PointsHandler points, KingHandler kings, ILogger<PacketDispatcher> logger)
+        PointsHandler points, KingHandler kings, TeleportHandler teleports, ILogger<PacketDispatcher> logger)
     {
         _logger = logger;
 
@@ -38,6 +38,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.AttackTwo, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.Attack, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.Revive, PacketHeader.Size, SessionState.InGame, world.HandleReviveAsync);
+        Register(Opcodes.Teleport, PacketHeader.Size, SessionState.InGame, teleports.HandleAsync);
         Register(Opcodes.NpcClick, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcClickAsync);
         Register(Opcodes.ApplyBonus, PacketHeader.Size + 4, SessionState.InGame, points.HandleAsync);
     }

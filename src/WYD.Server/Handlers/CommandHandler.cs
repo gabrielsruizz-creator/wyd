@@ -19,6 +19,7 @@ public sealed class CommandHandler(
     Game.World world,
     KingHandler kings,
     Game.KingdomPoints kingdomPoints,
+    Game.TeleportTable teleports,
     ILogger<CommandHandler> logger)
 {
     /// <summary>Inventário básico (sem bolsas): os slots que o client mostra.</summary>
@@ -38,6 +39,9 @@ public sealed class CommandHandler(
         ("/gm trazer <nome>", "traz o jogador até você"),
         ("/gm pos", "mostra a sua posição"),
         ("/gm reino <azul|vermelho|neutro>", "o /kingdom desse reino passa a levar para onde você está"),
+        ("/gm tp add <x> <y> [preço] [nome]", "o teleporte onde você está passa a levar para x y"),
+        ("/gm tp remover", "apaga o teleporte onde você está"),
+        ("/gm tp lista", "mostra os teleportes perto de você"),
         ("/gm online", "lista quem está no jogo"),
         ("/gm aviso <texto>", "mensagem para todos os jogadores"),
         ("/gm kick <nome>", "desconecta o jogador"),
@@ -105,6 +109,7 @@ public sealed class CommandHandler(
             case "online": await OnlineAsync(session); break;
             case "pos": await session.SendMessageAsync($"Posição: {session.Character!.PosX} {session.Character.PosY}"); break;
             case "reino": await SetKingdomPointAsync(session, args); break;
+            case "tp" or "teleporte": await TeleportCommandAsync(session, args); break;
             case "aviso": await NoticeAsync(session, args); break;
             case "kick": await KickAsync(session, args); break;
             case "limpar": await ClearInventoryAsync(session); break;
@@ -163,6 +168,41 @@ public sealed class CommandHandler(
         var c = session.Character!;
         kingdomPoints.Set(kingdom, c.PosX, c.PosY);
         await session.SendMessageAsync($"/kingdom do reino {Game.Kingdoms.Name(kingdom)} agora leva para {c.PosX} {c.PosY}.");
+    }
+
+    /// <summary>/gm tp add 2480 1700 500 Azran | /gm tp remover | /gm tp lista</summary>
+    private async Task TeleportCommandAsync(ClientSession session, string args)
+    {
+        var c = session.Character!;
+        var parts = args.Split(' ', 5, StringSplitOptions.RemoveEmptyEntries);
+        string sub = parts.Length > 0 ? parts[0].ToLowerInvariant() : "";
+        switch (sub)
+        {
+            case "add" or "criar"
+                when parts.Length >= 3 && short.TryParse(parts[1], out var x) && short.TryParse(parts[2], out var y):
+            {
+                int price = parts.Length > 3 && int.TryParse(parts[3], out var p) ? Math.Max(0, p) : 0;
+                string name = parts.Length > 4 ? parts[4] : "";
+                teleports.Add(new Game.TeleportPoint(c.PosX, c.PosY, x, y, price, name));
+                await session.SendMessageAsync($"Teleporte em {c.PosX} {c.PosY} -> {x} {y}" + (price > 0 ? $" por {price:N0} de gold." : "."));
+                break;
+            }
+            case "remover" or "apagar":
+                var removed = teleports.Remove(c.PosX, c.PosY);
+                await session.SendMessageAsync(removed is null
+                    ? "Nenhum teleporte aqui."
+                    : $"Teleporte em {removed.X} {removed.Y} -> {removed.DestX} {removed.DestY} apagado.");
+                break;
+            case "lista":
+                var near = teleports.Near(c.PosX, c.PosY, Game.World.ViewRange * 4);
+                await SystemLinesAsync(session, near
+                    .Select(t => $"{t.X} {t.Y} -> {t.DestX} {t.DestY} ({t.Price:N0} gold) {t.Name}")
+                    .Prepend($"{teleports.Count} teleporte(s) no total, {near.Count} perto de você:"));
+                break;
+            default:
+                await session.SendMessageAsync("Uso: /gm tp add <x> <y> [preço] [nome] | /gm tp remover | /gm tp lista");
+                break;
+        }
     }
 
     /// <summary>/gm curar</summary>

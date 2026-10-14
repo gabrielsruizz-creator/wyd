@@ -325,4 +325,22 @@ public class ToolTests
         WYD.Server.Game.Stats.Recalculate(c, items);
         Assert.Equal(10 + 25 * 370 / 100, c.CurrentScore.Damage);
     }
+
+    [Fact]
+    public void Teleport_list_is_read_and_found_by_position()
+    {
+        var points = WYD.Server.Game.TeleportTable.Parse([
+            "# comentário",
+            "2116 2099 2480 1700 500 Azran",
+            "2090 2120 2200 2200",
+            "lixo",
+        ]).ToList();
+        Assert.Equal(2, points.Count);
+        Assert.Equal("Azran", points[0].Name);
+        Assert.Equal(0, points[1].Price);
+
+        var table = new WYD.Server.Game.TeleportTable(points, Path.GetTempFileName());
+        Assert.Equal(2480, table.Find(2118, 2101)!.DestX);          // a 2 células do centro
+        Assert.Null(table.Find(2130, 2099));
+    }
 }

@@ -64,6 +64,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
 | `0x277` | Distribuir ponto     | 20      | `short Tipo` (0 atributo, 1 especial, 2 skill no mestre), `short Qual` (0 FOR/1 INT/2 DES/3 CON ou especial 1-4), `short Extra` | ✅ |
 | `0x28B` | Falar com NPC        | 20      | `int IdDoNpc`, `int Confirma` (reis, NPCs de quest) | ✅ layout |
+| `0x290` | Teleporte          | 16      | só o cabeçalho e um int 0: o jogador confirmou o teleporte num círculo (célula com a flag 0x10 no mapa do client) | ✅ |
 | `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
 | `0x376` | Mover/equipar item | 20      | `byte TipoDest, SlotDest, TipoOrig, SlotOrig` (0 equip, 1 inventário, 2 baú); o servidor devolve o pedido para o client fazer a troca | ✅ layout |
 | `0x373` | Usar item          | 36      | `int TipoOrig, SlotOrig, TipoDest, SlotDest`                              | ✅ layout |
@@ -272,3 +273,13 @@ Como o client calcula (funções em `0x556F5B` e `0x558FF0`):
 - Duas armas (slots 6 e 7): a mais forte conta inteira e a outra 30% (50% se forem do mesmo tipo).
 
 O servidor soma ao base: dano (2), defesa (3), HP (4), MP (5), FOR/INT/DES/CON (7-10), especiais (11-14 e 74).
+
+## Teleportes das cidades
+
+O client sabe pelo mapa dele (atributo da célula, flag `0x10`) que o jogador está num círculo de teleporte,
+pede a confirmação e manda o `0x290`. O destino e o preço não estão no client: o servidor procura o círculo
+mais perto (até 4 células) em `data/teleports.txt` ("x y destinoX destinoY preço nome"), cobra e teleporta.
+O GM monta a lista no jogo com `/gm tp add`.
+
+O client também tem as áreas das cidades em `0x5C7E58` (Armia 2052-2171 × 2052-2163, Azran 2432-2675 ×
+1536-1767, Erion 2448-2476 × 1966-2024 e mais duas) e manda o `0x291` ao mudar de área.
