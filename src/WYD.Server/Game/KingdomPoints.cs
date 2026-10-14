@@ -7,7 +7,7 @@ namespace WYD.Server.Game;
 
 /// <summary>
 /// Para onde o /kingdom leva cada reino. Começa com o appsettings.json e, se o GM marcou um lugar no jogo
-/// (/gm reino azul), usa o que está em data/kingdoms.txt ("azul 1757 1620", uma linha por reino).
+/// (/gm reino azul), usa o que está em data/kingdoms.txt ("azul 1760 1725", uma linha por reino).
 /// </summary>
 public sealed class KingdomPoints
 {

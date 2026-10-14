@@ -70,12 +70,12 @@ public sealed class ServerOptions
 
     /// <summary>Posição inicial dos personagens novos (Armia).</summary>
     /// <summary>Para onde o /kingdom leva cada reino (o GM pode mudar no jogo com /gm reino).</summary>
-    public int KingdomBlueX { get; set; } = 1757;
-    public int KingdomBlueY { get; set; } = 1620;
-    public int KingdomRedX { get; set; } = 1757;
-    public int KingdomRedY { get; set; } = 1836;
-    public int KingdomNeutralX { get; set; } = 1757;
-    public int KingdomNeutralY { get; set; } = 1620;
+    public int KingdomBlueX { get; set; } = 1760;
+    public int KingdomBlueY { get; set; } = 1725;
+    public int KingdomRedX { get; set; } = 1760;
+    public int KingdomRedY { get; set; } = 1725;
+    public int KingdomNeutralX { get; set; } = 1760;
+    public int KingdomNeutralY { get; set; } = 1725;
 
     /// <summary>Onde ficam os pontos do /kingdom marcados pelo GM.</summary>
     public string KingdomPointsPath { get; set; } = "data/kingdoms.txt";

@@ -797,7 +797,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // /kingdom leva para a frente do Rei Harabard.
             await a.SendAsync(CommandPacket("kingdom", ""));
             var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
-            Assert.Equal((1757, 1620), (teleport.ReadInt16(), teleport.ReadInt16()));   // fora do castelo, padrão do azul
+            Assert.Equal((1760, 1725), (teleport.ReadInt16(), teleport.ReadInt16()));   // entrada do reino
         }
         finally
         {
