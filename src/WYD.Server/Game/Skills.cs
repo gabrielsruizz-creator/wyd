@@ -32,9 +32,15 @@ public static class Skills
         if (def is not null)
         {
             if (def.ReqLevel > c.BaseScore.Level + 1) return $"{name} precisa do nível {def.ReqLevel}.";
+
+            // Nos itens de skill, os 4 campos de requisito (FOR/INT/DES/CON nos outros itens) são os Especiais 1 a 4:
+            // a 1ª árvore de cada classe pede Especial 2, a 2ª Especial 3 e a 3ª Especial 4.
             var s = c.CurrentScore;
-            if (s.Str < def.ReqStr || s.Int < def.ReqInt || s.Dex < def.ReqDex || s.Con < def.ReqCon)
-                return $"{name} precisa de FOR {def.ReqStr}, INT {def.ReqInt}, DES {def.ReqDex}, CON {def.ReqCon}.";
+            (int Need, int Have)[] specials =
+                [(def.ReqStr, s.Special1), (def.ReqInt, s.Special2), (def.ReqDex, s.Special3), (def.ReqCon, s.Special4)];
+            for (int i = 0; i < specials.Length; i++)
+                if (specials[i].Have < specials[i].Need)
+                    return $"{name} precisa de {specials[i].Need} no Especial {i + 1} (você tem {specials[i].Have}).";
         }
 
         int cost = skills?[skill]?.SkillPoint ?? 0;

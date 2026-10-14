@@ -307,7 +307,8 @@ uma skill e confirmar, o client manda o `0x277` com tipo 2, `short Qual` = item 
 
 A skill n é o item 5000 + n: TK 0-23 (Cap.Cavaleiros), FM 24-47 (Foema_Ancian), BM 48-71 (Mestre_Archi), HT 72-95
 (ForeLearner). A aprendida vira o bit `n % 24` do `LearnedSkill` (`0x337`). O ItemList dá a classe (efeito 18),
-o nível e os atributos mínimos; a `SkillData.bin` (registros de 96 bytes em XOR 0x5A, 104 skills + checksum)
+o nível mínimo e, nos 4 campos de requisito (FOR/INT/DES/CON nos outros itens), os Especiais 1 a 4 mínimos: a 1ª
+árvore pede Especial 2, a 2ª Especial 3 e a 3ª Especial 4 (ex.: Immunity do HT pede nível 60 e 90 no Especial 2); a `SkillData.bin` (registros de 96 bytes em XOR 0x5A, 104 skills + checksum)
 dá o custo em pontos de skill no primeiro int de cada registro.
 
 ## Atributos na ficha atual

@@ -50,6 +50,8 @@ public class ItemListTests
         Put(1208, "Elmo", 2, 0, 1000);
         Put(1300, "Espada_Lendaria", 64, 99, 1_000_000);
         Put(2370, "Parade_Horse", 16384, 0, 0, (18, 255));
+        Put(5076, "Immunity", 0, 60, 0, (18, 8));
+        BinaryPrimitives.WriteInt16LittleEndian(plain.AsSpan(5076 * ItemDefinition.Size + 74), 90);   // "INT" 90 = Especial 2
         Put(2443, "Coral", 0, 0, 600, (38, 9), (33, 0));            // pedra de composição (não é gema)
         Put(3388, "Coral_Gem", 0, 0, 1_000_000, (38, 182), (33, 0));
         for (short g = 5; g <= 8; g++)

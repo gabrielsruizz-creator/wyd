@@ -399,4 +399,18 @@ public class ToolTests
         Assert.Equal((1000 + 100 * WYD.Server.Game.Points.HpPerCon) * 110 / 100, s.MaxHp);
         Assert.Equal(500 + 50 * WYD.Server.Game.Points.MpPerInt, s.MaxMp);
     }
+
+    [Fact]
+    public void Skill_requirements_are_level_and_tree_specials()
+    {
+        var items = ItemListTests.TestItems();
+        var ht = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.Huntress, SkillBonus = 500 };
+        ht.BaseScore.Level = 59;                                            // nível 60 na tela
+        ht.BaseScore.Int = 5;                                               // INT baixa não importa
+
+        Assert.Equal("Immunity precisa de 90 no Especial 2 (você tem 0).", WYD.Server.Game.Skills.Learn(ht, 5076, items, null));
+        ht.BaseScore.Special2 = 90;
+        Assert.Null(WYD.Server.Game.Skills.Learn(ht, 5076, items, null));
+        Assert.True(WYD.Server.Game.Skills.Knows(ht, 5076 - 5000));
+    }
 }
