@@ -878,6 +878,26 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Add_command_spends_many_points_at_once()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var me = await CharacterOf("jogadora");
+        short str = me.BaseScore.Str, con = me.BaseScore.Con;
+        me.ScoreBonus = 10;
+
+        await a.SendAsync(CommandPacket("add", "for 3 con 20"));
+        Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.UpdateEtc, (await a.ReceiveAsync()).Type);
+        Assert.Equal("+3 FOR, +7 CON. Sem pontos de atributo. Restam 0 de atributo e 0 especiais.",
+            (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal(str + 3, me.BaseScore.Str);
+        Assert.Equal(con + 7, me.BaseScore.Con);
+
+        await a.SendAsync(CommandPacket("add", "sorte 5"));
+        Assert.StartsWith("Não entendi", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    [Fact]
     public async Task Crash_right_after_teleport_keeps_the_old_position()
     {
         var a = await EnterWorldAsync("jogadora", "Alice");

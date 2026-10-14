@@ -57,6 +57,9 @@ public sealed class CommandHandler(
             case "gm":
                 await GmAsync(session, request.Text.Trim());
                 break;
+            case "add":
+                await AddPointsAsync(session, request.Text);
+                break;
             case "kingdom" or "king" or "reino":
                 await kings.GoToKingdomAsync(session);
                 break;
@@ -64,6 +67,7 @@ public sealed class CommandHandler(
                 var lines = new List<string>
                 {
                     "/nome texto - sussurra para o jogador 'nome'",
+                    "/add for 100 - distribui pontos (for, int, des, con, esp1 a esp4); vários: /add for 100 con 50",
                     "/kingdom ou /king - vai para o castelo do seu reino",
                     "Evolução: no nível máximo, fale com o rei do seu reino (Mortal 400 > Arch 400 > Celestial 200 > Sub Celestial 200)",
                 };
@@ -394,6 +398,59 @@ public sealed class CommandHandler(
             return;
         }
         await kings.ChangeEvolutionAsync(session, to);
+    }
+
+    /// <summary>Nome digitado no /add → (tipo, qual) do 0x277.</summary>
+    private static (short Mode, short Which, string Label)? PointTarget(string name) => name.ToLowerInvariant() switch
+    {
+        "for" or "str" or "forca" or "força" => (Game.Points.ModeScore, 0, "FOR"),
+        "int" => (Game.Points.ModeScore, 1, "INT"),
+        "des" or "dex" or "destreza" => (Game.Points.ModeScore, 2, "DES"),
+        "con" or "constituicao" or "constituição" => (Game.Points.ModeScore, 3, "CON"),
+        "esp1" or "especial1" => (Game.Points.ModeSpecial, 0, "Especial 1"),
+        "esp2" or "especial2" => (Game.Points.ModeSpecial, 1, "Especial 2"),
+        "esp3" or "especial3" => (Game.Points.ModeSpecial, 2, "Especial 3"),
+        "esp4" or "especial4" => (Game.Points.ModeSpecial, 3, "Especial 4"),
+        _ => null,
+    };
+
+    /// <summary>/add for 100 [con 50 ...]: o mesmo que clicar 100 vezes no "+" da ficha.</summary>
+    private async Task AddPointsAsync(ClientSession session, string text)
+    {
+        var c = session.Character!;
+        var parts = text.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || parts.Length % 2 != 0)
+        {
+            await session.SendMessageAsync("Uso: /add for 100 (for, int, des, con, esp1 a esp4). Vários: /add for 100 con 50");
+            return;
+        }
+        if (c.BaseScore.Hp <= 0) return;
+
+        var done = new List<string>();
+        string? stop = null;
+        for (int i = 0; i < parts.Length && stop is null; i += 2)
+        {
+            if (PointTarget(parts[i]) is not { } target || !int.TryParse(parts[i + 1], out int amount) || amount <= 0)
+            {
+                stop = $"Não entendi \"{parts[i]} {parts[i + 1]}\". Use: for, int, des, con, esp1 a esp4 e a quantidade.";
+                break;
+            }
+            int applied = 0;
+            while (applied < amount && Game.Points.Apply(c, target.Mode, target.Which) is not { } refused) applied++;
+            if (applied < amount)
+                stop = Game.Points.Apply(c, target.Mode, target.Which);   // o motivo (sem pontos, no máximo...)
+            if (applied > 0) done.Add($"+{applied} {target.Label}");
+        }
+
+        if (done.Count > 0)
+        {
+            await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+            await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
+            await characters.SaveProgressAsync(c);
+        }
+        await session.SendMessageAsync(string.Join(", ", done)
+            + (stop is null ? "" : (done.Count > 0 ? ". " : "") + stop)
+            + $" Restam {c.ScoreBonus} de atributo e {c.SpecialBonus} especiais.");
     }
 
     private async Task WhisperAsync(ClientSession session, string target, string text)

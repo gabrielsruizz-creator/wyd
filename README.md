@@ -148,6 +148,7 @@ Para todos os jogadores:
 | Comando | O que faz |
 |---------|-----------|
 | `/ajuda` | lista os comandos |
+| `/add for 100` | distribui 100 pontos em FOR (`for`, `int`, `des`, `con`, `esp1` a `esp4`); vários de uma vez: `/add for 100 con 50` |
 | `/kingdom` ou `/king` | vai para o castelo do seu reino (neutros vão para o centro do reino) |
 
 **Evolução:** no nível máximo (Mortal 400 → Arch, Arch 400 → Celestial, Celestial 200 → Sub Celestial), fale
