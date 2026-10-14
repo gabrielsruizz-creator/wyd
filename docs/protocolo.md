@@ -297,3 +297,14 @@ grupo. As pedras 2441 a 2444 (uso 9) são material de composição, não gemas.
 | Emerald_Gem (3387) | 6 | absorção: 10% a menos de dano recebido |
 | Coral_Gem (3388) | 7 | perfuração: ignora 10% da defesa do alvo |
 | Granet_Gem (3389) | 8 | +10% de drop (quando os drops existirem) |
+
+## Mestres de skill
+
+Mestres de skill têm `Merchant` 19 no arquivo do NPC e 3 em `Score.Merchant`: o client pede a lista deles com o
+`0x27B` (como numa loja) e o servidor responde com o `0x17C` dos itens de skill que eles carregam. Ao escolher
+uma skill e confirmar, o client manda o `0x277` com tipo 2, `short Qual` = item da skill (5000 + n) e o id do NPC.
+
+A skill n é o item 5000 + n: TK 0-23 (Cap.Cavaleiros), FM 24-47 (Foema_Ancian), BM 48-71 (Mestre_Archi), HT 72-95
+(ForeLearner). A aprendida vira o bit `n % 24` do `LearnedSkill` (`0x337`). O ItemList dá a classe (efeito 18),
+o nível e os atributos mínimos; a `SkillData.bin` (registros de 96 bytes em XOR 0x5A, 104 skills + checksum)
+dá o custo em pontos de skill no primeiro int de cada registro.

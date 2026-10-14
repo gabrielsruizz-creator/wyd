@@ -125,6 +125,7 @@ public static class Program
 
         services.AddSingleton<ItemCatalog>();
         services.AddSingleton<ExpCatalog>();
+        services.AddSingleton<SkillCatalog>();
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<ItemHandler>();
         services.AddSingleton<PointsHandler>();

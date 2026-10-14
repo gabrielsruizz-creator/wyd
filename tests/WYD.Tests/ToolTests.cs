@@ -355,4 +355,31 @@ public class ToolTests
         Assert.Equal(plain + 400 * 10 / 100 / 4, pierced);         // 10% da defesa ignorada
         Assert.Equal(plain * 90 / 100, absorbed);                    // 10% a menos de dano
     }
+
+    [Fact]
+    public void Skill_data_round_trips_and_learning_spends_points()
+    {
+        var file = WYD.Server.Data.SkillData.Encode([
+            new(0, 24, 3, 15, 4, 2),     // TK: Heaven's Dust, 24 pontos
+            new(1, 48, 4, 20, 3, 0),
+            new(24, 12, 1, 5, 2, 6),     // FM: Magic Arrow
+        ]);
+        var data = WYD.Server.Data.SkillData.Parse(file);
+        Assert.Equal(24, data[0]!.SkillPoint);
+        Assert.Equal(15, data[0]!.ManaSpent);
+        Assert.Equal(12, data[24]!.SkillPoint);
+
+        var tk = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.TransKnight, SkillBonus = 30 };
+        Assert.StartsWith("skill 24 não é da sua classe", WYD.Server.Game.Skills.Learn(tk, 5024, null, data));
+        Assert.Null(WYD.Server.Game.Skills.Learn(tk, 5000, null, data));
+        Assert.Equal(6, tk.SkillBonus);
+        Assert.True(WYD.Server.Game.Skills.Knows(tk, 0));
+        Assert.Equal(1u, tk.LearnedSkill);
+        Assert.StartsWith("Você já sabe", WYD.Server.Game.Skills.Learn(tk, 5000, null, data));
+        Assert.StartsWith("skill 1 custa 48 pontos", WYD.Server.Game.Skills.Learn(tk, 5001, null, data));
+
+        var fm = new WYD.Server.Game.Character { Class = WYD.Server.Game.CharacterClass.Foema, SkillBonus = 12 };
+        Assert.Null(WYD.Server.Game.Skills.Learn(fm, 5024, null, data));
+        Assert.Equal(1u, fm.LearnedSkill);                       // bit 0 da classe (24 % 24)
+    }
 }

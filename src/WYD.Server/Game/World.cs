@@ -269,6 +269,19 @@ public sealed class World(
             return _players.Values.Where(p => p != session && _visible.TryGetValue(p.Id, out var v) && v.Contains(session.Id)).ToList();
     }
 
+    /// <summary>NPCs/monstros vivos que o jogador vê a até <paramref name="range"/> células.</summary>
+    public List<Mob> NearbyMobs(ClientSession session, int range)
+    {
+        lock (_lock)
+        {
+            if (!_visible.TryGetValue(session.Id, out var mine)) return [];
+            var me = session.Character!;
+            return mine.Where(id => id >= Mob.FirstId && _mobs.ContainsKey(id)).Select(id => _mobs[id])
+                .Where(m => m.Alive && Math.Abs(m.X - me.PosX) <= range && Math.Abs(m.Y - me.PosY) <= range)
+                .ToList();
+        }
+    }
+
     /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
     public Mob? VisibleMob(ClientSession session, ushort mobId)
     {

@@ -42,6 +42,9 @@ public sealed class Mob
     /// <summary>O client só pede a lista da loja quando os 4 bits de baixo de Score.Merchant valem 1.</summary>
     public bool IsShop => (Template.Score.Merchant & 0x0F) == 1;
 
+    /// <summary>Mestre de skill: o client pede a lista dele com o 0x27B, como numa loja (Score.Merchant &amp; 0xF == 3).</summary>
+    public bool IsSkillMaster => Template.Merchant == Skills.MasterMerchant && (Template.Score.Merchant & 0x0F) == 3;
+
     /// <summary>Jogador que o monstro está perseguindo (0 = nenhum): quem bateu nele por último.</summary>
     public ushort Target { get; set; }
 

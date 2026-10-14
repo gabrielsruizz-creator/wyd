@@ -61,3 +61,8 @@ dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\WYD.exe"
 ```
 
 Sem ela o jogo funciona, mas ninguém sobe de nível.
+
+## `SkillData.bin` (opcional)
+
+As skills do client (fica na pasta do jogo, junto do `ItemList.bin`). Com ela, aprender uma skill no mestre
+gasta os pontos de skill certos de cada uma; sem ela, aprender não custa pontos.

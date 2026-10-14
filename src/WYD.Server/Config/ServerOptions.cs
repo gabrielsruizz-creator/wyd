@@ -50,6 +50,9 @@ public sealed class ServerOptions
     /// <summary>Lista de itens do client (opcional): usada para conferir os itens criados por GMs.</summary>
     public string ItemListPath { get; set; } = "data/ItemList.bin";
 
+    /// <summary>As skills do client (custo em pontos de skill para aprender).</summary>
+    public string SkillDataPath { get; set; } = "data/SkillData.bin";
+
     /// <summary>Experiência de cada nível (gerada pelo comando extract-exptable a partir do WYD.exe).</summary>
     public string ExpTablePath { get; set; } = "data/ExpTable.txt";
 

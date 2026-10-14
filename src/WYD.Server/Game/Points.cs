@@ -48,7 +48,7 @@ public static class Points
                 return null;
 
             case ModeSkill:
-                return "As skills serão aprendidas nos mestres de skill (próxima etapa).";
+                return "Para aprender skills, fale com o mestre de skill da sua classe.";
 
             default:
                 return "Tipo de ponto inválido.";

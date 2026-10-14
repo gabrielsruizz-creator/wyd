@@ -37,7 +37,7 @@ public sealed class WorldHandler(World world)
         ushort npcId = packet.ReadUInt16();
         var npc = world.VisibleMob(session, npcId);
         var me = session.Character!;
-        if (npc is null || !npc.IsShop
+        if (npc is null || !(npc.IsShop || npc.IsSkillMaster)
             || Math.Abs(npc.X - me.PosX) > ShopDistance || Math.Abs(npc.Y - me.PosY) > ShopDistance)
             return Task.CompletedTask;
 

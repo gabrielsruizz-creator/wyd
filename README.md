@@ -29,6 +29,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
 - [x] Gemas (3386 a 3389) nos itens ancient: Diamante (experiência), Esmeralda (absorção), Coral (perfuração), Garnet (drop),
       cada ancient +10 equipado vale 10%
+- [x] Mestres de skill (Cap.Cavaleiros, Foema_Ancian, Mestre_Archi, ForeLearner): lista das skills e aprender,
+      gastando os pontos de skill da `SkillData.bin`
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] Equipamento soma dano, defesa, HP, MP, atributos e especiais, com refinação (+1 a +15) como o client
 - [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6
@@ -40,7 +42,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 ## Próximas etapas
 
 1. Drops: itens dos monstros caindo no chão e sendo pegos.
-2. Baú, mestres de skill (aprender skills com os pontos de skill) e NPCs de quest.
+2. Baú, usar as skills em combate e NPCs de quest.
 3. Grupo, troca, guild.
 4. Teleportes, quests.
 

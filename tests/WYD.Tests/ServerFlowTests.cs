@@ -936,6 +936,47 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Skill_master_shows_its_list_and_teaches()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Mestre de skill de TK (Merchant 19, Score.Merchant 3) ao lado de quem entra.
+            var master = NpcDataTests.NpcFile("Cap.Cavaleiros", 200, 1, 1000, carry: [(0, 5000), (1, 5001)]);
+            master[0x11] = 19;
+            master[0x38] = 3;
+            File.WriteAllBytes(Path.Combine(npcDir, "Cap.Cavaleiros"), master);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Cap.Cavaleiros", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogador2", "Cavaleiro");
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort masterId = created.ReadUInt16();
+
+            await a.SendAsync(new PacketWriter(Opcodes.RequestShop, 16, 1).WriteUInt16(masterId).Skip(2).ToArray());
+            var list = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.ShopList, list.Type);
+
+            // Tipo 2 do 0x277: aprender a skill do item 5000.
+            await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5000).WriteInt16((short)masterId).Skip(2).ToArray());
+            var etc = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateEtc, etc.Type);
+            etc.Skip(8);
+            Assert.Equal(1, etc.ReadInt32());                                  // LearnedSkill com o bit 0
+            Assert.StartsWith("Você aprendeu", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            // Skill de outra classe: recusada.
+            await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5024).WriteInt16((short)masterId).Skip(2).ToArray());
+            Assert.Contains("não é da sua classe", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
     public async Task Crash_right_after_teleport_keeps_the_old_position()
     {
         var a = await EnterWorldAsync("jogadora", "Alice");
