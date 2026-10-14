@@ -27,6 +27,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6
 - [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
@@ -114,6 +115,7 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | Comando | O que faz |
 |---------|-----------|
 | `/gm item 905` | cria o item 905 no primeiro espaço livre do inventário |
+| `/gm item 2370` | montarias (2360 a 2389, 3980 a 3998) já vêm vivas: vida 100, nível 1 |
 | `/gm item 905 43 9` | o mesmo, com até 3 pares efeito/valor (ex.: 43 = refinação) |
 | `/gm nivel 100` | coloca o seu personagem no nível 100 (vida, mana e pontos de acordo) |
 | `/gm evoluir arch` | muda a sua evolução: `mortal`, `arch`, `celestial` ou `sub` (volta ao nível 1) |
@@ -123,6 +125,8 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm ir 2100 2100` | teleporta você para a posição X Y |
 | `/gm ir Fulano` | teleporta você até o jogador |
 | `/gm trazer Fulano` | traz o jogador até você |
+| `/gm pos` | mostra a sua posição (X Y) |
+| `/gm reino azul` | o `/kingdom` do reino (`azul`, `vermelho` ou `neutro`) passa a levar para onde você está |
 | `/gm online` | lista quem está no jogo, com nível e posição |
 | `/gm aviso texto` | mensagem para todos os jogadores |
 | `/gm kick Fulano` | desconecta o jogador |

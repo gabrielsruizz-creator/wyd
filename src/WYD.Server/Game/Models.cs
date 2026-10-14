@@ -52,6 +52,20 @@ public sealed class Character
     public Item[] Equip { get; set; } = new Item[GameConstants.MaxEquip];
     public Item[] Inventory { get; set; } = new Item[GameConstants.MaxCarry];
 
+    /// <summary>Velocidade de corrida com botas e montaria (calculada por <see cref="Stats.Recalculate"/>).</summary>
+    public byte RunSpeed { get; set; } = Score.DefaultAttackRun & 0x0F;
+
+    /// <summary>Os atributos que o client usa: os base com a velocidade do equipamento.</summary>
+    public Score CurrentScore
+    {
+        get
+        {
+            var s = BaseScore;
+            s.AttackRun = (byte)((s.AttackRun & 0xF0) | RunSpeed);
+            return s;
+        }
+    }
+
     /// <summary>Mortal, Arch, Celestial ou Sub Celestial: guardado no rosto, junto com o equipamento.</summary>
     public Evolution Evolution
     {

@@ -797,12 +797,35 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // /kingdom leva para a frente do Rei Harabard.
             await a.SendAsync(CommandPacket("kingdom", ""));
             var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
-            Assert.Equal(Kingdoms.Destination(Kingdom.Blue), (teleport.ReadInt16(), teleport.ReadInt16()));
+            Assert.Equal((1757, 1620), (teleport.ReadInt16(), teleport.ReadInt16()));   // fora do castelo, padrão do azul
         }
         finally
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public async Task Mount_runs_fast_once_equipped()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+
+        // /gm item de uma montaria cria ela viva (vida 100, nível 1).
+        await a.SendAsync(CommandPacket("gm", "item 2370"));
+        var created = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, created.Type);
+        await a.ReceiveAsync();
+        Assert.Equal(Stats.DefaultMountHp, Stats.MountHp(me.Inventory[0]));
+
+        // Equipar no slot 14: a ficha volta com a velocidade da montaria (6).
+        await a.SendAsync(new PacketWriter(Opcodes.MoveItem, 20, 1).WriteByte(0).WriteByte(14).WriteByte(1).WriteByte(0).Skip(4).ToArray());
+        Assert.Equal(Opcodes.MoveItem, (await a.ReceiveAsync()).Type);
+        var score = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateScore, score.Type);
+        score.Skip(7);
+        Assert.Equal(6, score.ReadByte() & 0x0F);                   // AttackRun
     }
 
     [Fact]
@@ -917,6 +940,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal((0, 6, 1, 0), (ok.ReadByte(), ok.ReadByte(), ok.ReadByte(), ok.ReadByte()));
         Assert.Equal(905, c.Equip[6].Index);
         Assert.True(c.Inventory[0].IsEmpty);
+        Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);   // ficha com a velocidade nova
 
         // Nível insuficiente e rosto: recusados.
         await a.SendAsync(MoveItemPacket(0, 6, 1, 1));

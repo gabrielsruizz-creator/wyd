@@ -43,14 +43,4 @@ public static class Kingdoms
     /// <summary>Rei de cada reino (o clã do NPC é o número do reino).</summary>
     public static string KingName(Kingdom k) => k == Kingdom.Red ? "Rei Glantuar" : "Rei Harabard";
 
-    /// <summary>
-    /// Para onde o /kingdom leva: na frente do rei do reino (Harabard em 1755,1573; Glantuar em 1757,1880) ou,
-    /// para os neutros, no centro do reino, entre os dois castelos.
-    /// </summary>
-    public static (short X, short Y) Destination(Kingdom k) => k switch
-    {
-        Kingdom.Blue => (1757, 1592),
-        Kingdom.Red => (1757, 1862),
-        _ => (1730, 1726),
-    };
 }

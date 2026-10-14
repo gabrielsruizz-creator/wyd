@@ -14,6 +14,7 @@ public sealed partial class CharacterHandler(
     IOptions<ServerOptions> options,
     ICharacterRepository characters,
     World world,
+    WYD.Server.Data.ItemCatalog catalog,
     ILogger<CharacterHandler> logger)
 {
     private readonly ServerOptions _options = options.Value;
@@ -115,6 +116,9 @@ public sealed partial class CharacterHandler(
             character.PosY = (short)_options.StartY;
         }
 
+        if (Stats.FixNewMounts(character.Equip) | Stats.FixNewMounts(character.Inventory))
+            await characters.SaveItemsAsync(character);
+        Stats.Recalculate(character, catalog.List);
         session.Character = character;
         session.State = SessionState.InGame;
         logger.LogInformation("[{Id}] '{Account}' entrou no mundo com {Name} em ({X}, {Y}).",

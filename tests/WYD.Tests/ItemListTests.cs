@@ -49,6 +49,7 @@ public class ItemListTests
         Put(905, "Espada_Longa", 64, 0, 3500, (2, 25));
         Put(1208, "Elmo", 2, 0, 1000);
         Put(1300, "Espada_Lendaria", 64, 99, 1_000_000);
+        Put(2370, "Parade_Horse", 16384, 0, 0, (18, 255));
         Put(4011, "Silver_Wyden(1_billion_gold)", 0, 0, 50000, (38, 185), (33, 0), (43, 4));
         Put(5000, "Pedra_Sem_Uso", 0, 0, 10);
 

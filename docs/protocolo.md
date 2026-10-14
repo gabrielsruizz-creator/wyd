@@ -243,3 +243,17 @@ O reino é a capa (`Equip[15]`), pela mesma tabela do client (função `0x564783
 
 Os reis têm `Merchant` 15 e o clã do reino (7 ou 8). Clicar neles faz o client mandar o `0x28B`
 (20 bytes: `int IdDoNpc`, `int Confirma`).
+
+## Velocidade e montarias
+
+O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos
+itens (botas); se a montaria do slot 14 tiver vida, vale a velocidade dela; no máximo 6. O servidor manda a
+`CurrentScore` com essa velocidade no `0x114`, no `0x364` e no `0x336` (depois de trocar equipamento).
+
+Montaria (2360 a 2389): vida nos bytes 2-3 do item (short), nível no byte 4. A tabela em `0x5CA4C0` tem
+6 inteiros por montaria (dano, magia, dois bônus, velocidade, ?): velocidade 4 para Porco, Javali e Urso, 5 para
+Lobo, Filhote de Dragão e Smilodon, 6 do Cavalo em diante. Os cavalos com prazo (3980 a 3998) correm a 6.
+Sem vida a montaria não dá bônus.
+
+O `/kingdom` leva para os pontos `KingdomBlue`, `KingdomRed` e `KingdomNeutral` do `appsettings.json`, ou para os
+que o GM marcou no jogo com `/gm reino` (gravados em `data/kingdoms.txt`).

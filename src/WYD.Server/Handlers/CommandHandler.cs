@@ -18,6 +18,7 @@ public sealed class CommandHandler(
     SessionManager sessions,
     Game.World world,
     KingHandler kings,
+    Game.KingdomPoints kingdomPoints,
     ILogger<CommandHandler> logger)
 {
     /// <summary>Inventário básico (sem bolsas): os slots que o client mostra.</summary>
@@ -35,6 +36,8 @@ public sealed class CommandHandler(
         ("/gm ir <x> <y>", "teleporta você para a posição"),
         ("/gm ir <nome>", "teleporta você até o jogador"),
         ("/gm trazer <nome>", "traz o jogador até você"),
+        ("/gm pos", "mostra a sua posição"),
+        ("/gm reino <azul|vermelho|neutro>", "o /kingdom desse reino passa a levar para onde você está"),
         ("/gm online", "lista quem está no jogo"),
         ("/gm aviso <texto>", "mensagem para todos os jogadores"),
         ("/gm kick <nome>", "desconecta o jogador"),
@@ -100,6 +103,8 @@ public sealed class CommandHandler(
             case "ir": await GoAsync(session, args); break;
             case "trazer": await BringAsync(session, args); break;
             case "online": await OnlineAsync(session); break;
+            case "pos": await session.SendMessageAsync($"Posição: {session.Character!.PosX} {session.Character.PosY}"); break;
+            case "reino": await SetKingdomPointAsync(session, args); break;
             case "aviso": await NoticeAsync(session, args); break;
             case "kick": await KickAsync(session, args); break;
             case "limpar": await ClearInventoryAsync(session); break;
@@ -145,6 +150,19 @@ public sealed class CommandHandler(
         await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
         await characters.SaveProgressAsync(c);
         await session.SendMessageAsync($"+{amount} pontos de atributo, especiais e de skill.");
+    }
+
+    /// <summary>/gm reino azul: marca a posição atual como destino do /kingdom do reino azul.</summary>
+    private async Task SetKingdomPointAsync(ClientSession session, string args)
+    {
+        if (Game.KingdomPoints.Parse(args) is not { } kingdom)
+        {
+            await session.SendMessageAsync("Uso: /gm reino <azul|vermelho|neutro>");
+            return;
+        }
+        var c = session.Character!;
+        kingdomPoints.Set(kingdom, c.PosX, c.PosY);
+        await session.SendMessageAsync($"/kingdom do reino {Game.Kingdoms.Name(kingdom)} agora leva para {c.PosX} {c.PosY}.");
     }
 
     /// <summary>/gm curar</summary>
@@ -278,12 +296,14 @@ public sealed class CommandHandler(
         }
 
         byte B(int i) => (byte)Math.Clamp(i < numbers.Count ? numbers[i]!.Value : 0, 0, 255);
-        var item = new Item((short)index)
-        {
-            Effect1 = B(1), Value1 = B(2),
-            Effect2 = B(3), Value2 = B(4),
-            Effect3 = B(5), Value3 = B(6),
-        };
+        var item = numbers.Count == 1 && Game.Stats.IsMount((short)index)
+            ? Game.Stats.NewMount((short)index)               // montaria sem vida não anda nem dá velocidade
+            : new Item((short)index)
+            {
+                Effect1 = B(1), Value1 = B(2),
+                Effect2 = B(3), Value2 = B(4),
+                Effect3 = B(5), Value3 = B(6),
+            };
 
         character.Inventory[slot] = item;
         await characters.SaveInventoryAsync(character.Id, character.Inventory);

@@ -76,6 +76,9 @@ public sealed class ItemHandler(
 
         if (srcType == 0 || destType == 0)
         {
+            // Botas e montaria mudam a velocidade: a ficha nova vai para o próprio jogador.
+            Game.Stats.Recalculate(c, catalog.List);
+            await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
             var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);

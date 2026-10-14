@@ -10,7 +10,7 @@ namespace WYD.Server.Handlers;
 /// Os reis do reino (Rei Harabard, azul; Rei Glantuar, vermelho): no nível máximo, quem fala com o rei do
 /// próprio reino evolui. Neutros (capa branca ou sem capa) podem evoluir com qualquer um.
 /// </summary>
-public sealed class KingHandler(World world, ICharacterRepository characters, ILogger<KingHandler> logger)
+public sealed class KingHandler(World world, KingdomPoints points, ICharacterRepository characters, ILogger<KingHandler> logger)
 {
     /// <summary>NPCs de reino têm Merchant 15 e o clã do reino (7 ou 8).</summary>
     public static bool IsKing(Mob npc) =>
@@ -59,11 +59,11 @@ public sealed class KingHandler(World world, ICharacterRepository characters, IL
         var c = session.Character!;
         if (c.BaseScore.Hp <= 0) return;
         var kingdom = Kingdoms.Of(c);
-        var (x, y) = Kingdoms.Destination(kingdom);
+        var (x, y) = points.Of(kingdom);
         await world.TeleportAsync(session, x, y);
         await session.SendMessageAsync(Kingdoms.IsNeutral(kingdom)
-            ? "Reino: neutro. Os reis Harabard (azul) e Glantuar (vermelho) ficam ao norte e ao sul."
-            : $"Reino {Kingdoms.Name(kingdom)}: o {Kingdoms.KingName(kingdom)} está à sua frente.");
+            ? "Reino: neutro. Você pode evoluir com o Rei Harabard (azul) ou com o Rei Glantuar (vermelho)."
+            : $"Reino {Kingdoms.Name(kingdom)}: evolua com o {Kingdoms.KingName(kingdom)}.");
     }
 
     /// <summary>Muda a evolução (nível 1), atualiza a tela do jogador e salva.</summary>

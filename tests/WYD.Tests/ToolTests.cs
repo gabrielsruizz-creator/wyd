@@ -260,4 +260,40 @@ public class ToolTests
         Assert.Equal(60, c.BaseScore.MaxHp);
         Assert.Equal(0, c.ScoreBonus);
     }
+
+    [Fact]
+    public void Run_speed_comes_from_boots_and_mount()
+    {
+        var c = new WYD.Server.Game.Character();
+        c.BaseScore.AttackRun = WYD.Server.Protocol.Score.DefaultAttackRun;
+        Assert.Equal(2, WYD.Server.Game.Stats.RunSpeed(c, null));
+
+        // Bota com efeito 29 (velocidade) +2.
+        c.Equip[6] = new WYD.Server.Protocol.Item(1150) { Effect1 = 29, Value1 = 2 };
+        Assert.Equal(4, WYD.Server.Game.Stats.RunSpeed(c, null));
+
+        // Montaria morta (vida 0) não conta; viva vale a velocidade dela.
+        c.Equip[14] = new WYD.Server.Protocol.Item(2370);
+        Assert.Equal(4, WYD.Server.Game.Stats.RunSpeed(c, null));
+        c.Equip[14] = WYD.Server.Game.Stats.NewMount(2370);
+        Assert.Equal(6, WYD.Server.Game.Stats.RunSpeed(c, null));
+        c.Equip[14] = WYD.Server.Game.Stats.NewMount(2360);          // porco
+        Assert.Equal(4, WYD.Server.Game.Stats.RunSpeed(c, null));
+
+        WYD.Server.Game.Stats.Recalculate(c, null);
+        Assert.Equal(4, c.CurrentScore.AttackRun & 0x0F);
+        Assert.Equal(2, c.BaseScore.AttackRun & 0x0F);                 // o base não muda
+    }
+
+    [Fact]
+    public void Unused_mounts_get_life()
+    {
+        var items = new WYD.Server.Protocol.Item[] { new(2370), new(905), WYD.Server.Game.Stats.NewMount(2380) };
+        items[2].Effect1 = 5;                                           // vida 5: já foi usada, não mexe
+        Assert.True(WYD.Server.Game.Stats.FixNewMounts(items));
+        Assert.Equal(WYD.Server.Game.Stats.DefaultMountHp, WYD.Server.Game.Stats.MountHp(items[0]));
+        Assert.Equal(0, items[1].Effect1);
+        Assert.Equal(5, WYD.Server.Game.Stats.MountHp(items[2]));
+        Assert.False(WYD.Server.Game.Stats.FixNewMounts(items));
+    }
 }

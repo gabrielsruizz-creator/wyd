@@ -173,7 +173,7 @@ public static class ServerPackets
     /// </code>
     /// </summary>
     public static byte[] CreateMob(ushort mobId, Character c) =>
-        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.BaseScore);
+        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.CurrentScore);
 
     public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score)
     {
@@ -330,7 +330,7 @@ public static class ServerPackets
     public static byte[] UpdateScore(ushort id, Character c)
     {
         var w = new PacketWriter(Opcodes.UpdateScore, 92, id);
-        c.BaseScore.Write(w);                         // 0x0C
+        c.CurrentScore.Write(w);                      // 0x0C
         w.WriteByte(0).WriteByte(0);                  // 0x28 Critical, SaveMana
         w.Skip(32);                                   // 0x2A Affect
         w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x4A Guild, GuildLevel
@@ -451,7 +451,7 @@ public static class ServerPackets
         w.WriteInt16(c.PosX);
         w.WriteInt16(c.PosY);
         c.BaseScore.Write(w);
-        c.BaseScore.Write(w);                         // CurrentScore: por enquanto igual ao base (sem bônus de itens)
+        c.CurrentScore.Write(w);                      // CurrentScore: com a velocidade das botas e da montaria
         foreach (var item in c.Equip) item.Write(w);
         foreach (var item in c.Inventory) item.Write(w);
         w.WriteUInt32(c.LearnedSkill);
