@@ -313,7 +313,7 @@ public sealed class World(
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
                     && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
                 {
-                    damage = (short)Combat.Damage(me.BaseScore, mob.Template.Score);
+                    damage = (short)Combat.Damage(me.CurrentScore, mob.Template.Score);
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
@@ -418,7 +418,7 @@ public sealed class World(
 
                 if (mob.NextAttack > now) continue;
                 mob.NextAttack = now + MobAttackInterval;
-                int damage = Combat.Damage(mob.Template.Score, c.BaseScore);
+                int damage = Combat.Damage(mob.Template.Score, c.CurrentScore);
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
                 var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);
@@ -459,8 +459,8 @@ public sealed class World(
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id) || !IsDead(me)) return;
-            me.BaseScore.Hp = me.BaseScore.MaxHp;
-            me.BaseScore.Mp = me.BaseScore.MaxMp;
+            me.BaseScore.Hp = me.MaxHp;
+            me.BaseScore.Mp = me.MaxMp;
             TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
             outgoing.Add((session, ServerPackets.UpdateScore(session.Id, me)));
             outgoing.Add((session, ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp)));
@@ -526,9 +526,9 @@ public sealed class World(
             foreach (var player in _players.Values)
             {
                 var s = player.Character!;
-                if (IsDead(s) || (s.BaseScore.Hp >= s.BaseScore.MaxHp && s.BaseScore.Mp >= s.BaseScore.MaxMp)) continue;
-                s.BaseScore.Hp = Math.Min(s.BaseScore.MaxHp, s.BaseScore.Hp + Math.Max(1, s.BaseScore.MaxHp / 20));
-                s.BaseScore.Mp = Math.Min(s.BaseScore.MaxMp, s.BaseScore.Mp + Math.Max(1, s.BaseScore.MaxMp / 20));
+                if (IsDead(s) || (s.BaseScore.Hp >= s.MaxHp && s.BaseScore.Mp >= s.MaxMp)) continue;
+                s.BaseScore.Hp = Math.Min(s.MaxHp, s.BaseScore.Hp + Math.Max(1, s.MaxHp / 20));
+                s.BaseScore.Mp = Math.Min(s.MaxMp, s.BaseScore.Mp + Math.Max(1, s.MaxMp / 20));
                 outgoing.Add((player, ServerPackets.UpdateHpMp(player.Id, s.BaseScore.Hp, s.BaseScore.Mp)));
             }
         }

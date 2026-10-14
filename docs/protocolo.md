@@ -257,3 +257,18 @@ Sem vida a montaria não dá bônus.
 
 O `/kingdom` leva para os pontos `KingdomBlue`, `KingdomRed` e `KingdomNeutral` do `appsettings.json`, ou para os
 que o GM marcou no jogo com `/gm reino` (gravados em `data/kingdoms.txt`).
+
+## Efeitos dos itens e refinação
+
+Como o client calcula (funções em `0x556F5B` e `0x558FF0`):
+
+- Um efeito de um item = soma do efeito no ItemList + nos 3 efeitos do item (bytes com sinal).
+- Refinação (efeito 43, `0x55845F`): de 0 a 229 vale o último dígito (+0 a +9); de 230 em diante,
+  230 = +10, 234 = +11, 238 = +12, 242 = +13, 246 = +14, 250 = +15. Itens 1 a 40 não refinam; com +9 ou mais
+  e `Pos & 0xF00`, conta um a mais.
+- Até +10 o valor é multiplicado por (refinação + 10) / 10; de +11 a +15 por 2,2 / 2,5 / 2,8 / 3,2 / 3,7.
+  Não multiplicam: 1, 17, 18, 21-25, 27, 33, 38, 47, 48, 78, 84, 86, 87, 88, 112, 113. Velocidade (29) fica em
+  no máximo 2 (+1 com +9); regeneração (47, 48) é multiplicada pela refinação.
+- Duas armas (slots 6 e 7): a mais forte conta inteira e a outra 30% (50% se forem do mesmo tipo).
+
+O servidor soma ao base: dano (2), defesa (3), HP (4), MP (5), FOR/INT/DES/CON (7-10), especiais (11-14 e 74).

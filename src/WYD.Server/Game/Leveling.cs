@@ -24,8 +24,8 @@ public static class Leveling
         c.Evolution = to;
         c.BaseScore.Level = 0;
         c.Exp = 0;
-        c.BaseScore.Hp = c.BaseScore.MaxHp;
-        c.BaseScore.Mp = c.BaseScore.MaxMp;
+        c.BaseScore.Hp = c.MaxHp;
+        c.BaseScore.Mp = c.MaxMp;
     }
 
     /// <summary>
@@ -44,8 +44,8 @@ public static class Leveling
         c.SkillBonus = (short)Math.Clamp(c.SkillBonus + SkillPointsPerLevel * delta, 0, short.MaxValue);
         if (table is not null && table.MaxLevel > 0)
             c.Exp = level == 0 ? 0 : table.Next[Math.Min(level, table.MaxLevel) - 1];
-        c.BaseScore.Hp = c.BaseScore.MaxHp;
-        c.BaseScore.Mp = c.BaseScore.MaxMp;
+        c.BaseScore.Hp = c.MaxHp;
+        c.BaseScore.Mp = c.MaxMp;
     }
 
     /// <summary>Sobe quantos níveis a experiência permitir. Retorna quantos subiu.</summary>
@@ -69,8 +69,8 @@ public static class Leveling
 
         if (gained > 0)
         {
-            c.BaseScore.Hp = c.BaseScore.MaxHp;
-            c.BaseScore.Mp = c.BaseScore.MaxMp;
+            c.BaseScore.Hp = c.MaxHp;
+            c.BaseScore.Mp = c.MaxMp;
         }
         return gained;
     }

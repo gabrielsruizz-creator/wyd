@@ -78,6 +78,8 @@ public sealed class ItemHandler(
         {
             // Botas e montaria mudam a velocidade: a ficha nova vai para o próprio jogador.
             Game.Stats.Recalculate(c, catalog.List);
+            c.BaseScore.Hp = Math.Min(c.BaseScore.Hp, c.MaxHp);     // tirou um item de HP: a vida não passa do máximo
+            c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
             await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
             var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
             foreach (var viewer in world.Viewers(session))
@@ -135,8 +137,8 @@ public sealed class ItemHandler(
         }
         else if (usable == UsablePotion)
         {
-            c.BaseScore.Hp = Math.Min(c.BaseScore.MaxHp, c.BaseScore.Hp + Effect(def, EfHp));
-            c.BaseScore.Mp = Math.Min(c.BaseScore.MaxMp, c.BaseScore.Mp + Effect(def, EfMp));
+            c.BaseScore.Hp = Math.Min(c.MaxHp, c.BaseScore.Hp + Effect(def, EfHp));
+            c.BaseScore.Mp = Math.Min(c.MaxMp, c.BaseScore.Mp + Effect(def, EfMp));
             Consume(place, srcPos);
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)srcType, srcPos, place[srcPos]));
             await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, c.BaseScore.Hp, c.BaseScore.Mp));

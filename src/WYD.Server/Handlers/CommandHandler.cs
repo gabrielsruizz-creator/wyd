@@ -169,8 +169,8 @@ public sealed class CommandHandler(
     private async Task HealAsync(ClientSession session)
     {
         var c = session.Character!;
-        c.BaseScore.Hp = c.BaseScore.MaxHp;
-        c.BaseScore.Mp = c.BaseScore.MaxMp;
+        c.BaseScore.Hp = c.MaxHp;
+        c.BaseScore.Mp = c.MaxMp;
         await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, c.BaseScore.Hp, c.BaseScore.Mp));
         await session.SendMessageAsync("Vida e mana cheias.");
     }

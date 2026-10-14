@@ -55,16 +55,38 @@ public sealed class Character
     /// <summary>Velocidade de corrida com botas e montaria (calculada por <see cref="Stats.Recalculate"/>).</summary>
     public byte RunSpeed { get; set; } = Score.DefaultAttackRun & 0x0F;
 
-    /// <summary>Os atributos que o client usa: os base com a velocidade do equipamento.</summary>
+    /// <summary>O que o equipamento soma (calculado por <see cref="Stats.Recalculate"/>).</summary>
+    public ItemBonus ItemBonus { get; set; }
+
+    /// <summary>Os atributos que valem no jogo: os base mais o equipamento, com a velocidade das botas/montaria.</summary>
     public Score CurrentScore
     {
         get
         {
             var s = BaseScore;
+            var b = ItemBonus;
             s.AttackRun = (byte)((s.AttackRun & 0xF0) | RunSpeed);
+            s.Damage += b.Damage;
+            s.Ac += b.Ac;
+            s.MaxHp += b.MaxHp;
+            s.MaxMp += b.MaxMp;
+            s.Str = (short)Math.Clamp(s.Str + b.Str, 0, short.MaxValue);
+            s.Int = (short)Math.Clamp(s.Int + b.Int, 0, short.MaxValue);
+            s.Dex = (short)Math.Clamp(s.Dex + b.Dex, 0, short.MaxValue);
+            s.Con = (short)Math.Clamp(s.Con + b.Con, 0, short.MaxValue);
+            s.Special1 = (byte)Math.Clamp(s.Special1 + b.Special1, 0, 255);
+            s.Special2 = (byte)Math.Clamp(s.Special2 + b.Special2, 0, 255);
+            s.Special3 = (byte)Math.Clamp(s.Special3 + b.Special3, 0, 255);
+            s.Special4 = (byte)Math.Clamp(s.Special4 + b.Special4, 0, 255);
+            s.Hp = Math.Min(s.Hp, s.MaxHp);
+            s.Mp = Math.Min(s.Mp, s.MaxMp);
             return s;
         }
     }
+
+    /// <summary>Vida e mana máximas com o equipamento.</summary>
+    public int MaxHp => Math.Max(1, BaseScore.MaxHp + ItemBonus.MaxHp);
+    public int MaxMp => Math.Max(0, BaseScore.MaxMp + ItemBonus.MaxMp);
 
     /// <summary>Mortal, Arch, Celestial ou Sub Celestial: guardado no rosto, junto com o equipamento.</summary>
     public Evolution Evolution

@@ -296,4 +296,33 @@ public class ToolTests
         Assert.Equal(5, WYD.Server.Game.Stats.MountHp(items[2]));
         Assert.False(WYD.Server.Game.Stats.FixNewMounts(items));
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(7, 7)]
+    [InlineData(19, 9)]      // só o último dígito vale até 229
+    [InlineData(230, 10)]
+    [InlineData(234, 11)]
+    [InlineData(250, 15)]
+    public void Refine_is_read_like_the_client(byte raw, int expected) =>
+        Assert.Equal(expected, WYD.Server.Game.Stats.Refine(new WYD.Server.Protocol.Item(905) { Effect1 = 43, Value1 = raw }));
+
+    [Fact]
+    public void Equipment_adds_to_the_current_score_with_refine()
+    {
+        var items = ItemListTests.TestItems();
+        var c = new WYD.Server.Game.Character();
+        c.BaseScore.Damage = 10;
+        c.BaseScore.MaxHp = 100;
+        c.Equip[6] = new WYD.Server.Protocol.Item(905) { Effect1 = 43, Value1 = 9, Effect2 = 4, Value2 = 20 }; // dano 25, +9, +20 HP
+
+        WYD.Server.Game.Stats.Recalculate(c, items);
+        Assert.Equal(10 + 25 * 19 / 10, c.CurrentScore.Damage);       // +9 multiplica por 1,9
+        Assert.Equal(100 + 20 * 19 / 10, c.MaxHp);
+        Assert.Equal(10, c.BaseScore.Damage);                         // o base não muda
+
+        c.Equip[6] = new WYD.Server.Protocol.Item(905) { Effect1 = 43, Value1 = 250 };   // +15
+        WYD.Server.Game.Stats.Recalculate(c, items);
+        Assert.Equal(10 + 25 * 370 / 100, c.CurrentScore.Damage);
+    }
 }

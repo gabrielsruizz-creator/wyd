@@ -66,35 +66,124 @@ public static class Stats
         return changed;
     }
 
+    // ------------------------------------------------------------------ efeitos dos itens
+
+    public const int EfDamage = 2, EfAc = 3, EfHp = 4, EfMp = 5, EfStr = 7, EfInt = 8, EfDex = 9, EfCon = 10,
+        EfSpecial1 = 11, EfSpecial2 = 12, EfSpecial3 = 13, EfSpecial4 = 14, EfMagic = 60, EfDamage2 = 73,
+        EfSpecialAll = 74, EfSanc = 43, EfRegenHp = 47, EfRegenMp = 48;
+
+    /// <summary>Efeitos que a refinação não multiplica (como no client, em 0x557507).</summary>
+    private static readonly HashSet<int> NotRefined =
+        [1, 17, 18, 21, 22, 23, 24, 25, 27, 33, 38, 47, 48, 78, 84, 86, 87, 88, 112, 113];
+
+    /// <summary>Multiplicador (em %) de +11 a +15.</summary>
+    private static readonly int[] HighRefine = [220, 250, 280, 320, 370];
+
+    /// <summary>
+    /// Refinação do item (+0 a +15), lida do efeito 43 como o client (0x55845F): de 0 a 229 vale o último
+    /// dígito (+0 a +9); de 230 em diante, (valor - 220 - 10) / 4 + 10, ou seja 230 = +10, 234 = +11 ... 250 = +15.
+    /// </summary>
+    public static int Refine(Item item)
+    {
+        if (IsMount(item.Index)) return 0;
+        int raw = item.Effect1 == EfSanc ? item.Value1 : item.Effect2 == EfSanc ? item.Value2 : item.Effect3 == EfSanc ? item.Value3 : 0;
+        int s = raw >= 230 ? raw - 220 : raw % 10;
+        if (s is >= 10 and <= 35) s = (s - 10) / 4 + 10;
+        return s;
+    }
+
+    /// <summary>Um efeito de um item, com a refinação aplicada (como o client em 0x556F5B).</summary>
+    public static int Ability(Item item, ItemList? items, int effect)
+    {
+        if (item.Index <= 0 || IsMount(item.Index)) return 0;
+        var def = items?[item.Index];
+        int value = 0;
+        if (def is not null)
+            foreach (var e in def.Effects)
+                if (e.Effect == effect) value += e.Value;
+        if (effect != EfSanc)
+        {
+            if (item.Effect1 == effect) value += (sbyte)item.Value1;
+            if (item.Effect2 == effect) value += (sbyte)item.Value2;
+            if (item.Effect3 == effect) value += (sbyte)item.Value3;
+        }
+
+        int sanc = item.Index <= 40 ? 0 : Refine(item);
+        if (sanc >= 9 && def is not null && (def.Pos & 0xF00) != 0) sanc++;
+        if (sanc > 0 && !NotRefined.Contains(effect))
+            value = sanc <= 10
+                ? value * (sanc + 10) / 10
+                : value * HighRefine[Math.Min(sanc, 15) - 11] / 100;
+
+        if (effect == RunSpeedEffect)
+        {
+            if (value >= 3) value = 2;
+            if (value > 0 && sanc >= 9) value++;
+        }
+        if (effect is EfRegenHp or EfRegenMp) value *= sanc;
+        return value;
+    }
+
+    /// <summary>Soma de um efeito em todo o equipamento (como o client em 0x558FF0).</summary>
+    public static int EquipAbility(Character c, ItemList? items, int effect)
+    {
+        int total = 0;
+        for (int slot = 1; slot < c.Equip.Length; slot++)
+        {
+            if (effect == EfDamage && slot is 6 or 7) continue;    // as duas armas entram juntas, abaixo
+            if (effect == EfMagic && slot == 7) continue;
+            total += Ability(c.Equip[slot], items, effect);
+        }
+
+        if (effect == EfDamage)
+        {
+            // A arma mais forte conta inteira e a outra 30% (50% se forem do mesmo tipo).
+            var (left, right) = (c.Equip[6], c.Equip[7]);
+            int a = Ability(left, items, EfDamage) + Ability(left, items, EfDamage2);
+            int b = Ability(right, items, EfDamage) + Ability(right, items, EfDamage2);
+            int typeA = items?[left.Index]?.Unique ?? 0, typeB = items?[right.Index]?.Unique ?? 0;
+            if (typeA != 0 && typeB != 0 && !(typeA == 47 && typeB == 45))
+            {
+                int percent = typeA == typeB ? 50 : 30;
+                total += Math.Max(a, b) + Math.Min(a, b) * percent / 100;
+            }
+            else total += typeA == 47 && typeB == 45 ? a : Math.Max(a, b);
+        }
+        return total;
+    }
+
     public static int RunSpeed(Character c, ItemList? items)
     {
         var mount = c.Equip[MountSlot];
         if (IsMount(mount.Index) && MountHp(mount) > 0)
             return mount.Index <= LastMount ? MountSpeed[mount.Index - FirstMount] : TimedMountSpeed;
 
-        int speed = c.BaseScore.AttackRun & 0x0F;
-        for (int slot = 1; slot < c.Equip.Length; slot++)
-        {
-            var item = c.Equip[slot];
-            if (item.IsEmpty || slot == MountSlot) continue;
-            speed += Effect(item, items, RunSpeedEffect);
-        }
+        int speed = (c.BaseScore.AttackRun & 0x0F) + EquipAbility(c, items, RunSpeedEffect);
         return Math.Clamp(speed, 0, MaxRunSpeed);
     }
 
-    /// <summary>Soma do efeito no ItemList.bin e nos efeitos do próprio item.</summary>
-    public static int Effect(Item item, ItemList? items, int effect)
-    {
-        int total = 0;
-        if (items?[item.Index] is { } def)
-            foreach (var e in def.Effects)
-                if (e.Effect == effect) total += e.Value;
-        if (item.Effect1 == effect) total += item.Value1;
-        if (item.Effect2 == effect) total += item.Value2;
-        if (item.Effect3 == effect) total += item.Value3;
-        return total;
-    }
-
     /// <summary>Atualiza os atributos calculados do personagem (chamar ao entrar e ao trocar equipamento).</summary>
-    public static void Recalculate(Character c, ItemList? items) => c.RunSpeed = (byte)RunSpeed(c, items);
+    public static void Recalculate(Character c, ItemList? items)
+    {
+        c.RunSpeed = (byte)RunSpeed(c, items);
+        int specialAll = EquipAbility(c, items, EfSpecialAll);
+        c.ItemBonus = new ItemBonus(
+            Damage: EquipAbility(c, items, EfDamage),
+            Ac: EquipAbility(c, items, EfAc),
+            MaxHp: EquipAbility(c, items, EfHp),
+            MaxMp: EquipAbility(c, items, EfMp),
+            Str: EquipAbility(c, items, EfStr),
+            Int: EquipAbility(c, items, EfInt),
+            Dex: EquipAbility(c, items, EfDex),
+            Con: EquipAbility(c, items, EfCon),
+            Special1: EquipAbility(c, items, EfSpecial1) + specialAll,
+            Special2: EquipAbility(c, items, EfSpecial2) + specialAll,
+            Special3: EquipAbility(c, items, EfSpecial3) + specialAll,
+            Special4: EquipAbility(c, items, EfSpecial4) + specialAll);
+    }
 }
+
+/// <summary>O que o equipamento soma aos atributos base.</summary>
+public readonly record struct ItemBonus(
+    int Damage, int Ac, int MaxHp, int MaxMp, int Str, int Int, int Dex, int Con,
+    int Special1, int Special2, int Special3, int Special4);

@@ -27,6 +27,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Equipamento soma dano, defesa, HP, MP, atributos e especiais, com refinação (+1 a +15) como o client
 - [x] Velocidade de corrida com botas (efeito 29) e montarias (vida e nível guardados no item), até 6
 - [x] Distribuir pontos de atributo (FOR, INT, DES, CON) e especiais pelo "+" da ficha
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
