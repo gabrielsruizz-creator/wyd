@@ -425,5 +425,7 @@ public class ToolTests
         Assert.Equal(999, visuals.Visible("Rei_Glantuar", 6, 999));       // o arquivo pode voltar a arma original
         Assert.Equal(300, visuals.Visible("Lobo", 0, 299));
         Assert.Equal(52, visuals.Visible("Averest", 0, 52));              // os outros NPCs não mudam
+        Assert.Equal(0x6C, visuals.VisibleMerchant("Rei_Harabard", 0x6F)); // rei aparece como tipo 12
+        Assert.Equal(0x64, visuals.VisibleMerchant("Guarda_Real", 0x64));
     }
 }

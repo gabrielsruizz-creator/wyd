@@ -63,6 +63,16 @@ public sealed class NpcVisuals
         return list;
     }
 
+    /// <summary>
+    /// Tipo de NPC que o client vê (Score.Merchant &amp; 0xF). Os reis são do tipo 15, o único que só eles têm, e o client
+    /// 7.54 fecha ao desenhá-los mesmo com outro visual; como tipo 12 (NPC comum que conversa) o clique continua
+    /// mandando o 0x28B direto e a evolução funciona igual (o servidor segue tratando o rei pelo arquivo dele).
+    /// </summary>
+    public const int KingVisibleType = 12;
+
+    public byte VisibleMerchant(string npc, byte merchant) =>
+        (merchant & 0x0F) == 15 && Defaults.ContainsKey(npc) ? (byte)((merchant & 0xF0) | KingVisibleType) : merchant;
+
     /// <summary>O item que aparece na tela no slot do NPC.</summary>
     public short Visible(string npc, int slot, short item) =>
         _rules.TryGetValue(npc, out var slots) && slots.TryGetValue(slot, out var replaced) ? replaced : item;
