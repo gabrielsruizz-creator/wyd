@@ -21,6 +21,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Lojas dos NPCs abrem com os itens de cada um
 - [x] Comandos no chat: `/item` para GMs e sussurro `/nome texto`
 - [x] Combate (1ª etapa): atacar monstros, dano, morte, experiência e renascimento
+- [x] Itens: equipar/mover (conferindo slot e nível), usar barras de gold e poções, comprar e vender nas lojas
 - [x] Banco MySQL/MariaDB com criação automática das tabelas
 - [x] Log de pacotes em hexadecimal para validar o protocolo com o client
 - [x] Testes automáticos (cifra, montagem de pacotes e fluxo completo por TCP)
@@ -28,7 +29,7 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 ## Próximas etapas
 
 1. Combate (2ª etapa): monstros revidam, subir de nível, drops e gold.
-2. Comprar e vender nas lojas, baú, mestres de skill e NPCs de quest, skills, drops, NPCs de loja, baú, grupo, guild, quests…
+2. Baú, mestres de skill e NPCs de quest, skills, drops, NPCs de loja, baú, grupo, guild, quests…
 
 ## Requisitos
 

@@ -16,6 +16,10 @@ public static class Opcodes
     public const ushort Chat = 0x333;              // MSG_MessageChat, 108 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort Move = 0x366;              // MSG_Action, 52 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort MoveStop = 0x367;          // MSG_Action, 52 bytes (conferido no WYD.exe 7.54)
+    public const ushort MoveItem = 0x376;          // 20 bytes: byte TipoDest, SlotDest, TipoOrig, SlotOrig (0 equip, 1 inventário, 2 baú); o servidor devolve para confirmar
+    public const ushort UseItem = 0x373;           // 36 bytes: int TipoOrig, SlotOrig, TipoDest, SlotDest
+    public const ushort Buy = 0x379;               // 24 bytes: short Npc, SlotDoNpc, SlotMeu; resposta com int GoldTotal em 0x14
+    public const ushort Sell = 0x37A;              // 20 bytes: short Npc, TipoOrig, SlotOrig
     public const ushort RequestShop = 0x27B;       // 16 bytes: id do NPC em 0x0C; o client só manda se Score.Merchant & 0xF == 1 (conferido no WYD.exe 7.54)
     public const ushort Attack = 0x36C;            // até 13 alvos (96 bytes), nos dois sentidos (conferido no WYD.exe 7.54)
     public const ushort AttackOne = 0x39D;         // 1 alvo (48 bytes)
@@ -36,6 +40,9 @@ public static class Opcodes
     public const ushort CreateMob = 0x364;             // MSG_CreateMob, 176 bytes: põe um jogador/mob na tela (conferido no WYD.exe 7.54)
     public const ushort RemoveMob = 0x165;
     public const ushort MobKill = 0x338;               // 24 bytes: int Hold, ushort Morto, ushort Matador, int ExpDoMatador (conferido no WYD.exe 7.54)
+    public const ushort UpdateCoin = 0x3AF;            // 16 bytes: int Gold (conferido no WYD.exe 7.54)
+    public const ushort UpdateHpMp = 0x181;            // 20 bytes: int Hp, int Mp
+    public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16], byte Refino[16] (para quem está vendo)
     public const ushort UpdateItem = 0x182;            // 24 bytes: short Tipo (0 equip, 1 inventário, 2 baú), short Slot, ITEM (conferido no WYD.exe 7.54)
     public const ushort ShopList = 0x17C;              // 236 bytes: int tipo, ITEM Lista[27], int imposto (conferido no WYD.exe 7.54)             // 16 bytes: tira da tela o id do cabeçalho (conferido no WYD.exe 7.54)
     public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
@@ -52,6 +59,13 @@ public static class Opcodes
         Chat => "Chat",
         Command => "Command",
         UpdateItem => "UpdateItem",
+        MoveItem => "MoveItem",
+        UseItem => "UseItem",
+        Buy => "Buy",
+        Sell => "Sell",
+        UpdateCoin => "UpdateCoin",
+        UpdateHpMp => "UpdateHpMp",
+        UpdateEquip => "UpdateEquip",
         Move => "Move",
         MoveStop => "MoveStop",
         RequestMob => "RequestMob",

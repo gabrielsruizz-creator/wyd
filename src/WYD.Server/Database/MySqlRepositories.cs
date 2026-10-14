@@ -103,6 +103,16 @@ public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepositor
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task SaveCargoAsync(Account account)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand("UPDATE accounts SET cargo = @c, cargo_coin = @coin WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@c", Item.ToBlob(account.Cargo));
+        command.Parameters.AddWithValue("@coin", account.CargoCoin);
+        command.Parameters.AddWithValue("@id", account.Id);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task SetAccessLevelAsync(int accountId, int level)
     {
         await using var connection = await db.OpenAsync();
@@ -245,6 +255,20 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await using var command = new MySqlCommand("UPDATE characters SET inventory = @inv WHERE id = @id", connection);
         command.Parameters.AddWithValue("@inv", Item.ToBlob(inventory));
         command.Parameters.AddWithValue("@id", characterId);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task SaveItemsAsync(Character c)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand(
+            "UPDATE characters SET coin = @coin, equip = @equip, inventory = @inv, hp = @hp, mp = @mp WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@coin", c.Coin);
+        command.Parameters.AddWithValue("@equip", Item.ToBlob(c.Equip));
+        command.Parameters.AddWithValue("@inv", Item.ToBlob(c.Inventory));
+        command.Parameters.AddWithValue("@hp", c.BaseScore.Hp);
+        command.Parameters.AddWithValue("@mp", c.BaseScore.Mp);
+        command.Parameters.AddWithValue("@id", c.Id);
         await command.ExecuteNonQueryAsync();
     }
 

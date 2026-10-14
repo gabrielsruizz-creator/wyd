@@ -241,6 +241,13 @@ public sealed class World(ICharacterRepository characters, Microsoft.Extensions.
         return packet is null ? Task.CompletedTask : session.SendAsync(packet);
     }
 
+    /// <summary>Outros jogadores que estão vendo este (para avisar de mudanças como o equipamento).</summary>
+    public List<ClientSession> Viewers(ClientSession session)
+    {
+        lock (_lock)
+            return _players.Values.Where(p => p != session && _visible.TryGetValue(p.Id, out var v) && v.Contains(session.Id)).ToList();
+    }
+
     /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
     public Mob? VisibleMob(ClientSession session, ushort mobId)
     {

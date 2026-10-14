@@ -26,6 +26,41 @@ public class ItemListTests
         return plain;
     }
 
+    /// <summary>ItemList de exemplo para os testes do servidor (valores parecidos com os do jogo).</summary>
+    internal static ItemList TestItems()
+    {
+        var plain = new byte[ItemList.DataSize];
+        void Put(int index, string name, short pos, short level, int price, params (short Effect, short Value)[] effects)
+        {
+            var d = plain.AsSpan(index * ItemDefinition.Size, ItemDefinition.Size);
+            Encoding.Latin1.GetBytes(name).CopyTo(d);
+            BinaryPrimitives.WriteInt16LittleEndian(d[70..], level);
+            for (int i = 0; i < effects.Length; i++)
+            {
+                BinaryPrimitives.WriteInt16LittleEndian(d[(80 + i * 4)..], effects[i].Effect);
+                BinaryPrimitives.WriteInt16LittleEndian(d[(82 + i * 4)..], effects[i].Value);
+            }
+            BinaryPrimitives.WriteInt32LittleEndian(d[128..], price);
+            BinaryPrimitives.WriteInt16LittleEndian(d[134..], pos);
+        }
+        Put(1, "Transknight", 1, 0, 0);
+        Put(11, "Foema", 1, 0, 0);
+        Put(400, "Healing_Potion(S)", 0, 0, 150, (18, 255), (38, 1), (4, 50));
+        Put(905, "Espada_Longa", 64, 0, 3500, (2, 25));
+        Put(1208, "Elmo", 2, 0, 1000);
+        Put(1300, "Espada_Lendaria", 64, 99, 1_000_000);
+        Put(4011, "Silver_Wyden(1_billion_gold)", 0, 0, 50000, (38, 185), (33, 0), (43, 4));
+        Put(5000, "Pedra_Sem_Uso", 0, 0, 10);
+
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, ItemList.Encode(plain));
+            return ItemList.Load(path);
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void Reads_encoded_list()
     {

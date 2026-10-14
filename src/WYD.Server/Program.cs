@@ -119,6 +119,7 @@ public static class Program
 
         services.AddSingleton<ItemCatalog>();
         services.AddSingleton<CommandHandler>();
+        services.AddSingleton<ItemHandler>();
         services.AddSingleton<World>();
         services.AddSingleton<WorldHandler>();
         services.AddSingleton<LoginHandler>();

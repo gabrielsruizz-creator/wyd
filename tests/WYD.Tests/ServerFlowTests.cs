@@ -39,7 +39,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         builder.Services.AddSingleton(_table);
         builder.Services.AddSingleton<IAccountRepository>(_store);
         builder.Services.AddSingleton<ICharacterRepository>(_store);
-        builder.Services.AddSingleton(new WYD.Server.Data.ItemCatalog((WYD.Server.Data.ItemList?)null));
+        builder.Services.AddSingleton(new WYD.Server.Data.ItemCatalog(ItemListTests.TestItems()));
 
         _host = builder.Build();
         await _host.StartAsync();
@@ -478,7 +478,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(0, update.ReadInt16());        // primeiro slot livre
         Assert.Equal(905, update.ReadInt16());
         Assert.Equal((43, 9), (update.ReadByte(), update.ReadByte()));
-        Assert.Equal("item 905 criado no inventário.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("Espada Longa criado no inventário.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
         // O segundo vai para o slot seguinte, e o inventário fica salvo.
         await a.SendAsync(CommandPacket("item", "1208"));
@@ -494,6 +494,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.StartsWith("Uso: /item", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         await a.SendAsync(CommandPacket("item", "7000"));
         Assert.StartsWith("Índice inválido", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        await a.SendAsync(CommandPacket("item", "777"));
+        Assert.Equal("O item 777 não existe no ItemList.bin.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
     [Fact]
@@ -617,6 +619,130 @@ public sealed class ServerFlowTests : IAsyncLifetime
             lines.Add(p.ReadString(96));
         }
         Assert.Contains(lines, l => l.StartsWith("/item"));
+    }
+
+    private async Task<Character> CharacterOf(string account) =>
+        (await _store.ListByAccountAsync((await _store.FindByUsernameAsync(account))!.Id))[0];
+
+    private static byte[] UsePacket(int type, int slot) =>
+        new PacketWriter(Opcodes.UseItem, 36).WriteInt32(type).WriteInt32(slot).Skip(16).ToArray();
+
+    private static byte[] MoveItemPacket(byte destType, byte destPos, byte srcType, byte srcPos) =>
+        new PacketWriter(Opcodes.MoveItem, 20).WriteByte(destType).WriteByte(destPos).WriteByte(srcType).WriteByte(srcPos).Skip(4).ToArray();
+
+    [Fact]
+    public async Task Gold_bar_and_potion_work()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var c = await CharacterOf("jogadora");
+        c.Inventory[3] = new Item(4011);
+        c.Inventory[4] = new Item(400) { Effect1 = ItemHandler.EfAmount, Value1 = 2 }; // 2 poções empilhadas
+        c.Inventory[5] = new Item(5000);
+        c.BaseScore.Hp = 10;
+
+        await a.SendAsync(UsePacket(1, 3));
+        var slot = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, slot.Type);
+        slot.Skip(4);
+        Assert.Equal(0, slot.ReadInt16());                     // a barra sumiu
+        var coin = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateCoin, coin.Type);
+        Assert.Equal(1_000_000_000, coin.ReadInt32());
+        Assert.Equal(1_000_000_000, c.Coin);
+
+        await a.SendAsync(UsePacket(1, 4));
+        var potion = await a.ReceiveAsync();
+        potion.Skip(4);
+        Assert.Equal(400, potion.ReadInt16());                 // sobrou 1 poção
+        Assert.Equal((ItemHandler.EfAmount, 1), (potion.ReadByte(), potion.ReadByte()));
+        var hp = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateHpMp, hp.Type);
+        Assert.Equal(60, hp.ReadInt32());
+
+        await a.SendAsync(UsePacket(1, 5));
+        Assert.Equal("Pedra Sem Uso ainda não tem função neste servidor.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    [Fact]
+    public async Task Equip_items_respecting_slot_and_level()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var c = await CharacterOf("jogadora");
+        c.Inventory[0] = new Item(905);   // espada (Pos 64 = slot 6)
+        c.Inventory[1] = new Item(1300);  // espada de nível 99
+
+        // Espada no slot do elmo: recusado.
+        await a.SendAsync(MoveItemPacket(0, 1, 1, 0));
+        Assert.Equal("Espada Longa não pode ser equipado aí.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        // No slot da arma: o servidor devolve o pedido e o item muda de lugar.
+        await a.SendAsync(MoveItemPacket(0, 6, 1, 0));
+        var ok = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.MoveItem, ok.Type);
+        Assert.Equal((0, 6, 1, 0), (ok.ReadByte(), ok.ReadByte(), ok.ReadByte(), ok.ReadByte()));
+        Assert.Equal(905, c.Equip[6].Index);
+        Assert.True(c.Inventory[0].IsEmpty);
+
+        // Nível insuficiente e rosto: recusados.
+        await a.SendAsync(MoveItemPacket(0, 6, 1, 1));
+        Assert.Equal("Espada Lendaria precisa do nível 99.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        await a.SendAsync(MoveItemPacket(1, 10, 0, 0));
+        Assert.Equal("O rosto do personagem não pode ser trocado.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+        // Desequipar para o inventário.
+        await a.SendAsync(MoveItemPacket(1, 7, 0, 6));
+        Assert.Equal(Opcodes.MoveItem, (await a.ReceiveAsync()).Type);
+        Assert.Equal(905, c.Inventory[7].Index);
+    }
+
+    [Fact]
+    public async Task Buy_and_sell_at_a_shop()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(npcDir, "Ferreiro"),
+                NpcDataTests.NpcFile("Ferreiro", 58, 1, 100, merchant: 1, carry: [(0, 905), (27, 1208)]));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Ferreiro", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var created = await a.ReceiveAsync();
+            created.Skip(4);
+            ushort npc = created.ReadUInt16();
+            var c = await CharacterOf("jogadora");
+
+            // Sem gold: recusado.
+            await a.SendAsync(new PacketWriter(Opcodes.Buy, 24).WriteUInt16(npc).WriteInt16(0).WriteInt16(2).Skip(6).ToArray());
+            Assert.Equal("Gold insuficiente: Espada Longa custa 3500.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            c.Coin = 10_000;
+            await a.SendAsync(new PacketWriter(Opcodes.Buy, 24).WriteUInt16(npc).WriteInt16(0).WriteInt16(2).Skip(6).ToArray());
+            var buy = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.Buy, buy.Type);
+            Assert.Equal((npc, (short)0, (short)2), (buy.ReadUInt16(), buy.ReadInt16(), buy.ReadInt16()));
+            buy.Skip(2);
+            Assert.Equal(6_500, buy.ReadInt32());                       // gold total depois da compra
+            Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
+            Assert.Equal(6_500, (await a.ReceiveAsync()).ReadInt32());  // 0x3AF
+            Assert.Equal(905, c.Inventory[2].Index);
+
+            // Slot que não é da loja: ignorado.
+            await a.SendAsync(new PacketWriter(Opcodes.Buy, 24).WriteUInt16(npc).WriteInt16(10).WriteInt16(3).Skip(6).ToArray());
+
+            // Vender devolve 1/4 do preço.
+            await a.SendAsync(new PacketWriter(Opcodes.Sell, 20).WriteUInt16(npc).WriteInt16(1).WriteInt16(2).Skip(2).ToArray());
+            Assert.Equal(Opcodes.Sell, (await a.ReceiveAsync()).Type);
+            var emptied = await a.ReceiveAsync();
+            emptied.Skip(4);
+            Assert.Equal(0, emptied.ReadInt16());
+            Assert.Equal(6_500 + 3_500 / 4, (await a.ReceiveAsync()).ReadInt32());
+            Assert.True(c.Inventory[2].IsEmpty);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
     }
 
     private static byte[] LoginPacket(string username, string password, int version) =>
@@ -743,6 +869,10 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
                 c.Exp = exp;
         return Task.CompletedTask;
     }
+
+    public Task SaveItemsAsync(Character character) => Task.CompletedTask; // os objetos já são os mesmos da sessão
+
+    public Task SaveCargoAsync(Account account) => Task.CompletedTask;
 
     public Task SetSecondPasswordAsync(int accountId, string? hash)
     {

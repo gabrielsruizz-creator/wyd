@@ -279,6 +279,29 @@ public static class ServerPackets
             .WriteString(text, CommandSize - PacketHeader.Size - NameLength)
             .ToArray();
 
+    /// <summary>0x3AF: novo total de gold do jogador.</summary>
+    public static byte[] UpdateCoin(ushort id, int coin) =>
+        new PacketWriter(Opcodes.UpdateCoin, 16, id).WriteInt32(coin).ToArray();
+
+    /// <summary>0x181: HP e MP atuais do jogador.</summary>
+    public static byte[] UpdateHpMp(ushort id, int hp, int mp) =>
+        new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteInt32(hp).WriteInt32(mp).ToArray();
+
+    /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>
+    public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> equip)
+    {
+        var w = new PacketWriter(Opcodes.UpdateEquip, 60, id);
+        for (int i = 0; i < MaxEquip; i++) w.WriteInt16(i < equip.Count ? equip[i].Index : (short)0);
+        w.Skip(16);
+        return w.ToArray();
+    }
+
+    /// <summary>Resposta da compra (0x379): o mesmo pedido com o slot onde o item foi parar e o gold total.</summary>
+    public static byte[] BuyOk(ushort id, ushort npcId, short npcSlot, short mySlot, int coin) =>
+        new PacketWriter(Opcodes.Buy, 24, id)
+            .WriteUInt16(npcId).WriteInt16(npcSlot).WriteInt16(mySlot).Skip(2).WriteInt32(coin)
+            .ToArray();
+
     public const int ShopListSize = 236;
     public const int ShopSlots = 27;
 

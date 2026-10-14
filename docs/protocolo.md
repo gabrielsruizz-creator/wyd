@@ -62,6 +62,10 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
+| `0x376` | Mover/equipar item | 20      | `byte TipoDest, SlotDest, TipoOrig, SlotOrig` (0 equip, 1 inventário, 2 baú); o servidor devolve o pedido para o client fazer a troca | ✅ layout |
+| `0x373` | Usar item          | 36      | `int TipoOrig, SlotOrig, TipoDest, SlotDest`                              | ✅ layout |
+| `0x379` | Comprar            | 24      | `short Npc`, `short SlotDoNpc` (linha×9+coluna = slot do Carry), `short SlotMeu` | ✅ layout |
+| `0x37A` | Vender             | 20      | `short Npc`, `short TipoOrig`, `short SlotOrig`                           | ✅ layout |
 | `0x27B` | RequestShop        | 16      | `ushort IdDoNpc` (0x0C): o client só manda se `Score.Merchant & 0xF == 1` | ✅ |
 | `0x3A0` | Ping               | 12      | ignorado                                                                 | ✅ |
 
@@ -74,6 +78,10 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x364` | CreateMob           | 176     | põe um jogador na tela (layout abaixo)                                     | ✅ |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | o mesmo pacote com o dano de cada alvo; `int Hold` (0x20) e `int ExpDoAtacante` (0x24) atualizam a barra de experiência | ✅ layout |
 | `0x338` | MobKill             | 24      | `int Hold`, `ushort Morto`, `ushort Matador`, `int ExpDoMatador`           | ✅ layout |
+| `0x379` | BuyOk               | 24      | o pedido com o slot final e `int GoldTotal` (0x14), que o client copia para o gold | ✅ layout |
+| `0x3AF` | UpdateCoin          | 16      | `int Gold`                                                                 | ✅ layout |
+| `0x181` | UpdateHpMp          | 20      | `int Hp`, `int Mp`                                                         | ✅ layout |
+| `0x36B` | UpdateEquip         | 60      | `ushort Equip[16]`, `byte Refino[16]` (para quem está vendo)               | ⚠️ |
 | `0x182` | UpdateItem          | 24      | `short Tipo` (0 equip, 1 inventário, 2 baú), `short Slot`, `ITEM`          | ✅ |
 | `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
@@ -176,3 +184,10 @@ Os monstros e NPCs usam ids a partir de 1000 (os jogadores ficam abaixo). Eles a
 `0x364` dos jogadores, com o modelo no `Equip[0]`, e andam com o `0x366` gerado pelo servidor. A rota é
 uma sequência de dígitos no estilo do teclado numérico, um por célula: `8` = +Y, `2` = −Y, `6` = +X,
 `4` = −X, `9` = +X+Y, `7` = −X+Y, `3` = +X−Y, `1` = −X−Y (até 23 passos).
+
+## Itens
+
+Efeitos do ItemList.bin usados pelo servidor: `4` = cura HP, `5` = cura MP, `38` = item usável
+(`1` = poção, `185` = barra de gold: 4010 vale 100 milhões e 4011 vale 1 bilhão), `61` = quantidade
+de itens empilhados. Equipar confere a máscara `Pos` (bit *n* = slot *n* do Equip) e o nível mínimo.
+Comprar cobra o preço do ItemList.bin; vender devolve 1/4 dele. O gold máximo é 2 bilhões.

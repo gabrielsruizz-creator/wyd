@@ -12,6 +12,8 @@ public interface IAccountRepository
     /// <summary>Grava (ou apaga, com null) o hash da segunda senha.</summary>
     Task SetSecondPasswordAsync(int accountId, string? hash);
 
+    Task SaveCargoAsync(Account account);
+
     /// <summary>0 = jogador; 1 ou mais = GM (pode usar comandos como /item).</summary>
     Task SetAccessLevelAsync(int accountId, int level);
 }
@@ -31,4 +33,7 @@ public interface ICharacterRepository
     Task SaveInventoryAsync(int characterId, Item[] inventory);
 
     Task SaveExpAsync(int characterId, long exp);
+
+    /// <summary>Grava equipamentos, inventário, gold e HP/MP do personagem.</summary>
+    Task SaveItemsAsync(Character character);
 }
