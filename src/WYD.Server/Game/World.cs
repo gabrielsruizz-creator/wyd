@@ -387,13 +387,26 @@ public sealed class World(
             int count = Math.Min(ServerPackets.AttackLayout.MaxTargets,
                 (packet.Length - ServerPackets.AttackLayout.Targets) / ServerPackets.AttackLayout.TargetSize);
             var hit = new List<Mob>();
+            var buffed = new List<ClientSession>();
             for (int i = 0; i < count; i++)
             {
                 int o = ServerPackets.AttackLayout.Targets + i * ServerPackets.AttackLayout.TargetSize;
                 ushort targetId = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet.AsSpan(o));
                 short damage = 0;
 
-                if (spell is { InstanceType: SkillUse.Heal })
+                if (SkillUse.IsBuff(spell))
+                {
+                    // Buff: em si mesmo, ou num jogador que está vendo se a skill é de aliado.
+                    bool allowed = targetId == session.Id
+                        || (spell!.TargetType == SkillUse.TargetAlly && targetId < Mob.FirstId && mine.Contains(targetId));
+                    if (allowed && _players.TryGetValue(targetId, out var ally) && !IsDead(ally.Character!)
+                        && !buffed.Contains(ally) && Affects.FromSkill(me, spell!, skill, now) is { } affect)
+                    {
+                        Affects.Apply(ally.Character!, affect);
+                        buffed.Add(ally);
+                    }
+                }
+                else if (spell is { InstanceType: SkillUse.Heal })
                 {
                     // Cura: em si mesmo ou num jogador que está vendo; aparece como dano negativo.
                     if ((targetId == session.Id || (targetId < Mob.FirstId && mine.Contains(targetId)))
@@ -425,6 +438,15 @@ public sealed class World(
                 }
                 System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(o + 2), damage);
             }
+
+            // Buff sem alvo de jogador no pacote (o client manda o próprio id ou nenhum): vale em quem lançou.
+            if (SkillUse.IsBuff(spell) && buffed.Count == 0 && Affects.FromSkill(me, spell!, skill, now) is { } self)
+            {
+                Affects.Apply(me, self);
+                buffed.Add(session);
+            }
+            foreach (var target in buffed)
+                outgoing.Add((target, ServerPackets.UpdateScore(target.Id, target.Character!)));   // ícones e atributos
 
             foreach (var mob in killed)
             {
@@ -536,7 +558,17 @@ public sealed class World(
 
                 if (mob.NextAttack > now) continue;
                 mob.NextAttack = now + MobAttackInterval;
-                int damage = Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
+                var buff = Affects.Bonus(c);
+                int damage = Random.Shared.Next(100) < buff.Dodge
+                    ? 0                                                       // esquiva (Dodge)
+                    : Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
+                if (buff.ManaShield && damage > 0)
+                {
+                    // Controle de Mana: metade do dano sai da mana enquanto houver.
+                    int toMana = Math.Min(c.BaseScore.Mp, damage / 2);
+                    c.BaseScore.Mp -= toMana;
+                    damage -= toMana;
+                }
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
                 var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);
@@ -648,10 +680,29 @@ public sealed class World(
             {
                 var s = player.Character!;
                 if (IsDead(s) || (s.BaseScore.Hp >= s.MaxHp && s.BaseScore.Mp >= s.MaxMp)) continue;
-                // 5% do máximo mais a regeneração dos itens (efeitos 47 e 48, como os anéis de vida)
-                s.BaseScore.Hp = Math.Min(s.MaxHp, s.BaseScore.Hp + Math.Max(1, s.MaxHp / 20) + s.ItemBonus.RegenHp);
+                // 5% do máximo, a regeneração dos itens (efeitos 47 e 48, como os anéis de vida) e a Aura da Vida
+                s.BaseScore.Hp = Math.Min(s.MaxHp,
+                    s.BaseScore.Hp + Math.Max(1, s.MaxHp / 20) + s.ItemBonus.RegenHp + Affects.Bonus(s).RegenHp);
                 s.BaseScore.Mp = Math.Min(s.MaxMp, s.BaseScore.Mp + Math.Max(1, s.MaxMp / 20) + s.ItemBonus.RegenMp);
                 outgoing.Add((player, ServerPackets.UpdateHpMp(player.Id, s.BaseScore.Hp, s.BaseScore.Mp)));
+            }
+        }
+        return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Tira os buffs que acabaram e manda a ficha nova (sem o ícone) a quem perdeu algum.</summary>
+    public Task ExpireAffectsAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            foreach (var player in _players.Values)
+            {
+                var c = player.Character!;
+                if (c.Affects.Count == 0 || !Affects.Expire(c, now)) continue;
+                c.BaseScore.Hp = Math.Min(c.BaseScore.Hp, c.MaxHp);
+                c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
+                outgoing.Add((player, ServerPackets.UpdateScore(player.Id, c)));
             }
         }
         return SendAllAsync(outgoing);

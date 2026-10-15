@@ -289,6 +289,13 @@ do +6 em diante e o Laktorerium do +9. Montarias (2330-2389), joias (3200-3299) 
 | 5 | 100 100 100 85 70 40 | 100 100 100 100 100 56 35 18 5 |
 | 6 | 100 100 100 85 70 40 | 100 100 100 100 100 56 25 18 5 |
 
+## Efeitos (buffs)
+
+O client guarda até 16 efeitos por personagem, cada um num `short`: tipo no byte de cima e o tempo que falta no
+de baixo, em unidades de 8 segundos (0x5359B6 compara e reinicia o relógio do ícone). Vão no `0x336` (0x2A, os
+ícones do próprio jogador) e no `0x364` (0x42). O tipo é o AffectType da SkillData.bin (campo 9; o TickType, campo
+7, nas auras sem AffectType), com valor no campo 10 e tempo no 11.
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos

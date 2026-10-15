@@ -84,6 +84,13 @@ public static class SkillUse
     public static int ManaCost(Data.SkillDefinition spell, int saveMana) =>
         Math.Max(0, spell.ManaSpent * (100 - Math.Clamp(saveMana, 0, 50)) / 100);
 
+    /// <summary>Skill de efeito (buff): não dá dano nem cura, só põe um efeito.</summary>
+    public static bool IsBuff(Data.SkillDefinition? spell) =>
+        spell is not null && !IsDamage(spell) && spell.InstanceType != Heal && (spell.AffectType != 0 || spell.TickType != 0);
+
+    /// <summary>Alvo da skill: 0 = em si mesmo, 2 = num aliado (ou em si).</summary>
+    public const int TargetSelf = 0, TargetAlly = 2;
+
     public static bool IsDamage(Data.SkillDefinition? spell) =>
         spell is null || spell.InstanceType is Physical or >= FirstMagic and <= LastMagic;
 
@@ -98,7 +105,7 @@ public static class SkillUse
             return Math.Min(short.MaxValue,
                 Combat.Damage(s, target, random, perforation: b.Perforation) + spell.InstanceValue + special);
 
-        int power = (spell.InstanceValue + special + s.Int / 4) * (100 + b.Magic) / 100;
+        int power = (spell.InstanceValue + special + s.Int / 4) * (100 + b.Magic + Affects.Bonus(caster).MagicPercent) / 100;
         int rolled = power * random.Next(90, 111) / 100;
         return Math.Clamp(rolled - target.Ac / 8, 1, short.MaxValue);
     }
@@ -107,6 +114,7 @@ public static class SkillUse
     public static int HealAmount(Character caster, Data.SkillDefinition spell, int skill)
     {
         var s = caster.CurrentScore;
-        return (spell.InstanceValue + TreeSpecial(s, skill) + s.Int / 4) * (100 + caster.ItemBonus.Magic) / 100;
+        return (spell.InstanceValue + TreeSpecial(s, skill) + s.Int / 4)
+            * (100 + caster.ItemBonus.Magic + Affects.Bonus(caster).MagicPercent) / 100;
     }
 }

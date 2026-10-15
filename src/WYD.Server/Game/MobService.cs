@@ -45,6 +45,7 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
 
             var busy = await world.MobActionsAsync(now);   // perseguir e bater em quem os atacou
             await world.RegenerateAsync(now);
+            await world.ExpireAffectsAsync(now);
 
             foreach (var mob in world.WatchedMobs())
             {

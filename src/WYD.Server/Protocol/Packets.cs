@@ -196,9 +196,11 @@ public static class ServerPackets
     /// </code>
     /// </summary>
     public static byte[] CreateMob(ushort mobId, Character c) =>
-        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.CurrentScore);
+        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.CurrentScore,
+            Affects.ToClient(c, DateTime.UtcNow));
 
-    public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score)
+    public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score,
+        short[]? affects = null)
     {
         var w = new PacketWriter(Opcodes.CreateMob, CreateMobSize, mobId);
         w.WriteInt16(x).WriteInt16(y);
@@ -207,7 +209,7 @@ public static class ServerPackets
         w.WriteByte(0).WriteByte(0).WriteUInt16(0);   // ChaosPoint, CurrentKill, TotalKill
         var slots = equip.Take(MaxEquip).ToArray();
         for (int i = 0; i < MaxEquip; i++) w.WriteInt16(i < slots.Length ? slots[i] : (short)0);
-        w.Skip(32);                                   // Affect
+        WriteAffects(w, affects);                     // 0x42 Affect
         w.WriteUInt16(guild);
         score.Write(w);
         w.WriteUInt16(0);                             // CreateType: aparece normalmente
@@ -356,10 +358,17 @@ public static class ServerPackets
         var w = new PacketWriter(Opcodes.UpdateScore, 92, id);
         c.CurrentScore.Write(w);                      // 0x0C
         w.WriteByte(0).WriteByte(0);                  // 0x28 Critical, SaveMana
-        w.Skip(32);                                   // 0x2A Affect
+        WriteAffects(w, Affects.ToClient(c, DateTime.UtcNow));   // 0x2A Affect: ícones dos buffs
         w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x4A Guild, GuildLevel
         w.Skip(92 - w.Position);                      // 0x4E Resist e o resto
         return w.ToArray();
+    }
+
+    /// <summary>16 shorts de efeito: (tipo &lt;&lt; 8) | unidades de 8 s que faltam (ver <see cref="Affects"/>).</summary>
+    private static void WriteAffects(PacketWriter w, short[]? affects)
+    {
+        for (int i = 0; i < Affects.Max; i++)
+            w.WriteInt16(affects is not null && i < affects.Length ? affects[i] : (short)0);
     }
 
     /// <summary>0x3AF: novo total de gold do jogador.</summary>

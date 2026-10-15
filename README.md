@@ -37,7 +37,10 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Sefirot no mestre de skill: Eternal Stone no slot 10 + 8 pedras + 30 milhões de gold
 - [x] Eternal Stone no Oracle do reino (BlueOracle no castelo azul, RedOracle no vermelho; neutros em qualquer um):
       Unicorn's Spirit + Phoenix's Spirit + 10 Sapphires
-- [x] Usar skills: dano físico, dano mágico e cura, gastando mana (buffs ainda não)
+- [x] Usar skills: dano físico, dano mágico e cura, gastando mana
+- [x] Buffs das skills (em si ou em aliado), com ícone e tempo no client: dano (Assault, Power Up, Magic Weapon, Growth,
+      Weapon Mastery), defesa (Magic Shield, Transfer Armor), magia (Skill Amplify), velocidade (Haste), esquiva
+      (Dodge), Controle de Mana e Aura da Vida; os outros mostram o ícone, mas ainda não têm efeito
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam

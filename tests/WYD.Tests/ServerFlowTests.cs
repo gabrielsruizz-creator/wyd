@@ -46,6 +46,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(0, 0, 3, 15, 4, 2, 4, 5),                  // Heaven's Dust (de graça no teste)
             new(8, 0, 1, 12, 15, 1, 1, 15),                // Charge: dano físico 15, 12 de mana
             new(27, 0, 2, 15, 2, 6, 6, 100),               // Heal: cura 100, 15 de mana
+            new(11, 0, 0, 10, 0, 0, 0, 0, 13, 7, 12),      // Assault: efeito 13 (dano) valor 7 por 12 × 8 s
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -1100,6 +1101,32 @@ public sealed class ServerFlowTests : IAsyncLifetime
         c.Equip[2] = c.Inventory[5];
         Stats.Recalculate(c, ItemListTests.TestItems());
         Assert.Equal(2 * Ancient.BonusPercent, c.ItemBonus.Perforation);
+    }
+
+    [Fact]
+    public async Task Buff_skill_shows_the_icon_raises_damage_and_expires()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");                         // TK
+        var me = await CharacterOf("jogadora");
+        me.BaseScore.Mp = 50;
+        me.LearnedSkill |= 1u << 11;                                                       // Assault
+        int damage = me.CurrentScore.Damage;
+
+        await a.SendAsync(SkillPacket(1, 11, 1));                                          // em si mesma
+        var score = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
+        score.Skip(0x2A - 12);
+        short affect = score.ReadInt16();
+        Assert.Equal((int)AffectType.Assault, affect >> 8);                                // ícone do efeito
+        Assert.Equal(12, affect & 0xFF);                                                   // 12 × 8 s
+        Assert.Equal(damage + 7 * 5, me.CurrentScore.Damage);
+        Assert.Equal(40, me.BaseScore.Mp);
+
+        // Acabou o tempo: o efeito sai e a ficha volta sem o ícone.
+        me.Affects[0] = me.Affects[0] with { Expires = DateTime.UtcNow.AddSeconds(-1) };
+        var after = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
+        after.Skip(0x2A - 12);
+        Assert.Equal(0, after.ReadInt16());
+        Assert.Equal(damage, me.CurrentScore.Damage);
     }
 
     [Fact]

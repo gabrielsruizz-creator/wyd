@@ -58,6 +58,9 @@ public sealed class Character
     /// <summary>O que o equipamento soma (calculado por <see cref="Stats.Recalculate"/>).</summary>
     public ItemBonus ItemBonus { get; set; }
 
+    /// <summary>Efeitos de skill ativos (buffs), até 16 (ver <see cref="Game.Affects"/>).</summary>
+    public List<Affect> Affects { get; } = [];
+
     /// <summary>
     /// Os atributos que valem no jogo, calculados como o client 7.54 (0x55A392): base mais equipamento; o dano
     /// soma FOR/3 + DES/8 + Especial 1 + nível (o dobro do nível para rostos evoluídos); CON e INT dão vida e mana;
@@ -69,8 +72,10 @@ public sealed class Character
         {
             var s = BaseScore;
             var b = ItemBonus;
-            s.AttackRun = (byte)((s.AttackRun & 0xF0) | RunSpeed);
-            s.Ac += b.Ac;
+            var buff = Game.Affects.Bonus(this);
+            int speed = Math.Min(Stats.MaxRunSpeed, RunSpeed + buff.RunSpeed);
+            s.AttackRun = (byte)((s.AttackRun & 0xF0) | speed);
+            s.Ac += b.Ac + buff.Ac;
             s.Str = (short)Math.Clamp(s.Str + b.Str, 0, short.MaxValue);
             s.Int = (short)Math.Clamp(s.Int + b.Int, 0, short.MaxValue);
             s.Dex = (short)Math.Clamp(s.Dex + b.Dex, 0, short.MaxValue);
@@ -81,7 +86,7 @@ public sealed class Character
             s.Special4 = (byte)Math.Clamp(s.Special4 + b.Special4, 0, 255);
 
             int levelBonus = Equip[0].Index % 10 > 5 ? s.Level * 2 : s.Level;
-            s.Damage += b.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
+            s.Damage += b.Damage + buff.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
             s.MaxHp = Math.Clamp((s.MaxHp + b.MaxHp + s.Con * Points.HpPerCon) * (100 + b.HpPercent) / 100, 1, 64000);
             s.MaxMp = Math.Clamp((s.MaxMp + b.MaxMp + s.Int * Points.MpPerInt) * (100 + b.MpPercent) / 100, 0, 64000);
             s.Hp = Math.Min(s.Hp, s.MaxHp);
