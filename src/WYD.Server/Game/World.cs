@@ -710,10 +710,35 @@ public sealed class World(
             c.PosY = from.Y;
         }
 
+        var outgoing = RemovePlayer(session);
+        if (outgoing is null) return;
+        _ = Task.Run(async () =>
+        {
+            await SendAllAsync(outgoing);
+            await SaveAsync(session.Character!);
+        });
+    }
+
+    /// <summary>
+    /// Tira o jogador do mundo sem desconectar (volta para a seleção de personagens): some da tela dos outros e a
+    /// posição é gravada.
+    /// </summary>
+    public async Task LeaveAsync(ClientSession session)
+    {
+        session.Closed -= OnClosed;
+        session.TeleportedFrom = null;
+        if (RemovePlayer(session) is not { } outgoing) return;
+        await SendAllAsync(outgoing);
+        await SaveAsync(session.Character!);
+    }
+
+    /// <summary>Tira o jogador das listas e devolve os 0x165 para quem o via (null se ele já não estava no mundo).</summary>
+    private List<(ClientSession To, byte[] Packet)>? RemovePlayer(ClientSession session)
+    {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         lock (_lock)
         {
-            if (!_players.Remove(session.Id)) return;
+            if (!_players.Remove(session.Id)) return null;
             if (_visible.Remove(session.Id, out var mine))
             {
                 foreach (var id in mine)
@@ -723,13 +748,10 @@ public sealed class World(
                     outgoing.Add((other, ServerPackets.RemoveMob(session.Id)));
                 }
             }
+            foreach (var mob in _mobs.Values.Where(m => m.Target == session.Id))
+                mob.Target = 0;
         }
-
-        _ = Task.Run(async () =>
-        {
-            await SendAllAsync(outgoing);
-            await SaveAsync(session.Character!);
-        });
+        return outgoing;
     }
 
     private async Task SaveAsync(Character c)

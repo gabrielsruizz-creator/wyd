@@ -88,7 +88,7 @@ public sealed class ItemHandler(
         await SaveAsync(session, cargo: srcType == 2 || destType == 2);
     }
 
-    /// <summary>O item pode ir para o slot de equipamento? (máscara Pos do ItemList.bin e nível mínimo)</summary>
+    /// <summary>O item pode ir para o slot de equipamento? (máscara Pos do ItemList.bin e nível mínimo; Arch em diante ignora o nível)</summary>
     private bool CanEquip(Character c, Item item, int slot, out string? reason)
     {
         reason = null;
@@ -98,7 +98,7 @@ public sealed class ItemHandler(
             reason = $"{Name(def)} não pode ser equipado aí.";
             return false;
         }
-        if (def.ReqLevel > c.BaseScore.Level + 1)
+        if (c.Evolution == Evolution.Mortal && def.ReqLevel > c.BaseScore.Level + 1)
         {
             reason = $"{Name(def)} precisa do nível {def.ReqLevel}.";
             return false;

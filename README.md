@@ -166,6 +166,11 @@ Para todos os jogadores:
 **Evolução:** no nível máximo (Mortal 400 → Arch, Arch 400 → Celestial, Celestial 200 → Sub Celestial), fale
 com o rei do seu reino. O reino é a capa: azul (Hekalotia) evolui com o Rei Harabard, vermelha (Akeronia) com o
 Rei Glantuar, e branca (ou sem capa) com qualquer um dos dois.
+
+**Arch:** o Mortal 400 leva ao rei o Sefirot da classe que o Arch vai ter. Nasce um personagem novo, com o mesmo
+nome, num slot livre da conta: corpo da classe do Mortal, skills da classe do Sefirot (ex.: corpo de HT com skills
+de Foema), nível 1, sem itens e com 528 pontos de atributo. O Mortal continua na conta e o client volta para a
+seleção de personagens. Do Arch em diante o nível mínimo dos equipamentos não vale.
 | `/Fulano oi` | sussurra "oi" para o jogador Fulano |
 
 Para achar o número de um item: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.

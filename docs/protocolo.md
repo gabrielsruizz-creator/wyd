@@ -256,6 +256,17 @@ Spirit (1740), Phoenix's Spirit (1741) e 10 Sapphires (697). Com o tipo original
 `0x28B` com Confirma 1; o servidor manda o Oracle como tipo 13, que sempre abre a pergunta (`0x28B` com Confirma 0),
 e confere a receita ele mesmo. O `BlueOracle` vem vazio em alguns pacotes de dados e nasce como cópia do `RedOracle`.
 
+## Trocar personagem e criação do Arch
+
+`0x215` (só o cabeçalho) é o "trocar personagem" do client; o servidor tira o personagem do mundo e responde com
+`0x116` (só o cabeçalho, id do jogador no cabeçalho). O client (0x4805C3) volta para a seleção usando a lista que
+recebeu no login (atualiza só a ficha e o equipamento do personagem que estava em jogo). Na seleção, um `0x110`
+com a lista completa redesenha os quatro personagens (0x4A6CD2): é assim que o Arch novo aparece.
+
+Arch: rostos 6-9 (Transknight), 16-19 (Foema), 26-29 (Beastmaster), 36-39 (Hunter); o servidor usa
+`10 × corpo + 6 + classe das skills`. O nome do personagem deixou de ser único no banco: dentro da mesma conta o
+Arch repete o nome do Mortal.
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos

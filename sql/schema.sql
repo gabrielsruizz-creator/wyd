@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS characters (
     inventory   BLOB         NULL,            -- STRUCT_ITEM[64]
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_characters_name (name),
+    KEY ix_characters_name (name),             -- o Arch tem o mesmo nome do Mortal (mesma conta); o servidor confere o resto
     UNIQUE KEY uq_characters_slot (account_id, slot),
     CONSTRAINT fk_characters_account FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

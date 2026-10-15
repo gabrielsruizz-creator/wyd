@@ -131,4 +131,32 @@ public sealed partial class CharacterHandler(
         await session.SendAsync(ServerPackets.CharacterLoginOk(session.Id, character));
         await world.EnterAsync(session);
     }
+
+    /// <summary>0x215: "trocar personagem" no jogo.</summary>
+    public Task HandleLogoutAsync(ClientSession session, PacketReader packet) => ReturnToSelectionAsync(session);
+
+    /// <summary>Quanto esperar, depois do 0x116, para mandar a lista nova (o client precisa já estar na seleção).</summary>
+    public static readonly TimeSpan ListRefreshDelay = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>
+    /// Tira o personagem do mundo, grava tudo e manda o client para a seleção de personagens (0x116). O client
+    /// mostra a lista que recebeu no login; com <paramref name="listChanged"/> (um personagem novo, como o Arch)
+    /// a lista nova vai logo depois, num 0x110, que a tela de seleção usa para redesenhar os personagens.
+    /// </summary>
+    public async Task ReturnToSelectionAsync(ClientSession session, bool listChanged = false)
+    {
+        var c = session.Character!;
+        await world.LeaveAsync(session);
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+        session.State = SessionState.CharacterSelect;
+        session.Characters = await characters.ListByAccountAsync(session.Account!.Id);
+        logger.LogInformation("[{Id}] {Name} voltou para a seleção de personagens.", session.Id, c.Name);
+        await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.CharacterLogoutOk, session.Id));
+
+        if (!listChanged) return;
+        await Task.Delay(ListRefreshDelay);
+        if (session.State == SessionState.CharacterSelect)
+            await session.SendAsync(ServerPackets.SelCharList(Opcodes.CreateCharacterOk, session.Id, session.Characters));
+    }
 }

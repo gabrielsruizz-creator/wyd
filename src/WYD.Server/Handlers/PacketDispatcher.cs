@@ -23,6 +23,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.DeleteCharacter, DeleteCharacterRequest.PacketSize, SessionState.CharacterSelect, characters.HandleDeleteAsync);
         Register(Opcodes.CharacterLogin, PacketHeader.Size + 4, SessionState.CharacterSelect, characters.HandleEnterWorldAsync);
 
+        Register(Opcodes.CharacterLogout, PacketHeader.Size, SessionState.InGame, characters.HandleLogoutAsync);
         Register(Opcodes.Move, ServerPackets.MoveSize, SessionState.InGame, world.HandleMoveAsync);
         Register(Opcodes.MoveStop, ServerPackets.MoveSize, SessionState.InGame, world.HandleMoveAsync);
         Register(Opcodes.RequestMob, PacketHeader.Size + 2, SessionState.InGame, world.HandleRequestMobAsync);

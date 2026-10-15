@@ -836,21 +836,43 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal("Você é do reino Vermelho. Evolua com o Rei Glantuar.",
                 (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
-            // Capa azul: evolui para Arch, com o rosto atualizado.
-            me.Equip[Kingdoms.CapeSlot] = new Item(3191);
-            await a.SendAsync(NpcClickPacket(kingId));
-            var face = await a.ReceiveAsync();
-            Assert.Equal(Opcodes.UpdateItem, face.Type);
-            face.Skip(4 + 2 + 3);
-            Assert.Equal((byte)Evolution.Arch, face.ReadByte());
-            for (int i = 0; i < 3; i++) await a.ReceiveAsync();
-            Assert.Equal("Parabéns! Agora você é Arch (nível 1).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-            Assert.Equal(Evolution.Arch, me.Evolution);
-
             // /kingdom leva para a frente do Rei Harabard.
             await a.SendAsync(CommandPacket("kingdom", ""));
             var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
             Assert.Equal((1760, 1725), (teleport.ReadInt16(), teleport.ReadInt16()));   // entrada do reino
+            await ReceiveTypeAsync(a, Opcodes.MessagePanel);
+            await a.SendAsync(CommandPacket("gm", "ir 2101 2100"));
+            await ReceiveTypeAsync(a, Opcodes.CreateMob);                               // o rei de novo na tela
+
+            // Capa azul sem Sefirot: o rei pede o Sefirot.
+            me.Equip[Kingdoms.CapeSlot] = new Item(3191);
+            await a.SendAsync(NpcClickPacket(kingId));
+            Assert.Equal("Traga o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.",
+                (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+
+            // Com o Sefirot de Foema: nasce o Arch (corpo de TK, skills de FM) no slot 1 e o client volta para a seleção.
+            me.Inventory[20] = new Item(1761);
+            await a.SendAsync(NpcClickPacket(kingId));
+            var used = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateItem, used.Type);
+            Assert.Equal("Arch criado com as skills de Foema. Escolha-o na seleção de personagens.",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            Assert.Equal(Opcodes.CharacterLogoutOk, (await a.ReceiveAsync()).Type);
+            Assert.Equal(Opcodes.CreateCharacterOk, (await a.ReceiveAsync()).Type);   // lista nova, com o Arch
+
+            Assert.True(me.Inventory[20].IsEmpty);
+            Assert.Equal(Evolution.Mortal, me.Evolution);                               // o Mortal continua
+            var arch = (await _store.ListByAccountAsync(me.AccountId)).Single(x => x.Slot == 1);
+            Assert.Equal("Alice", arch.Name);
+            Assert.Equal(CharacterClass.Foema, arch.Class);
+            Assert.Equal(Arch.Face(CharacterClass.TransKnight, CharacterClass.Foema), arch.Equip[0].Index);
+            Assert.Equal(Evolution.Arch, arch.Evolution);
+            Assert.Equal(0, arch.BaseScore.Level);
+            Assert.Equal(Arch.ScorePoints, arch.ScoreBonus);
+
+            // Entrando com o Arch.
+            await a.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(1).Skip(20).ToArray());
+            Assert.Equal(Opcodes.CharacterLoginOk, (await a.ReceiveAsync()).Type);
         }
         finally
         {
@@ -906,6 +928,25 @@ public sealed class ServerFlowTests : IAsyncLifetime
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public async Task Changing_character_goes_back_to_selection_and_enters_again()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+        Assert.Equal(Opcodes.CreateMob, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
+
+        // "Trocar personagem": volta para a seleção e some da tela do Bruno.
+        await a.SendAsync(ServerPackets.HeaderOnly(Opcodes.CharacterLogout, 1));
+        Assert.Equal(Opcodes.CharacterLogoutOk, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.RemoveMob, (await b.ReceiveAsync()).Type);
+
+        // Da seleção entra de novo.
+        await a.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
+        Assert.Equal(Opcodes.CharacterLoginOk, (await a.ReceiveAsync()).Type);
+        Assert.Equal(Opcodes.CreateMob, (await b.ReceiveAsync()).Type);
     }
 
     [Fact]
@@ -1501,7 +1542,7 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
     {
         lock (_characters)
         {
-            if (_characters.Any(c => c.Name.Equals(character.Name, StringComparison.OrdinalIgnoreCase)
+            if (_characters.Any(c => (c.Name.Equals(character.Name, StringComparison.OrdinalIgnoreCase) && c.AccountId != character.AccountId)
                                      || (c.AccountId == character.AccountId && c.Slot == character.Slot)))
                 return Task.FromResult(false);
             character.Id = Interlocked.Increment(ref _nextId);

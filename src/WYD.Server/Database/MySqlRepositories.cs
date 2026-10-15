@@ -46,6 +46,20 @@ public sealed class MySqlDatabase(IOptions<DatabaseOptions> options, ILogger<MyS
             logger.LogInformation("Coluna {Table}.{Column} adicionada.", table, column);
         }
 
+        // O nome deixou de ser único no banco: o Arch nasce com o nome do Mortal na mesma conta.
+        await using (var index = new MySqlCommand(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'characters' AND INDEX_NAME = 'uq_characters_name'",
+            connection))
+        {
+            if (Convert.ToInt32(await index.ExecuteScalarAsync()) > 0)
+            {
+                await using var drop = new MySqlCommand(
+                    "ALTER TABLE characters DROP INDEX uq_characters_name, ADD INDEX ix_characters_name (name)", connection);
+                await drop.ExecuteNonQueryAsync();
+                logger.LogInformation("Índice único de characters.name trocado por um índice comum (Arch com o nome do Mortal).");
+            }
+        }
+
         logger.LogInformation("Banco de dados pronto ({Database}).", connection.Database);
     }
 
@@ -208,6 +222,15 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
     public async Task<bool> CreateAsync(Character c)
     {
         await using var connection = await db.OpenAsync();
+
+        // O mesmo nome só vale dentro da mesma conta (o Mortal e o Arch dele).
+        await using (var taken = new MySqlCommand("SELECT 1 FROM characters WHERE name = @n AND account_id <> @a LIMIT 1", connection))
+        {
+            taken.Parameters.AddWithValue("@n", c.Name);
+            taken.Parameters.AddWithValue("@a", c.AccountId);
+            if (await taken.ExecuteScalarAsync() is not null) return false;
+        }
+
         await using var command = new MySqlCommand("""
             INSERT INTO characters
                 (account_id, slot, name, class, level, exp, coin, guild, pos_x, pos_y,

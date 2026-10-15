@@ -23,7 +23,10 @@ public interface ICharacterRepository
     Task<List<Character>> ListByAccountAsync(int accountId);
     Task<bool> NameExistsAsync(string name);
 
-    /// <summary>Insere o personagem. Retorna false se o nome ou o slot já estão em uso.</summary>
+    /// <summary>
+    /// Insere o personagem. Retorna false se o slot já está em uso ou o nome é de outra conta (na mesma conta o
+    /// nome pode repetir: o Arch tem o nome do Mortal).
+    /// </summary>
     Task<bool> CreateAsync(Character character);
 
     Task<bool> DeleteAsync(int accountId, int slot);

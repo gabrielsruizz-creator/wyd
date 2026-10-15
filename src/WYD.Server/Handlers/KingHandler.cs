@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using WYD.Server.Config;
 using WYD.Server.Database;
 using WYD.Server.Game;
 using WYD.Server.Network;
@@ -10,7 +12,9 @@ namespace WYD.Server.Handlers;
 /// Os reis do reino (Rei Harabard, azul; Rei Glantuar, vermelho): no nível máximo, quem fala com o rei do
 /// próprio reino evolui. Neutros (capa branca ou sem capa) podem evoluir com qualquer um.
 /// </summary>
-public sealed class KingHandler(World world, KingdomPoints points, ICharacterRepository characters, ILogger<KingHandler> logger)
+public sealed class KingHandler(
+    World world, KingdomPoints points, ICharacterRepository characters, CharacterHandler characterHandler,
+    IOptions<ServerOptions> options, ILogger<KingHandler> logger)
 {
     /// <summary>
     /// 0x28B: o jogador falou com um NPC que conversa (id do NPC em 0x0C). O client manda com Confirma (0x10) = 0
@@ -64,7 +68,45 @@ public sealed class KingHandler(World world, KingdomPoints points, ICharacterRep
             return;
         }
 
-        await ChangeEvolutionAsync(session, c.Evolution + 1);
+        if (c.Evolution == Evolution.Mortal)
+            await CreateArchAsync(session);
+        else
+            await ChangeEvolutionAsync(session, c.Evolution + 1);
+    }
+
+    /// <summary>Mortal 400 com o Sefirot: nasce o Arch num slot livre e o client volta para a seleção de personagens.</summary>
+    private async Task CreateArchAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        int sefirot = Arch.SefirotSlot(c, CommandHandler.BasicInventorySlots);
+        if (sefirot < 0)
+        {
+            await session.SendMessageAsync("Traga o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.");
+            return;
+        }
+        var slots = (await characters.ListByAccountAsync(c.AccountId)).Select(x => x.Slot).ToHashSet();
+        int free = Enumerable.Range(0, GameConstants.CharactersPerAccount).FirstOrDefault(s => !slots.Contains(s), -1);
+        if (free < 0)
+        {
+            await session.SendMessageAsync("Para criar o Arch é preciso um slot livre na conta.");
+            return;
+        }
+
+        var skills = Arch.SefirotClass(c.Inventory[sefirot]);
+        var arch = Arch.Create(c, skills, free, (short)options.Value.StartX, (short)options.Value.StartY);
+        if (!await characters.CreateAsync(arch))
+        {
+            await session.SendMessageAsync("Não foi possível criar o Arch agora. Tente de novo.");
+            return;
+        }
+
+        c.Inventory[sefirot] = default;
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, sefirot, default));
+        await characters.SaveItemsAsync(c);
+        logger.LogInformation("[{Id}] {Name} criou o Arch (corpo {Body}, skills {Skills}) no slot {Slot}.",
+            session.Id, c.Name, Arch.BodyOf(c), skills, free);
+        await session.SendMessageAsync($"Arch criado com as skills de {Sefirot.ClassName(skills)}. Escolha-o na seleção de personagens.");
+        await characterHandler.ReturnToSelectionAsync(session, listChanged: true);
     }
 
     private async Task SefirotAsync(ClientSession session, Mob master, bool confirmed)
