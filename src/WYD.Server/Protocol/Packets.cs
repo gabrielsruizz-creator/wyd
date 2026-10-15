@@ -149,15 +149,13 @@ public static class ServerPackets
     /// <summary>Skill vazia na barra (o client trata valores negativos como slot livre).</summary>
     public const byte EmptySkill = 0xFF;
 
-    /// <summary>0x101: caixa de mensagem na tela do client.</summary>
     /// <summary>
-    /// 0x101: mensagem na faixa do alto da tela. O client só mostra com o id do cabeçalho 0 (0x499438) e passa o
-    /// texto como formato de printf: um "%" solto (como "10% com" = "% c") lê um argumento que não existe e
-    /// derruba o client, então todo "%" vai como "%%".
+    /// 0x101: mensagem na faixa do alto da tela e no chat. O client só mostra com o id do cabeçalho 0 (0x499438) e
+    /// copia o texto com "%s" (não é formato de printf: "%" aparece como está).
     /// </summary>
     public static byte[] MessagePanel(string text, ushort id = 0) =>
         new PacketWriter(Opcodes.MessagePanel, MessagePanelSize, id)
-            .WriteString(text.Replace("%", "%%"), MessageLength)
+            .WriteString(text, MessageLength)
             .ToArray();
 
     /// <summary>0xFDE: segunda senha aceita (o client libera a tela de personagens).</summary>

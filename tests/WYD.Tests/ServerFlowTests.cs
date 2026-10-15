@@ -1104,7 +1104,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(Opcodes.UpdateItem, changed.Type);
         changed.Skip(4);
         Assert.Equal(2453, changed.ReadInt16());                                    // a cópia de Grade 7 (perfuração)
-        Assert.Equal("Efeito trocado para Perfuração (+10%% com o item equipado).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("Efeito trocado: Perfuração", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
         Assert.Equal(230, c.Inventory[1].Value1);                                   // ancient: a refinação fica como estava
         Assert.Equal(10, Stats.Refine(c.Inventory[1]));
@@ -1242,7 +1242,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var motion = await a.ReceiveAsync();
         Assert.Equal(Opcodes.Motion, motion.Type);                                  // comemora
         Assert.Equal(ServerPackets.MotionCheer, motion.ReadInt16());
-        Assert.Equal("Refinação sucesso (100%%)", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("Refinação sucesso (100%)", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
         Assert.Equal(1, Stats.Refine(c.Inventory[1]));
 

@@ -219,8 +219,8 @@ public sealed class ItemHandler(
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
-        await session.SendMessageAsync(
-            $"Efeito trocado para {Game.Ancient.Name(effect)} (+{Game.Ancient.BonusPercent}% com o item equipado).");
+        // Mensagem curta: com a longa ("Efeito trocado para ... (+10% com o item equipado).") o client fechava.
+        await session.SendMessageAsync($"Efeito trocado: {Game.Ancient.Name(effect)}");
         if (destType == 2 || gemType == 2) await SaveAsync(session, cargo: true);
         return true;
     }
