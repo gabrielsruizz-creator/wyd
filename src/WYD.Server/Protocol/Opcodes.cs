@@ -39,6 +39,7 @@ public static class Opcodes
     public const ushort DeleteCharacterOk = 0x112;     // MSG_CNFDeleteCharacter, 756 bytes (conferido no WYD.exe 7.54)
     public const ushort CharacterLoginOk = 0x114;      // MSG_CNFCharacterLogin, com STRUCT_MOB de 756 bytes (próxima etapa)
     public const ushort CharacterLogoutOk = 0x116;     // só o cabeçalho: o client volta para a seleção de personagens com a lista que já tem (conferido no WYD.exe 7.54)
+    public const ushort AccountLoginFail = 0x11C;      // só o cabeçalho: a tela de login mostra o erro e destrava (0x11D faz o mesmo; conferido no WYD.exe 7.54)
     public const ushort CharacterLoginFail = 0x119;    // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort CreateCharacterFail = 0x11A;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
     public const ushort DeleteCharacterFail = 0x11B;   // client mostra mensagem própria (conferido no WYD.exe 7.54)
@@ -93,6 +94,8 @@ public static class Opcodes
         SecondPasswordFail => "SecondPasswordFail",
         MessagePanel => "MessagePanel",
         AccountLoginOk => "AccountLoginOk",
+        AccountLoginFail => "AccountLoginFail",
+        CharacterLogoutOk => "CharacterLogoutOk",
         CreateCharacterOk => "CreateCharacterOk",
         DeleteCharacterOk => "DeleteCharacterOk",
         CharacterLoginOk => "CharacterLoginOk",

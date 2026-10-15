@@ -100,6 +100,8 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0xFDE` | SecondPasswordOk    | 32      | segunda senha aceita                                                       | ✅ |
 | `0xFDF` | SecondPasswordFail  | 16      | segunda senha errada: o client volta a bloquear e mostra o erro dele       | ✅ |
 | `0x119` | CharacterLoginFail  | 12      | o client mostra a mensagem dele                                            | ✅ |
+| `0x11C` | AccountLoginFail    | 12      | tela de login: mostra o erro e destrava (sem ele fica em "conectando"; `0x11D` igual) | ✅ |
+| `0x116` | CharacterLogoutOk   | 12      | volta para a seleção de personagens (resposta ao `0x215`)                  | ✅ |
 | `0x11A` | CreateCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11B` | DeleteCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 

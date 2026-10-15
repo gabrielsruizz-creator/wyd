@@ -128,6 +128,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
         await client.SendAsync(LoginPacket("jogador", "errada", 756));
+        Assert.Equal(Opcodes.AccountLoginFail, (await client.ReceiveAsync()).Type);   // destrava a tela de login
         var reply = await client.ReceiveAsync();
         Assert.Equal(Opcodes.MessagePanel, reply.Type);
         Assert.Equal("Senha incorreta.", reply.ReadString(GameConstants.MessageLength));

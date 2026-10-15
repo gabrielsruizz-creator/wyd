@@ -41,7 +41,7 @@ public sealed partial class LoginHandler(
 
         if (!UsernamePattern().IsMatch(request.Username) || request.Password.Length < 4)
         {
-            await session.SendMessageAsync("Conta ou senha inválida.");
+            await FailAsync(session, "Conta ou senha inválida.");
             return;
         }
 
@@ -50,7 +50,7 @@ public sealed partial class LoginHandler(
         {
             if (!_options.AutoRegister)
             {
-                await session.SendMessageAsync("Esta conta não existe.");
+                await FailAsync(session, "Esta conta não existe.");
                 return;
             }
             account = await accounts.CreateAsync(request.Username, PasswordHasher.Hash(request.Password));
@@ -59,7 +59,7 @@ public sealed partial class LoginHandler(
         else if (!PasswordHasher.Verify(request.Password, account.PasswordHash))
         {
             logger.LogInformation("[{Id}] Senha incorreta para '{Account}'.", session.Id, account.Username);
-            await session.SendMessageAsync("Senha incorreta.");
+            await FailAsync(session, "Senha incorreta.");
             return;
         }
 
@@ -83,6 +83,16 @@ public sealed partial class LoginHandler(
 
         logger.LogInformation("[{Id}] Login de '{Account}' ({Count} personagens).", session.Id, account.Username, session.Characters.Count);
         await session.SendAsync(ServerPackets.AccountLoginOk(session.Id, account, session.Characters));
+    }
+
+    /// <summary>
+    /// Login recusado: o 0x11C faz a tela de login do client mostrar o erro e destravar (só com a mensagem ela
+    /// ficava presa em "conectando"); a mensagem do servidor vem logo depois, com o motivo.
+    /// </summary>
+    private static async Task FailAsync(ClientSession session, string message)
+    {
+        await session.SendAsync(ServerPackets.HeaderOnly(Opcodes.AccountLoginFail, session.Id));
+        await session.SendMessageAsync(message);
     }
 
     /// <summary>
