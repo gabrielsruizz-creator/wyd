@@ -276,8 +276,7 @@ public sealed class ItemHandler(
         string message = success
             ? $"Refinação bem-sucedida: +{refine + 1} ({chance}% de chance)."
             : $"A refinação falhou ({chance}% de chance). A próxima tentativa terá mais chance.";
-        await session.SendMessageAsync(message);
-        await session.SendAsync(ServerPackets.Whisper(session.Id, "Sistema", message));   // fica no chat (a caixa some rápido)
+        await session.SendMessageAsync(message);   // faixa no alto da tela por 4 s, como o "LEVEL UP" (0x49A134)
         if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
         return true;
     }
