@@ -27,24 +27,11 @@ public struct Item
 
     public readonly bool IsEmpty => Index <= 0;
 
-    /// <summary>
-    /// Escreve o item como o client deve vê-lo. O client 7.54 escolhe o efeito da arma por grau × 13 + refinação
-    /// (0x52482A) e só tem efeitos até o +12: um +13 já mostra o efeito do grau seguinte. Por isso +13, +14 e +15
-    /// vão para o client como +12 (com a mesma gema); no servidor o item continua com a refinação de verdade.
-    /// </summary>
-    public readonly void Write(PacketWriter w)
-    {
+    public readonly void Write(PacketWriter w) =>
         w.WriteInt16(Index)
-         .WriteByte(Effect1).WriteByte(ShownValue(Effect1, Value1))
-         .WriteByte(Effect2).WriteByte(ShownValue(Effect2, Value2))
-         .WriteByte(Effect3).WriteByte(ShownValue(Effect3, Value3));
-    }
-
-    /// <summary>Valor do efeito 43 de um +12 (sem gema); de 238 a 241 com a gema nos 2 bits de baixo.</summary>
-    public const byte ShownMaxRefineRaw = 238;
-
-    private static byte ShownValue(byte effect, byte value) =>
-        effect == 43 && value >= ShownMaxRefineRaw + 4 ? (byte)(ShownMaxRefineRaw + (value - 230) % 4) : value;
+         .WriteByte(Effect1).WriteByte(Value1)
+         .WriteByte(Effect2).WriteByte(Value2)
+         .WriteByte(Effect3).WriteByte(Value3);
 
     public readonly void WriteTo(Span<byte> dest)
     {

@@ -460,21 +460,4 @@ public class ToolTests
         Assert.Equal(0, Refining.Chance(Refining.WithRefine(armor, 9, 0), items, RefineMaterial.Laktorerium));
         Assert.Equal(0, Refining.Chance(new Item(1208), items, RefineMaterial.Laktorerium));
     }
-
-    [Fact]
-    public void Refines_above_12_are_shown_to_the_client_as_12()
-    {
-        var plus15 = new Item(905) { Effect1 = 43, Value1 = 251 };          // +15 com a gema 1 (Esmeralda)
-        Assert.Equal(15, Stats.Refine(plus15));                              // no servidor continua +15
-
-        var packet = new PacketReader(ServerPackets.UpdateItem(1, ServerPackets.ItemPlace.Inventory, 0, plus15));
-        packet.Skip(4 + 2);
-        Assert.Equal(43, packet.ReadByte());
-        Assert.Equal(239, packet.ReadByte());                                // +12 (238) com a mesma gema
-
-        var plus12 = new Item(905) { Effect1 = 43, Value1 = 241 };
-        packet = new PacketReader(ServerPackets.UpdateItem(1, ServerPackets.ItemPlace.Inventory, 0, plus12));
-        packet.Skip(4 + 2 + 1);
-        Assert.Equal(241, packet.ReadByte());                                // até o +12 vai como está
-    }
 }
