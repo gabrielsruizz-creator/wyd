@@ -652,4 +652,35 @@ public class ToolTests
             Directory.Delete(folder, true);
         }
     }
+
+    [Fact]
+    public void Attack_speed_goes_in_the_high_bits_of_attack_run_like_the_client()
+    {
+        Assert.Equal(0, Stats.AttackSpeed(0x02, 0, 0));
+        Assert.Equal(2, Stats.AttackSpeed(0x02, 0, 100));          // DES 100: 20%
+        Assert.Equal(4, Stats.AttackSpeed(0x22, 10, 50));          // 20 + 10 + 10 = 40%
+        Assert.Equal(15, Stats.AttackSpeed(0x02, 700, 0));         // 700%: o client limita em 150
+        Assert.Equal(0, Stats.AttackSpeed(0x02, -30, 20));         // lentidão não deixa negativo
+
+        var c = new WYD.Server.Game.Character { Name = "Teste" };
+        c.BaseScore.AttackRun = 0x02;
+        c.BaseScore.Dex = 50;
+        c.ItemBonus = new ItemBonus(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, AttackSpeed: 700);
+        Assert.Equal(0xF2, c.CurrentScore.AttackRun);              // velocidade 15 em cima, corrida 2 embaixo
+    }
+
+    [Fact]
+    public void Critical_chance_is_four_per_thousand_per_point_and_goes_to_the_client()
+    {
+        Assert.False(Combat.IsCritical(0, new FixedRandom(0)));
+        Assert.True(Combat.IsCritical(25, new FixedRandom(99)));      // 25 = 10%: 0 a 99 de 1000
+        Assert.False(Combat.IsCritical(25, new FixedRandom(100)));
+
+        var c = new WYD.Server.Game.Character { Name = "Teste" };
+        c.ItemBonus = new ItemBonus(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Critical: 30, SaveMana: 12);
+        var score = new PacketReader(ServerPackets.UpdateScore(1, c));
+        score.Skip(0x28 - 12);
+        Assert.Equal(30, score.ReadByte());
+        Assert.Equal(12, score.ReadByte());
+    }
 }

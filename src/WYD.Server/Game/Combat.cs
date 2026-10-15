@@ -18,4 +18,11 @@ public static class Combat
         int damage = Math.Clamp(rolled - ac / 4, 1, short.MaxValue);
         return Math.Max(1, damage * (100 - Math.Clamp(absorption, 0, 90)) / 100); // absorção: o alvo recebe menos
     }
+
+    /// <summary>Dano do golpe crítico: o dobro.</summary>
+    public const int CriticalMultiplier = 2;
+
+    /// <summary>O golpe sai crítico? Chance de crítico × 4 em 1000, como o client mostra (crítico 25 = 10%).</summary>
+    public static bool IsCritical(int critical, Random? random = null) =>
+        critical > 0 && (random ?? Random.Shared).Next(1000) < critical * 4;
 }

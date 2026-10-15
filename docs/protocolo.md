@@ -454,3 +454,14 @@ máscaras `byte[8]` (2 colunas × 4 linhas) em 0x5C8934, uma por tamanho, que o 
 inventário (64 slots) e do baú (128) em 0x55D797/0x55D9B4. O `patch-client` põe 1×1 nos 8 pares e só o primeiro
 quadrado nas 8 máscaras: todo item ocupa 1 slot (o slot de um item é sempre linha × 9 + coluna; o inventário tem
 63, 9 × 7).
+
+## Velocidade de ataque e crítico
+
+A velocidade de ataque vai nos 4 bits de cima de `AttackRun` da ficha atual. O client calcula (0x55A70A a 0x55CA3B)
+10 × os 4 bits de cima da base + efeito 26 dos itens + transformação + DES / 5, menos 30 com lentidão (efeito 1) e
+valor / 10 + 10 com congelar (efeito 7); limita entre 0 e 150 e divide por 10. A animação usa o valor da ficha que
+o servidor manda no `0x336` (0x55FF5B: (velocidade − 5) × 100 ms), então o servidor faz a mesma conta.
+
+O crítico (efeito 42) e a economia de mana (efeito 44) vão nos bytes 0x28 e 0x29 do `0x336` (0x2E6 e 0x2E7 do
+STRUCT_MOB). O client mostra crítico × 0,4 % (0x445CDB) e não calcula o crítico fora das transformações; o servidor
+manda a soma dos itens e dá o dobro do dano com chance de crítico × 4 em 1000.

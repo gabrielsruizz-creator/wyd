@@ -377,7 +377,7 @@ public static class ServerPackets
     {
         var w = new PacketWriter(Opcodes.UpdateScore, 92, id);
         c.CurrentScore.Write(w);                      // 0x0C
-        w.WriteByte(0).WriteByte(0);                  // 0x28 Critical, SaveMana
+        w.WriteByte(c.Critical).WriteByte(c.SaveMana); // 0x28 Critical, SaveMana (o client os copia para 0x2E6/0x2E7)
         WriteAffects(w, Affects.ToClient(c, DateTime.UtcNow));   // 0x2A Affect: ícones dos buffs
         w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x4A Guild, GuildLevel
         w.Skip(92 - w.Position);                      // 0x4E Resist e o resto
@@ -537,7 +537,7 @@ public static class ServerPackets
         foreach (var item in c.Inventory) item.Write(w);
         w.WriteUInt32(c.LearnedSkill);
         w.WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus);
-        w.WriteByte(0).WriteByte(0);                  // Critical, SaveMana
+        w.WriteByte(c.Critical).WriteByte(c.SaveMana); // Critical, SaveMana
         for (int i = 0; i < 4; i++) w.WriteByte(c.SkillBar[i]);   // SkillBar[4]: começo da barra de skills
         w.WriteByte(0).WriteByte(0);                  // GuildLevel, Magic
         w.WriteByte(0).WriteByte(0);                  // RegenHP, RegenMP

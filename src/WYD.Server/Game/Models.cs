@@ -94,7 +94,6 @@ public sealed class Character
             var b = ItemBonus;
             var buff = Game.Affects.Bonus(this);
             int speed = Math.Min(Stats.MaxRunSpeed, RunSpeed + buff.RunSpeed);
-            s.AttackRun = (byte)((s.AttackRun & 0xF0) | speed);
             s.Ac += b.Ac + buff.Ac;
             s.Str = (short)Math.Clamp(s.Str + b.Str, 0, short.MaxValue);
             s.Int = (short)Math.Clamp(s.Int + b.Int, 0, short.MaxValue);
@@ -104,6 +103,7 @@ public sealed class Character
             s.Special2 = (byte)Math.Clamp(s.Special2 + b.Special2, 0, 255);
             s.Special3 = (byte)Math.Clamp(s.Special3 + b.Special3, 0, 255);
             s.Special4 = (byte)Math.Clamp(s.Special4 + b.Special4, 0, 255);
+            s.AttackRun = (byte)((Stats.AttackSpeed(BaseScore.AttackRun, b.AttackSpeed + buff.AttackSpeed, s.Dex) << 4) | speed);
 
             int levelBonus = Equip[0].Index % 10 > 5 ? s.Level * 2 : s.Level;
             s.Damage += b.Damage + buff.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
@@ -121,6 +121,15 @@ public sealed class Character
             return s;
         }
     }
+
+    /// <summary>
+    /// Crítico (efeito 42 dos itens), no byte do STRUCT_MOB 0x2E6 que o servidor manda no 0x336. O client mostra
+    /// valor × 0,4 % (0x445CDB) e a chance de crítico é valor × 4 em 1000.
+    /// </summary>
+    public byte Critical => (byte)Math.Clamp(ItemBonus.Critical, 0, 255);
+
+    /// <summary>Economia de mana (efeito 44 dos itens), no byte 0x2E7.</summary>
+    public byte SaveMana => (byte)Math.Clamp(ItemBonus.SaveMana, 0, 255);
 
     /// <summary>Vida e mana máximas com o equipamento.</summary>
     public int MaxHp => CurrentScore.MaxHp;

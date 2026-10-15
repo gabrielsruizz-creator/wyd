@@ -21,8 +21,11 @@ public sealed partial class World(
     /// <summary>Distância máxima entre quem ataca e o alvo (ataques à distância e magias incluídos).</summary>
     public const int AttackRange = 12;
 
-    /// <summary>Menor intervalo entre dois ataques do mesmo jogador.</summary>
-    public static readonly TimeSpan MinAttackInterval = TimeSpan.FromMilliseconds(300);
+    /// <summary>
+    /// Menor intervalo entre dois ataques do mesmo jogador. Baixo para não descartar golpes de quem tem velocidade
+    /// de ataque alta (o client ataca mais rápido que 300 ms com a velocidade no máximo).
+    /// </summary>
+    public static readonly TimeSpan MinAttackInterval = TimeSpan.FromMilliseconds(100);
 
     public const int ViewRange = 16;
 
@@ -431,7 +434,8 @@ public sealed partial class World(
                     damage = (short)(auraDamage is int aura
                         ? Math.Clamp(aura - mob.Template.Score.Ac / 8, 1, short.MaxValue)       // aura (Trovão)
                         : spell is null
-                            ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
+                            ? Math.Min(short.MaxValue, Combat.Damage(me.CurrentScore, mob.Template.Score,
+                                  perforation: me.ItemBonus.Perforation) * (Combat.IsCritical(me.Critical) ? Combat.CriticalMultiplier : 1))
                             : SkillUse.Damage(me, spell, skill, mob.Template.Score));
                     mob.Hp -= damage;
                     hit.Add(mob);

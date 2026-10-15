@@ -168,6 +168,17 @@ public static class Stats
         return Math.Clamp(speed, 0, MaxRunSpeed);
     }
 
+    /// <summary>Velocidade de ataque máxima em % (o client limita em 150 antes de dividir por 10).</summary>
+    public const int MaxAttackSpeed = 150;
+
+    /// <summary>
+    /// Velocidade de ataque que vai nos 4 bits de cima de AttackRun (0 a 15), como o client 7.54 (0x55A70A a
+    /// 0x55CA3B): 10 × os 4 bits de cima da base + efeito 26 dos itens (e transformação, efeitos) + DES / 5, entre 0
+    /// e 150, dividido por 10. O client usa o valor da ficha que o servidor manda (0x336) para a animação.
+    /// </summary>
+    public static int AttackSpeed(byte baseAttackRun, int bonus, int dex) =>
+        Math.Clamp((baseAttackRun >> 4) * 10 + bonus + dex / 5, 0, MaxAttackSpeed) / 10;
+
     /// <summary>Atualiza os atributos calculados do personagem (chamar ao entrar e ao trocar equipamento).</summary>
     public static void Recalculate(Character c, ItemList? items)
     {
