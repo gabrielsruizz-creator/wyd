@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using WYD.Server.Game;
 using WYD.Server.Network;
 using WYD.Server.Protocol;
 using WYD.Server.Tools;
@@ -423,5 +424,40 @@ public class ToolTests
         Assert.Equal(905, visuals.Visible("Rei_Glantuar", 6, 999));        // regra do arquivo
         Assert.Equal(0, visuals.Visible("Lobo", 0, 0));
         Assert.Equal(13, WYD.Server.Game.NpcVisuals.With([]).Visible("X", 1, 13));   // sem ItemList não dá para saber
+    }
+
+    private sealed class FixedRandom(int value) : Random
+    {
+        public override int Next(int maxValue) => value;
+    }
+
+    [Fact]
+    public void Refining_uses_the_client_chances_and_fail_bonus()
+    {
+        var items = ItemListTests.TestItems();
+        var armor = new Item(1210);                                                     // grau 5
+
+        Assert.Equal(100, Refining.Chance(armor, items, RefineMaterial.Laktorerium));     // +0 -> +1
+        var plus5 = Refining.WithRefine(armor, 5, 0);
+        Assert.Equal(5, Stats.Refine(plus5));
+        Assert.Equal(56, Refining.Chance(plus5, items, RefineMaterial.Laktorerium));      // tabela do client, grau 5
+        Assert.Equal(40, Refining.Chance(plus5, items, RefineMaterial.Oriharukon));
+
+        // Falhou: continua +5, guarda a falha nas dezenas e a próxima chance sobe 3%.
+        var (failed, ok) = Refining.Try(plus5, 56, new FixedRandom(99));
+        Assert.False(ok);
+        Assert.Equal(15, Stats.RawSanc(failed));
+        Assert.Equal(5, Stats.Refine(failed));
+        Assert.Equal(59, Refining.Chance(failed, items, RefineMaterial.Laktorerium));
+
+        // Passou: +6 e as falhas zeram.
+        var (done, success) = Refining.Try(failed, 59, new FixedRandom(0));
+        Assert.True(success);
+        Assert.Equal(6, Stats.RawSanc(done));
+
+        // Limites: Oriharukon até +6, Laktorerium até +9; item sem grau não refina.
+        Assert.Equal(0, Refining.Chance(done, items, RefineMaterial.Oriharukon));
+        Assert.Equal(0, Refining.Chance(Refining.WithRefine(armor, 9, 0), items, RefineMaterial.Laktorerium));
+        Assert.Equal(0, Refining.Chance(new Item(1208), items, RefineMaterial.Laktorerium));
     }
 }

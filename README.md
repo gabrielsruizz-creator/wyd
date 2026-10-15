@@ -27,6 +27,8 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Refinação com Pó de Oriharukon (412, até +6) e Pó de Laktorerium (413, até +9), com as chances do client
+      (pelo grau do item, efeito 87); cada falha aumenta a chance da próxima tentativa
 - [x] Gemas (3386 a 3389): Diamante (experiência), Esmeralda (absorção), Coral (perfuração), Garnet (drop), cada item
       equipado com gema vale 10%. No ancient troca a versão do item; em qualquer item +10 ou mais (arma ou armadura)
       fica nos bits da refinação e muda o brilho

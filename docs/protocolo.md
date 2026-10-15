@@ -271,6 +271,23 @@ slot 11 (0x45D86B); sem isso o clique não manda nada. Arch: rostos 6-9 (Transkn
 `10 × corpo + 6 + classe das skills`. O nome do personagem deixou de ser único no banco: dentro da mesma conta o
 Arch repete o nome do Mortal.
 
+## Refinação (Oriharukon e Laktorerium)
+
+Arrastar o pó no item manda o `0x373` (como as gemas). Chance do client (0x558A00): tabela[material][grau − 1]
+[refino] + bônus[refino] × falhas, com o grau no efeito 87 do item (1 a 6) e as tabelas em 0x5C80EC
+(Oriharukon), 0x5C820C (Laktorerium) e 0x5C832C (bônus: 5, 5, 5, 4, 4, 3, 3, 2, 1). Abaixo do +10 o efeito 43
+guarda o refino nas unidades e as falhas nas dezenas (o client só lê falhas até o valor 210). O Oriharukon tem 0%
+do +6 em diante e o Laktorerium do +9. Montarias (2330-2389), joias (3200-3299) e cavalos com prazo não refinam.
+
+| Grau | Oriharukon +0→+6 | Laktorerium +0→+9 |
+|------|------------------|-------------------|
+| 1 | 100 100 100 100 100 100 | 100 100 100 100 100 100 90 59 41 |
+| 2 | 100 100 100 100 100 74 | 100 100 100 100 100 100 80 51 36 |
+| 3 | 100 100 100 100 100 68 | 100 100 100 100 100 100 70 47 30 |
+| 4 | 100 100 100 90 80 53 | 100 100 100 100 100 80 40 22 10 |
+| 5 | 100 100 100 85 70 40 | 100 100 100 100 100 56 35 18 5 |
+| 6 | 100 100 100 85 70 40 | 100 100 100 100 100 56 25 18 5 |
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos

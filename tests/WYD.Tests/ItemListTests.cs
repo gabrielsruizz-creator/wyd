@@ -67,6 +67,9 @@ public class ItemListTests
         }
         Put(4011, "Silver_Wyden(1_billion_gold)", 0, 0, 50000, (38, 185), (33, 0), (43, 4));
         Put(5000, "Pedra_Sem_Uso", 0, 0, 10);
+        Put(412, "Oriharukon_Powder", 0, 0, 1_000_000, (38, 4), (33, 1));
+        Put(413, "Laktorerium_Powder", 0, 0, 900, (38, 5), (33, 1));
+        Put(1210, "Armadura_Grau5", 4, 0, 1000, (3, 50), (87, 5));
 
         var path = Path.GetTempFileName();
         try

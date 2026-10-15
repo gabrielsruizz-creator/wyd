@@ -140,6 +140,10 @@ public sealed class ItemHandler(
         {
             if (!await ApplyGemAsync(session, place, srcPos, srcType, destType, destPos, gemEffect)) return;
         }
+        else if (Game.Refining.MaterialOf(usable) is { } material)
+        {
+            if (!await RefineAsync(session, place, srcPos, srcType, destType, destPos, material)) return;
+        }
         else if (usable == UsablePotion)
         {
             c.BaseScore.Hp = Math.Min(c.MaxHp, c.BaseScore.Hp + Effect(def, EfHp));
@@ -215,6 +219,63 @@ public sealed class ItemHandler(
         if (destType == 2 || gemType == 2) await SaveAsync(session, cargo: true);
         return true;
     }
+
+    /// <summary>
+    /// Pó de Oriharukon (até +6) ou de Laktorerium (até +9) arrastado num item: tenta subir a refinação com a
+    /// chance do client (ver <see cref="Game.Refining"/>). O pó é gasto sempre; na falha o item fica igual, mas a
+    /// próxima tentativa tem mais chance.
+    /// </summary>
+    private async Task<bool> RefineAsync(ClientSession session, Item[] powders, int powderPos, int powderType, int destType,
+        int destPos, Game.RefineMaterial material)
+    {
+        var c = session.Character!;
+        var dest = Place(session, destType);
+        if (dest is null || destPos < 0 || destPos >= dest.Length || dest[destPos].IsEmpty || (destType == powderType && destPos == powderPos))
+        {
+            await session.SendMessageAsync("Arraste o pó em cima do item que quer refinar.");
+            return false;
+        }
+
+        var target = dest[destPos];
+        string name = Game.Refining.Name(material);
+        int refine = Game.Stats.Refine(target);
+        if (Game.Refining.Grade(target, catalog.List!) == 0 || !Game.Refining.CanStore(target))
+        {
+            await session.SendMessageAsync($"Este item não pode ser refinado com {name}.");
+            return false;
+        }
+        if (refine >= Game.Refining.MaxRefine(material))
+        {
+            await session.SendMessageAsync($"O {name} refina só até +{Game.Refining.MaxRefine(material)}.");
+            return false;
+        }
+
+        int chance = Game.Refining.Chance(target, catalog.List!, material);
+        var (result, success) = Game.Refining.Try(target, chance, Random);
+        dest[destPos] = result;
+        Consume(powders, powderPos);
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)powderType, powderPos, powders[powderPos]));
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
+        if (success && destType == 0)
+        {
+            Game.Stats.Recalculate(c, catalog.List);
+            await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            foreach (var viewer in world.Viewers(session))
+                await viewer.SendAsync(update);
+        }
+
+        logger.LogInformation("[{Id}] {Name} refinou {Item} com {Material}: {Result} ({Chance}%).", session.Id, c.Name,
+            Name(catalog.List![target.Index]!), name, success ? $"+{refine + 1}" : "falhou", chance);
+        await session.SendMessageAsync(success
+            ? $"Refinação bem-sucedida: +{refine + 1} ({chance}% de chance)."
+            : $"A refinação falhou ({chance}% de chance). A próxima tentativa terá mais chance.");
+        if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
+        return true;
+    }
+
+    /// <summary>Sorteio da refinação (troca nos testes).</summary>
+    public Random Random { get; set; } = Random.Shared;
 
     /// <summary>Gasta uma unidade: itens empilhados (efeito 61 = quantidade) diminuem; os outros somem.</summary>
     private static void Consume(Item[] place, int slot)

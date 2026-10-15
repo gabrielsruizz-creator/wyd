@@ -1096,6 +1096,33 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Powders_refine_items_up_to_their_limit()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var c = await CharacterOf("jogadora");
+        c.Inventory[0] = new Item(Refining.LaktoreriumPowder);
+        c.Inventory[1] = new Item(1210);                                             // armadura de grau 5, +0
+        c.Inventory[2] = new Item(Refining.OriharukonPowder);
+        c.Inventory[3] = Refining.WithRefine(new Item(1210), 6, 0);                  // +6: o Ori não sobe mais
+
+        byte[] Use(int srcPos, int destPos) =>
+            new PacketWriter(Opcodes.UseItem, 36).WriteInt32(1).WriteInt32(srcPos).WriteInt32(1).WriteInt32(destPos).Skip(8).ToArray();
+
+        // +0 -> +1 com Laktorerium: 100%.
+        await a.SendAsync(Use(0, 1));
+        Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);            // o pó sumiu
+        Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);            // a armadura +1
+        Assert.Equal("Refinação bem-sucedida: +1 (100% de chance).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.True(c.Inventory[0].IsEmpty);
+        Assert.Equal(1, Stats.Refine(c.Inventory[1]));
+
+        // Oriharukon num +6: recusado e o pó fica.
+        await a.SendAsync(Use(2, 3));
+        Assert.Equal("O Oriharukon refina só até +6.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal(Refining.OriharukonPowder, c.Inventory[2].Index);
+    }
+
+    [Fact]
     public async Task Skill_master_shows_its_list_and_teaches()
     {
         var npcDir = Directory.CreateTempSubdirectory().FullName;
