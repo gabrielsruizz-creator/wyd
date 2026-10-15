@@ -449,11 +449,6 @@ public sealed class World(
                 Affects.Apply(me, self);
                 buffed.Add(session);
             }
-            foreach (var target in buffed)
-            {
-                outgoing.Add((target, ServerPackets.UpdateScore(target.Id, target.Character!)));   // atributos e efeito visual
-                outgoing.Add((target, ServerPackets.AffectList(target.Id, target.Character!)));    // ícones com o tempo
-            }
 
             foreach (var mob in killed)
             {
@@ -475,6 +470,18 @@ public sealed class World(
             foreach (var player in _players.Values)
                 if (player == session || InRange(player.Character!, me) || hit.Any(m => InRange(player.Character!, m)))
                     outgoing.Add((player, response));
+
+            // Depois da animação da skill: a ficha com o efeito (o client liga o efeito visual, como a aura do
+            // Trovão, a partir dela) para o alvo e quem o vê, e os ícones com o tempo para o alvo.
+            foreach (var target in buffed)
+            {
+                var score = ServerPackets.UpdateScore(target.Id, target.Character!);
+                outgoing.Add((target, score));
+                outgoing.Add((target, ServerPackets.AffectList(target.Id, target.Character!)));
+                foreach (var viewer in _players.Values)
+                    if (viewer != target && _visible[viewer.Id].Contains(target.Id))
+                        outgoing.Add((viewer, score));
+            }
 
             foreach (var mob in killed)
             {
@@ -696,6 +703,12 @@ public sealed class World(
         return SendAllAsync(outgoing);
     }
 
+    /// <summary>Golpe que o client desenha em cada alvo da aura: o raio da Thunderbolt (33) no Trovão.</summary>
+    public const short ThunderboltSkill = 33;
+
+    private static short AuraHitSkill(Affect aura) =>
+        aura.Type == AffectType.LightningStorm ? ThunderboltSkill : (short)aura.Skill;
+
     /// <summary>Distância (em células) que as auras de dano (Trovão, Corrente Elemental) alcançam.</summary>
     public const int AuraRange = 3;
 
@@ -724,7 +737,7 @@ public sealed class World(
                     .Take(ServerPackets.AttackLayout.MaxTargets).ToList();
                 if (targets.Count == 0) continue;
                 int damage = aura.Amount + c.CurrentScore.Int / 4;
-                hits.Add((player, ServerPackets.SkillHit(player.Id, c.PosX, c.PosY, (short)aura.Skill,
+                hits.Add((player, ServerPackets.SkillHit(player.Id, c.PosX, c.PosY, AuraHitSkill(aura),
                     targets.Select(m => (m.Id, m.X, m.Y)).ToList()), damage));
             }
         }
@@ -823,6 +836,9 @@ public sealed class World(
         {
             await SendAllAsync(outgoing);
             await SaveAsync(session.Character!);
+            // Os buffs ficam gravados com o tempo que falta: o relógio para até o próximo login.
+            try { await characters.SaveProgressAsync(session.Character!); }
+            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", session.Character!.Name); }
         });
     }
 

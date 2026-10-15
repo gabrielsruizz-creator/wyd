@@ -76,7 +76,7 @@ public sealed class Character
     public ItemBonus ItemBonus { get; set; }
 
     /// <summary>Efeitos de skill ativos (buffs), até 16 (ver <see cref="Game.Affects"/>).</summary>
-    public List<Affect> Affects { get; } = [];
+    public List<Affect> Affects { get; set; } = [];
 
     /// <summary>Quando a aura de dano (Trovão) bate de novo.</summary>
     public DateTime NextAuraTick { get; set; }

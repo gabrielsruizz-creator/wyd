@@ -1178,10 +1178,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
             score.Skip(0x2A - 12);
             Assert.Equal((int)AffectType.LightningStorm, score.ReadInt16() >> 8);
 
-            // A aura bate sozinha no boneco ao lado, com o golpe da skill 37.
+            // A aura bate sozinha no boneco ao lado, com o raio da Thunderbolt (33).
             var hit = await ReceiveTypeAsync(a, Opcodes.Attack);
             hit.Skip(0x18 - 12);
-            Assert.Equal(37, hit.ReadInt16());
+            Assert.Equal(World.ThunderboltSkill, hit.ReadInt16());
             hit.Skip(0x2C - 0x1A);
             hit.Skip(2);
             Assert.True(hit.ReadInt16() > 0);
@@ -1190,6 +1190,24 @@ public sealed class ServerFlowTests : IAsyncLifetime
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public void Buffs_keep_their_time_while_offline()
+    {
+        var c = ClassTemplates.Create(1, 0, "Teste", CharacterClass.Foema, 2100, 2100);
+        var saved = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        Affects.Apply(c, new Affect(AffectType.LightningStorm, 150, 37, saved.AddSeconds(100)));
+        var blob = Affects.Serialize(c, saved);
+
+        // Volta uma hora depois com os mesmos 100 segundos.
+        var later = saved.AddHours(1);
+        var back = Affects.Deserialize(blob, later);
+        var aura = Assert.Single(back);
+        Assert.Equal(AffectType.LightningStorm, aura.Type);
+        Assert.Equal(150, aura.Amount);
+        Assert.Equal(37, aura.Skill);
+        Assert.Equal(later.AddSeconds(100), aura.Expires);
     }
 
     [Fact]

@@ -293,6 +293,11 @@ do +6 em diante e o Laktorerium do +9. Montarias (2330-2389), joias (3200-3299) 
 
 ## Efeitos (buffs)
 
+Os ícones do canto com o tempo vêm do `0x3B9`. O efeito visual (como a aura do Trovão) é uma flag que o client
+liga ao receber o `0x336`/`0x364` com o efeito (0x52D286; tipo 22 → flag 0x752, que desenha raios a cada 0,5 s).
+Os golpes da aura do Trovão vão como `0x36C` da Thunderbolt (33). Ao sair, os efeitos são gravados com o tempo que
+falta (coluna `affects`) e voltam no próximo login com o relógio parado no meio-tempo.
+
 O client guarda até 16 efeitos por personagem, cada um num `short`: tipo no byte de cima e o tempo que falta no
 de baixo, em unidades de 8 segundos (0x5359B6 compara e reinicia o relógio do ícone). Vão no `0x336` (0x2A, os
 ícones do próprio jogador) e no `0x364` (0x42). O tipo é o AffectType da SkillData.bin (campo 9; o TickType, campo

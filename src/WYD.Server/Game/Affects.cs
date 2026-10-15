@@ -101,6 +101,45 @@ public static class Affects
         return shorts;
     }
 
+    /// <summary>Bytes de cada efeito gravado: byte tipo, short skill, int força, int segundos que faltam, byte livre.</summary>
+    public const int StoredSize = 12;
+
+    /// <summary>
+    /// Os efeitos ativos para gravar no banco, com o tempo que falta (o relógio para enquanto o personagem está fora
+    /// do jogo e volta a correr no próximo login).
+    /// </summary>
+    public static byte[] Serialize(Character c, DateTime now)
+    {
+        var active = c.Affects.Where(a => a.Expires > now).Take(Max).ToList();
+        var data = new byte[active.Count * StoredSize];
+        for (int i = 0; i < active.Count; i++)
+        {
+            var span = data.AsSpan(i * StoredSize);
+            span[0] = (byte)active[i].Type;
+            System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(span[1..], (short)active[i].Skill);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(span[3..], active[i].Amount);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(span[7..],
+                (int)Math.Ceiling((active[i].Expires - now).TotalSeconds));
+        }
+        return data;
+    }
+
+    /// <summary>Volta os efeitos gravados, contando o tempo que faltava a partir de agora.</summary>
+    public static List<Affect> Deserialize(byte[]? data, DateTime now)
+    {
+        var list = new List<Affect>();
+        if (data is null) return list;
+        for (int o = 0; o + StoredSize <= data.Length && list.Count < Max; o += StoredSize)
+        {
+            var span = data.AsSpan(o);
+            int seconds = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(span[7..]);
+            if (seconds <= 0 || !Enum.IsDefined((AffectType)span[0])) continue;
+            list.Add(new Affect((AffectType)span[0], System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(span[3..]),
+                System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(span[1..]), now.AddSeconds(seconds)));
+        }
+        return list;
+    }
+
     public static AffectBonus Bonus(Character c)
     {
         int damage = 0, ac = 0, magic = 0, speed = 0, dodge = 0, regen = 0;

@@ -130,6 +130,12 @@ public sealed partial class CharacterHandler(
             session.Id, session.Account!.Username, character.Name, character.PosX, character.PosY);
         await session.SendAsync(ServerPackets.CharacterLoginOk(session.Id, character));
         await world.EnterAsync(session);
+        if (character.Affects.Count > 0)
+        {
+            // Buffs que estavam ativos ao sair voltam com o tempo que faltava.
+            await session.SendAsync(ServerPackets.UpdateScore(session.Id, character));
+            await session.SendAsync(ServerPackets.AffectList(session.Id, character));
+        }
     }
 
     /// <summary>0x215: "trocar personagem" no jogo.</summary>
