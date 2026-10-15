@@ -303,6 +303,12 @@ de baixo, em unidades de 8 segundos (0x5359B6 compara e reinicia o relógio do �
 ícones do próprio jogador) e no `0x364` (0x42). O tipo é o AffectType da SkillData.bin (campo 9; o TickType, campo
 7, nas auras sem AffectType), com valor no campo 10 e tempo no 11.
 
+## Efeito das armas e o +13
+
+O client escolhe o efeito da arma com grau × 13 + refinação (0x52482A): só existem efeitos até o +12, e um +13
+mostra o efeito do grau seguinte (o de outro ancient). O servidor guarda +13 a +15 de verdade (dano e defesa), mas
+manda esses itens ao client como +12, com a mesma gema (`Item.Write`).
+
 ## Velocidade e montarias
 
 O client calcula a velocidade (função em `0x55A392`): `CurrentScore.AttackRun & 0xF` + soma do efeito 29 dos
