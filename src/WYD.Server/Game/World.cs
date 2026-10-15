@@ -357,7 +357,7 @@ public sealed class World(
         var killed = new List<Mob>();
         long exp;
         int levels;
-        bool castSpell = false;
+        bool castSpell = false, noExpTable = false;
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id) || IsDead(session.Character!)) return;
@@ -369,7 +369,7 @@ public sealed class World(
             // Skill: número em 0x18 (-1 = ataque normal). Precisa ter aprendido e ter mana.
             short skill = System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.Skill));
             WYD.Server.Data.SkillDefinition? spell = null;
-            if (skill >= 0)
+            if (skill >= 0 && !SkillUse.IsRangedNormal(skill))
             {
                 if (!SkillUse.CanUse(me, skill)) return;
                 spell = skillCatalog.Data?[skill];
@@ -434,6 +434,8 @@ public sealed class World(
             }
             exp = me.Exp;
             levels = killed.Count > 0 ? Leveling.Apply(me, expTable.For(me.Evolution)) : 0;
+            noExpTable = killed.Count > 0 && expTable.For(me.Evolution) is null && !session.WarnedNoExpTable;
+            if (noExpTable) session.WarnedNoExpTable = true;
 
             System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp),
                 (short)Math.Min(short.MaxValue, me.BaseScore.Mp));
@@ -468,6 +470,13 @@ public sealed class World(
         {
             var me = session.Character!;
             await session.SendAsync(ServerPackets.UpdateEtc(session.Id, me));   // exp, gold e pontos
+            if (noExpTable)
+            {
+                logger.LogWarning("Sem tabela de experiência para {Evolution}: ninguém sobe de nível. Rode extract-exptable <WYD.exe>.",
+                    Evolutions.Name(me.Evolution));
+                await session.SendAsync(ServerPackets.Whisper(session.Id, "Sistema",
+                    "Servidor sem data/ExpTable.txt: ninguém sobe de nível. Rode extract-exptable com o WYD.exe."));
+            }
             if (levels > 0)
             {
                 await session.SendAsync(ServerPackets.UpdateScore(session.Id, me));

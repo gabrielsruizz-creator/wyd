@@ -618,8 +618,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
             onNpc.Skip(0x2C - 12 + 2);
             Assert.Equal(0, onNpc.ReadInt16());
 
+            // Golpe de arco: o client manda o ataque comum com a "skill" 151 (arma de tipo 101).
             await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
-            await a.SendAsync(AttackPacket(me, ids["Gremlin"]));
+            await a.SendAsync(SkillPacket(me, 151, ids["Gremlin"]));
             var hit = await a.ReceiveAsync();
             Assert.Equal(Opcodes.AttackOne, hit.Type);
             Assert.Equal(48, hit.Length);

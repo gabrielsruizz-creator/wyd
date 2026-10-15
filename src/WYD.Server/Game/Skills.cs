@@ -63,6 +63,12 @@ public static class SkillUse
     public const int Physical = 1, FirstMagic = 2, LastMagic = 5, Heal = 6;
 
     /// <summary>A skill pode ser usada: é da classe do personagem e já foi aprendida.</summary>
+    /// <summary>
+    /// Golpe normal à distância: com arma de tipo 101, 102 ou 103 (efeito 21: arcos e afins) o client manda o
+    /// ataque comum com a "skill" 151, 152 ou 153 (0x45F030), não com -1.
+    /// </summary>
+    public static bool IsRangedNormal(int skill) => skill is >= 151 and <= 153;
+
     public static bool CanUse(Character c, int skill) =>
         skill >= 0 && skill < Skills.PerClass * 4 && skill / Skills.PerClass == (int)c.Class && Skills.Knows(c, skill);
 
