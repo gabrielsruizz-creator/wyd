@@ -1089,8 +1089,13 @@ public sealed class ServerFlowTests : IAsyncLifetime
         byte[] Use(int srcPos, int destType, int destPos) =>
             new PacketWriter(Opcodes.UseItem, 36).WriteInt32(1).WriteInt32(srcPos).WriteInt32(destType).WriteInt32(destPos).Skip(8).ToArray();
 
-        // Em item que não é ancient nem +10: recusado em silêncio (a próxima resposta já é a da pedra) e a gema fica.
+        // Em item que não é ancient nem +10: recusado sem mensagem, e a gema volta para a tela (o client já a tirou).
         await a.SendAsync(Use(0, 1, 2));
+        var back = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, back.Type);
+        Assert.Equal(1, back.ReadInt16());
+        Assert.Equal(0, back.ReadInt16());
+        Assert.Equal(3388, back.ReadInt16());
         Assert.Equal(3388, c.Inventory[0].Index);
 
         // A pedra não é gema.
@@ -1247,6 +1252,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
         // Oriharukon num +6: recusado e o pó fica.
         await a.SendAsync(Use(2, 3));
         Assert.Equal("O Oriharukon refina só até +6.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        var back = await a.ReceiveAsync();                                          // o pó volta para a tela
+        Assert.Equal(Opcodes.UpdateItem, back.Type);
+        back.Skip(4);
+        Assert.Equal(Refining.OriharukonPowder, back.ReadInt16());
         Assert.Equal(Refining.OriharukonPowder, c.Inventory[2].Index);
     }
 

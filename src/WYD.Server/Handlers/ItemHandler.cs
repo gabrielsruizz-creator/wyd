@@ -138,11 +138,19 @@ public sealed class ItemHandler(
         }
         else if (Game.Ancient.GemEffect(usable) is { } gemEffect)
         {
-            if (!await ApplyGemAsync(session, place, srcPos, srcType, destType, destPos, gemEffect)) return;
+            if (!await ApplyGemAsync(session, place, srcPos, srcType, destType, destPos, gemEffect))
+            {
+                await RestoreAsync(session, place, srcType, srcPos);
+                return;
+            }
         }
         else if (Game.Refining.MaterialOf(usable) is { } material)
         {
-            if (!await RefineAsync(session, place, srcPos, srcType, destType, destPos, material)) return;
+            if (!await RefineAsync(session, place, srcPos, srcType, destType, destPos, material))
+            {
+                await RestoreAsync(session, place, srcType, srcPos);
+                return;
+            }
         }
         else if (usable == UsablePotion)
         {
@@ -161,6 +169,13 @@ public sealed class ItemHandler(
         logger.LogInformation("[{Id}] {Name} usou {Item}.", session.Id, c.Name, Name(def));
         await SaveAsync(session, cargo: srcType == 2);
     }
+
+    /// <summary>
+    /// Uso recusado: o client já tirou uma unidade do item da tela ao soltá-lo em cima do outro (0x417CB1), então
+    /// recebe de volta o item como ele está no servidor.
+    /// </summary>
+    private static Task RestoreAsync(ClientSession session, Item[] place, int type, int slot) =>
+        session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)type, slot, place[slot]));
 
     /// <summary>
     /// Gema arrastada num item: no ancient o item vira a cópia do grupo com o efeito da gema; num item +10 ou mais
