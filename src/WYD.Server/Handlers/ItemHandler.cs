@@ -165,6 +165,7 @@ public sealed class ItemHandler(
     /// <summary>
     /// Gema arrastada num item: no ancient o item vira a cópia do grupo com o efeito da gema; num item +10 ou mais
     /// (arma ou armadura) a gema vai para os bits da refinação, que mudam o brilho (ver <see cref="Game.Ancient"/>).
+    /// Nenhuma mensagem: com mensagem na faixa (de sucesso ou de erro) o client fechava logo depois da gema.
     /// </summary>
     private async Task<bool> ApplyGemAsync(ClientSession session, Item[] gems, int gemPos, int gemType, int destType, int destPos,
         Game.AncientEffect effect)
@@ -172,19 +173,13 @@ public sealed class ItemHandler(
         var c = session.Character!;
         var dest = Place(session, destType);
         if (dest is null || destPos < 0 || destPos >= dest.Length || dest[destPos].IsEmpty || (destType == gemType && destPos == gemPos))
-        {
-            await session.SendMessageAsync("Arraste a gema em cima do item ancient.");
             return false;
-        }
 
         var target = dest[destPos];
         var ancient = Game.Ancient.EffectOf(catalog.List![target.Index]);
         bool refined = Game.Stats.Refine(target) >= Game.Ancient.MinRefine;
         if (ancient is null && !refined)
-        {
-            await session.SendMessageAsync("A gema só funciona em itens ancient ou refinados +10 ou mais.");
             return false;
-        }
         var changed = target;
         if (ancient is not null)
         {
@@ -193,20 +188,14 @@ public sealed class ItemHandler(
             if (ancient != effect)
             {
                 if (Game.Ancient.Variant(target.Index, catalog.List, effect) is not { } index)
-                {
-                    await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
                     return false;
-                }
                 changed = changed with { Index = index };
             }
         }
         else if (refined)
             changed = Game.Ancient.WithGem(changed, effect);
         if (changed.Index == target.Index && Game.Stats.RawSanc(changed) == Game.Stats.RawSanc(target))
-        {
-            await session.SendMessageAsync($"Este item já tem o efeito de {Game.Ancient.Name(effect)}.");
             return false;
-        }
         dest[destPos] = changed;
         Consume(gems, gemPos);
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)gemType, gemPos, gems[gemPos]));
@@ -219,8 +208,6 @@ public sealed class ItemHandler(
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
-        // Mensagem curta: com a longa ("Efeito trocado para ... (+10% com o item equipado).") o client fechava.
-        await session.SendMessageAsync($"Efeito trocado: {Game.Ancient.Name(effect)}");
         if (destType == 2 || gemType == 2) await SaveAsync(session, cargo: true);
         return true;
     }
