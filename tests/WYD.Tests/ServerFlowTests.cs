@@ -654,6 +654,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
             etc.Skip(6);
             Assert.Equal(50, etc.ReadInt32());
 
+            var levelUp = await a.ReceiveAsync();                  // efeito de LEVEL UP (0x36A, parâmetro 3)
+            Assert.Equal(Opcodes.Motion, levelUp.Type);
+            levelUp.Skip(2);
+            Assert.Equal(ServerPackets.MotionLevelUpEffect, levelUp.ReadInt16());
+
             var score = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateScore, score.Type);
             Assert.Equal(92, score.Length);

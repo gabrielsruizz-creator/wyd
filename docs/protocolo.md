@@ -102,6 +102,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x119` | CharacterLoginFail  | 12      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11C` | AccountLoginFail    | 12      | tela de login: mostra o erro e destrava (sem ele fica em "conectando"; `0x11D` igual) | ✅ |
 | `0x116` | CharacterLogoutOk   | 12      | volta para a seleção de personagens (resposta ao `0x215`)                  | ✅ |
+| `0x36A` | Motion              | 20      | `short Movimento`, `short Parâmetro`: 14 comemorar, 15 lamentar; parâmetro 3 = efeito de LEVEL UP (0x4D3E70); movimento 100 solta um efeito | ✅ layout |
 | `0x3B4` | SelCharEffect       | 16      | `int Slot`: na seleção, efeito em cima do personagem do slot (usado no Arch novo) | ✅ layout |
 | `0x11A` | CreateCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11B` | DeleteCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |

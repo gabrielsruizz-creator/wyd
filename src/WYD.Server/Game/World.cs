@@ -479,6 +479,10 @@ public sealed class World(
             }
             if (levels > 0)
             {
+                var levelUp = ServerPackets.LevelUp(session.Id);
+                await session.SendAsync(levelUp);
+                foreach (var viewer in Viewers(session))
+                    await viewer.SendAsync(levelUp);
                 await session.SendAsync(ServerPackets.UpdateScore(session.Id, me));
                 await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp));
                 logger.LogInformation("[{Id}] {Name} subiu para o nível {Level}.", session.Id, me.Name, me.BaseScore.Level + 1);

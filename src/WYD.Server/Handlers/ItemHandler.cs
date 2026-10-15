@@ -266,7 +266,8 @@ public sealed class ItemHandler(
         }
 
         // Comemora ou lamenta, para ele e para quem está vendo.
-        var motion = success ? ServerPackets.Motion(session.Id, ServerPackets.MotionCheer, 3) : ServerPackets.Motion(session.Id, ServerPackets.MotionSad, 0);
+        // (sem o parâmetro 3: esse é o efeito de LEVEL UP, que cobriria a mensagem da refinação)
+        var motion = ServerPackets.Motion(session.Id, success ? ServerPackets.MotionCheer : ServerPackets.MotionSad, 0);
         await session.SendAsync(motion);
         foreach (var viewer in world.Viewers(session))
             await viewer.SendAsync(motion);

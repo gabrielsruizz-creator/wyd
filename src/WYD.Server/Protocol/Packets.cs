@@ -169,8 +169,14 @@ public static class ServerPackets
     public static byte[] Motion(ushort id, short motion, short parm) =>
         new PacketWriter(Opcodes.Motion, 20, id).WriteInt16(motion).WriteInt16(parm).Skip(4).ToArray();
 
-    /// <summary>Animação de comemorar (refinação que passou) e de lamentar (que falhou).</summary>
+    /// <summary>Animação de comemorar e de lamentar.</summary>
     public const short MotionCheer = 14, MotionSad = 15;
+
+    /// <summary>Parâmetro 3 do 0x36A: o client cria o efeito de subir de nível em cima do personagem (0x4D3E70).</summary>
+    public const short MotionLevelUpEffect = 3;
+
+    /// <summary>Subiu de nível: comemora com o efeito de LEVEL UP.</summary>
+    public static byte[] LevelUp(ushort id) => Motion(id, MotionCheer, MotionLevelUpEffect);
 
     /// <summary>0x3B4: na seleção de personagens, o client (0x4A69DF) solta um efeito em cima do personagem do slot.</summary>
     public static byte[] SelCharEffect(ushort id, int slot) => new PacketWriter(Opcodes.SelCharEffect, 16, id).WriteInt32(slot).ToArray();
