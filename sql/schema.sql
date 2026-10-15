@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS characters (
     special4    TINYINT UNSIGNED NOT NULL DEFAULT 0,
     equip       BLOB         NULL,            -- STRUCT_ITEM[16]
     inventory   BLOB         NULL,            -- STRUCT_ITEM[64]
+    skill_bar   VARBINARY(20) NULL,           -- barra de skills: 4 da STRUCT_MOB + 16 da segunda barra (0xFF = vazio)
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY ix_characters_name (name),             -- o Arch tem o mesmo nome do Mortal (mesma conta); o servidor confere o resto

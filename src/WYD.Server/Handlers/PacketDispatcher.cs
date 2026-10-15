@@ -42,6 +42,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.Teleport, PacketHeader.Size, SessionState.InGame, teleports.HandleAsync);
         Register(Opcodes.NpcClick, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcClickAsync);
         Register(Opcodes.ApplyBonus, PacketHeader.Size + 4, SessionState.InGame, points.HandleAsync);
+        Register(Opcodes.SkillBar, PacketHeader.Size + Game.Character.SkillBarSize, SessionState.InGame, points.HandleSkillBarAsync);
     }
 
     private void Register(ushort type, int minSize, SessionState state, Func<ClientSession, PacketReader, Task> handle) =>

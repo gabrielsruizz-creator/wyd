@@ -69,4 +69,14 @@ public sealed class PointsHandler(
         try { await characters.SaveProgressAsync(c); }
         catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar as skills de {Name}.", c.Name); }
     }
+
+    /// <summary>0x378: o jogador arrumou a barra de skills; guarda para voltar igual no próximo login.</summary>
+    public async Task HandleSkillBarAsync(ClientSession session, PacketReader packet)
+    {
+        var c = session.Character!;
+        var bar = new byte[Character.SkillBarSize];
+        for (int i = 0; i < bar.Length && packet.Remaining > 0; i++) bar[i] = packet.ReadByte();
+        c.SkillBar = bar;
+        await characters.SaveProgressAsync(c);
+    }
 }

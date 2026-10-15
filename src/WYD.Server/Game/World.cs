@@ -450,7 +450,10 @@ public sealed class World(
                 buffed.Add(session);
             }
             foreach (var target in buffed)
-                outgoing.Add((target, ServerPackets.UpdateScore(target.Id, target.Character!)));   // ícones e atributos
+            {
+                outgoing.Add((target, ServerPackets.UpdateScore(target.Id, target.Character!)));   // atributos e efeito visual
+                outgoing.Add((target, ServerPackets.AffectList(target.Id, target.Character!)));    // ícones com o tempo
+            }
 
             foreach (var mob in killed)
             {
@@ -742,6 +745,7 @@ public sealed class World(
                 c.BaseScore.Hp = Math.Min(c.BaseScore.Hp, c.MaxHp);
                 c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
                 outgoing.Add((player, ServerPackets.UpdateScore(player.Id, c)));
+                outgoing.Add((player, ServerPackets.AffectList(player.Id, c)));
             }
         }
         return SendAllAsync(outgoing);

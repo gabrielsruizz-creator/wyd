@@ -728,7 +728,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
             var hp = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateHpMp, hp.Type);
-            Assert.Equal(0, hp.ReadInt32());
+            Assert.Equal(0, hp.ReadInt16());                    // short Hp, short Mp (como o client lê)
             var death = await a.ReceiveAsync();
             Assert.Equal(Opcodes.MobKill, death.Type);
             death.Skip(4);
@@ -745,7 +745,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
             var full = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateHpMp, full.Type);
-            Assert.True(full.ReadInt32() > 0);
+            Assert.True(full.ReadInt16() > 0);
         }
         finally
         {
@@ -966,6 +966,27 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Skill_bar_comes_back_on_the_next_login()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var bar = Enumerable.Repeat((byte)0xFF, 20).ToArray();
+        bar[1] = 13;                                                         // começo da barra (SkillBar[4] da STRUCT_MOB)
+        bar[6] = 22;                                                         // segunda parte (0x30A do 0x114)
+        await a.SendAsync(new PacketWriter(Opcodes.SkillBar, 32, 1).WriteBytes(bar).ToArray());
+        await Task.Delay(100);
+
+        await a.SendAsync(ServerPackets.HeaderOnly(Opcodes.CharacterLogout, 1));
+        Assert.Equal(Opcodes.CharacterLogoutOk, (await a.ReceiveAsync()).Type);
+        await a.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
+        var login = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.CharacterLoginOk, login.Type);
+        login.Skip(0x2F8 - 12);                                              // 0x10 + SkillBar da STRUCT_MOB (0x2E8)
+        Assert.Equal(new byte[] { 0xFF, 13, 0xFF, 0xFF }, Enumerable.Range(0, 4).Select(_ => login.ReadByte()).ToArray());
+        login.Skip(0x30A - 0x2FC);
+        Assert.Equal(new byte[] { 0xFF, 0xFF, 22 }, Enumerable.Range(0, 3).Select(_ => login.ReadByte()).ToArray());
+    }
+
+    [Fact]
     public async Task Mount_runs_fast_once_equipped()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
@@ -1121,6 +1142,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(12, affect & 0xFF);                                                   // 12 × 8 s
         Assert.Equal(damage + 7 * 5, me.CurrentScore.Damage);
         Assert.Equal(40, me.BaseScore.Mp);
+        var icons = await ReceiveTypeAsync(a, Opcodes.AffectList);                         // ícones do canto (0x3B9)
+        Assert.Equal(140, icons.Length);
+        Assert.Equal((byte)AffectType.Assault, icons.ReadByte());
+        icons.Skip(3);
+        Assert.Equal(12, icons.ReadInt32());
 
         // Acabou o tempo: o efeito sai e a ficha volta sem o ícone.
         me.Affects[0] = me.Affects[0] with { Expires = DateTime.UtcNow.AddSeconds(-1) };
@@ -1300,8 +1326,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             hit.Skip(0x2E - 0x1C);
             Assert.True(hit.ReadInt16() >= me.CurrentScore.Damage * 80 / 100 + 15);     // dano normal + força da skill
             var mp = await ReceiveTypeAsync(a, Opcodes.UpdateHpMp);
-            mp.Skip(4);
-            Assert.Equal(38, mp.ReadInt32());
+            mp.Skip(2);
+            Assert.Equal(38, mp.ReadInt16());                                           // MP em 0x0E
 
             // Sem mana suficiente: ignorado.
             me.BaseScore.Mp = 5;
@@ -1434,7 +1460,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal((ItemHandler.EfAmount, 1), (potion.ReadByte(), potion.ReadByte()));
         var hp = await a.ReceiveAsync();
         Assert.Equal(Opcodes.UpdateHpMp, hp.Type);
-        Assert.Equal(60, hp.ReadInt32());
+        Assert.Equal(60, hp.ReadInt16());
 
         await a.SendAsync(UsePacket(1, 5));
         Assert.Equal("Pedra Sem Uso ainda não tem função neste servidor.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));

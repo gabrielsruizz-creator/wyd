@@ -41,6 +41,23 @@ public sealed class Character
     public short SpecialBonus { get; set; }
     public short SkillBonus { get; set; }
     public uint LearnedSkill { get; set; }
+
+    /// <summary>Tamanho da barra de skills: 4 na STRUCT_MOB e 16 na segunda barra do 0x114.</summary>
+    public const int SkillBarSize = 20;
+
+    /// <summary>
+    /// Barra de skills como o client manda no 0x378: número da skill dentro da classe (0-23), 0xFF vazio.
+    /// </summary>
+    public byte[] SkillBar { get; set; } = EmptySkillBar();
+
+    public static byte[] EmptySkillBar() => Enumerable.Repeat((byte)0xFF, SkillBarSize).ToArray();
+
+    public static byte[] ReadSkillBar(byte[]? stored)
+    {
+        var bar = EmptySkillBar();
+        stored?.AsSpan(0, Math.Min(stored.Length, SkillBarSize)).CopyTo(bar);
+        return bar;
+    }
     public ushort Guild { get; set; }
     public short PosX { get; set; }
     public short PosY { get; set; }

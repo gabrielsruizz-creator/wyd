@@ -63,6 +63,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
 | `0x277` | Distribuir ponto     | 20      | `short Tipo` (0 atributo, 1 especial, 2 skill no mestre), `short Qual` (0 FOR/1 INT/2 DES/3 CON ou especial 1-4), `short Extra` | ✅ |
+| `0x378` | Barra de skills      | 32      | `byte Barra[20]`: skill dentro da classe (0-23), 0xFF vazio; volta no 0x114 (SkillBar[4] da STRUCT_MOB + 16 em 0x30A) | ✅ layout |
 | `0x28B` | Falar com NPC        | 20      | `int IdDoNpc`, `int Confirma` (reis, NPCs de quest) | ✅ layout |
 | `0x290` | Teleporte          | 16      | só o cabeçalho e um int 0: o jogador confirmou o teleporte num círculo (célula com a flag 0x10 no mapa do client) | ✅ |
 | `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
@@ -84,7 +85,8 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x338` | MobKill             | 24      | `int Hold`, `ushort Morto`, `ushort Matador`, `int ExpDoMatador`           | ✅ layout |
 | `0x379` | BuyOk               | 24      | o pedido com o slot final e `int GoldTotal` (0x14), que o client copia para o gold | ✅ layout |
 | `0x3AF` | UpdateCoin          | 16      | `int Gold`                                                                 | ✅ layout |
-| `0x181` | UpdateHpMp          | 20      | `int Hp`, `int Mp`                                                         | ✅ layout |
+| `0x181` | UpdateHpMp          | 20      | `short Hp`, `short Mp`, `short HpPedido`, `short MpPedido` (com `int` o client lia o MP como 0) | ✅ layout |
+| `0x3B9` | AffectList          | 140     | `AFFECT[16]` {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}: ícones dos buffs no canto | ✅ layout |
 | `0x36B` | UpdateEquip         | 60      | `ushort Equip[16]`, `byte Refino[16]` (para quem está vendo)               | ⚠️ |
 | `0x337` | UpdateEtc           | 36      | `int Hold`, `int Exp`, `uint LearnedSkill`, `short ScoreBonus, SpecialBonus, SkillBonus`, 2 de folga, `int Gold` | ✅ layout |
 | `0x336` | UpdateScore         | 92      | `SCORE` (28) @0x0C, Critical/SaveMana @0x28, `Affect[32]` @0x2A, Guild @0x4A, GuildLevel @0x4C | ⚠️ |

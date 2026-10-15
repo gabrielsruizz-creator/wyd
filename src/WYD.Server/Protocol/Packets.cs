@@ -382,6 +382,25 @@ public static class ServerPackets
         return w.ToArray();
     }
 
+    /// <summary>
+    /// 0x3B9: os buffs do próprio jogador, que o client (0x534F83) copia para a lista que desenha no canto da tela
+    /// com o tempo. 16 × {byte Tipo, byte Valor, short Nível, int Tempo} em 0x0C, tempo em unidades de 8 s.
+    /// </summary>
+    public static byte[] AffectList(ushort id, Character c)
+    {
+        var w = new PacketWriter(Opcodes.AffectList, 12 + Affects.Max * 8, id);
+        var now = DateTime.UtcNow;
+        var active = c.Affects.Where(a => a.Expires > now).Take(Affects.Max).ToList();
+        for (int i = 0; i < Affects.Max; i++)
+        {
+            if (i >= active.Count) { w.Skip(8); continue; }
+            var a = active[i];
+            int units = Math.Clamp((int)Math.Ceiling((a.Expires - now).TotalSeconds / Affects.SecondsPerUnit), 1, int.MaxValue);
+            w.WriteByte((byte)a.Type).WriteByte((byte)Math.Clamp(a.Amount, 0, 255)).WriteInt16((short)a.Skill).WriteInt32(units);
+        }
+        return w.ToArray();
+    }
+
     /// <summary>16 shorts de efeito: (tipo &lt;&lt; 8) | unidades de 8 s que faltam (ver <see cref="Affects"/>).</summary>
     private static void WriteAffects(PacketWriter w, short[]? affects)
     {
@@ -393,9 +412,15 @@ public static class ServerPackets
     public static byte[] UpdateCoin(ushort id, int coin) =>
         new PacketWriter(Opcodes.UpdateCoin, 16, id).WriteInt32(coin).ToArray();
 
-    /// <summary>0x181: HP e MP atuais do jogador.</summary>
-    public static byte[] UpdateHpMp(ushort id, int hp, int mp) =>
-        new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteInt32(hp).WriteInt32(mp).ToArray();
+    /// <summary>
+    /// 0x181: HP e MP atuais do jogador. O client (0x536006) lê short Hp em 0x0C, short Mp em 0x0E e mais dois
+    /// shorts (HP e MP pedidos, que o servidor manda iguais aos atuais). Com int o MP saía 0 no client.
+    /// </summary>
+    public static byte[] UpdateHpMp(ushort id, int hp, int mp)
+    {
+        short h = (short)Math.Clamp(hp, 0, short.MaxValue), m = (short)Math.Clamp(mp, 0, short.MaxValue);
+        return new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteInt16(h).WriteInt16(m).WriteInt16(h).WriteInt16(m).ToArray();
+    }
 
     /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>
     public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> equip)
@@ -482,8 +507,8 @@ public static class ServerPackets
         w.Skip(2);                                    // 0x304
         w.WriteUInt16(id);                            // 0x306: id do jogador no servidor
         w.WriteUInt16(0);                             // 0x308: clima
-        for (int i = 0; i < 16; i++)                  // 0x30A: segunda barra de skills
-            w.WriteByte(EmptySkill);
+        for (int i = 0; i < 16; i++)                  // 0x30A: resto da barra de skills (o client junta com o SkillBar[4], 0x480CB6)
+            w.WriteByte(character.SkillBar[4 + i]);
         w.Skip(2);                                    // 0x31A
         w.WriteInt32(0);                              // 0x31C: (desconhecido, o client só guarda)
         w.Skip(CharacterLoginOkSize - w.Position);    // 0x320: não lido na entrada no mundo
@@ -511,7 +536,7 @@ public static class ServerPackets
         w.WriteUInt32(c.LearnedSkill);
         w.WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus);
         w.WriteByte(0).WriteByte(0);                  // Critical, SaveMana
-        for (int i = 0; i < 4; i++) w.WriteByte(EmptySkill); // SkillBar[4]
+        for (int i = 0; i < 4; i++) w.WriteByte(c.SkillBar[i]);   // SkillBar[4]: começo da barra de skills
         w.WriteByte(0).WriteByte(0);                  // GuildLevel, Magic
         w.WriteByte(0).WriteByte(0);                  // RegenHP, RegenMP
         w.Skip(4);                                    // Resist[4]
