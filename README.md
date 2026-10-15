@@ -27,6 +27,9 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Evoluções: Mortal (até o 400) → Arch (até o 400) → Celestial (até o 200) → Sub Celestial (até o 200),
       feita no nível máximo com o rei do seu reino
 - [x] Reinos pela capa: Azul (Rei Harabard), Vermelho (Rei Glantuar) e Neutro (capas brancas), `/kingdom` e `/king`
+- [x] Drop dos monstros direto para o inventário de quem matou (junto com o gold): cada item da lista do NPC tem
+      `Server:DropChance` (200 = 2%) de cair, multiplicado pelo bônus de drop (Garnet, ancient de drop). Como no
+      7.54, não há item no chão (largar no chão é ignorado)
 - [x] Refinação com Pó de Oriharukon (412, até +6) e Pó de Laktorerium (413, até +9), com as chances do client
       (pelo grau do item, efeito 87); cada falha aumenta a chance da próxima tentativa. O Laktorerium também tenta o
       +10 → +11 (3%), e o Laktorerium 100 (4141) passa o +10 direto para +11
@@ -228,6 +231,7 @@ sobrescrever qualquer opção pela linha de comando, por exemplo `--Server:LogPa
 | `Server:StrictChecksum`        | `false`             | Derruba quem mandar pacote com checksum errado              |
 | `Server:StatusPort`            | `80`                | Porta das páginas de status dos canais (0 desliga)          |
 | `Server:StartX` / `StartY`     | `2100` / `2100`     | Onde os personagens novos começam                           |
+| `Server:DropChance`            | `200`               | Chance de cada item da lista do monstro cair, em 1/10000    |
 | `Server:PatchPath`             | `data/patch`        | Arquivos que o WYDLauncher baixa (`publish-client`)         |
 | `Server:ExpTablePath`          | `data/ExpTable.txt` | Experiência de cada nível (`extract-exptable`)              |
 | `Database:ConnectionString`    | `…Database=wyd…`    | Conexão com o MySQL                                         |

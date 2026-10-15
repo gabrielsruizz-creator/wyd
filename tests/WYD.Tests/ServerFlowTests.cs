@@ -566,6 +566,59 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal("Fulano não está online.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
+    private sealed class AlwaysZero : Random
+    {
+        public override int Next(int maxValue) => 0;
+    }
+
+    [Fact]
+    public async Task Monster_drop_goes_straight_to_the_inventory()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Monstro de 1 de vida com dois itens na lista de drop; o do slot 1 tem marcador de adicional (102).
+            var weak = NpcDataTests.NpcFile("Gremlin", 202, 4, 1, carry: [(0, 412), (1, 810)]);
+            weak[0x10C + 8 + 2] = 102;
+            File.WriteAllBytes(Path.Combine(npcDir, "Gremlin"), weak);
+            var world = _host.Services.GetRequiredService<World>();
+            world.Random = new AlwaysZero();                                           // tudo cai
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Gremlin", MaxNumMob = 1, StartX = 2101, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var mob = await a.ReceiveAsync();
+            mob.Skip(4);
+            ushort gremlin = mob.ReadUInt16();
+            const ushort me = 1;
+            var c = await CharacterOf("jogadora");
+            int free = Array.FindIndex(c.Inventory, i => i.IsEmpty);
+
+            await a.SendAsync(AttackPacket(me, gremlin));
+            var first = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
+            Assert.Equal(1, first.ReadInt16());                                       // inventário
+            Assert.Equal(free, first.ReadInt16());
+            Assert.Equal(412, first.ReadInt16());
+            var second = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.UpdateItem, second.Type);
+            second.Skip(4);
+            Assert.Equal(810, second.ReadInt16());
+            Assert.Equal(0, second.ReadByte());                                       // sem o marcador 102
+            Assert.Equal(412, c.Inventory[free].Index);
+            Assert.Equal(810, c.Inventory[free + 1].Index);
+            Assert.Equal(0, c.Inventory[free + 1].Effect1);
+
+            // Largar no chão não existe no 7.54: o pedido é ignorado e o item fica.
+            await a.SendAsync(new PacketWriter(Opcodes.DropItem, 32, me).WriteInt32(1).WriteInt32(free).Skip(12).ToArray());
+            await Task.Delay(200);
+            Assert.Equal(412, c.Inventory[free].Index);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
     private static byte[] AttackPacket(ushort attacker, params ushort[] targets) => SkillPacket(attacker, -1, targets);
 
     private static byte[] SkillPacket(ushort attacker, short skill, params ushort[] targets)

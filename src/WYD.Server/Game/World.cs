@@ -11,7 +11,7 @@ namespace WYD.Server.Game;
 /// Quando algo entra no campo de visão o jogador recebe o 0x364; quando sai, o 0x165.
 /// Os monstros ficam numa grade de <see cref="CellSize"/> células para a busca por proximidade ser rápida.
 /// </summary>
-public sealed class World(
+public sealed partial class World(
     ICharacterRepository characters,
     Microsoft.Extensions.Options.IOptions<WYD.Server.Config.ServerOptions> options,
     WYD.Server.Data.ExpCatalog expTable,
@@ -355,6 +355,8 @@ public sealed class World(
     {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
+        var stored = new List<(int Slot, Item Item)>();
+        var lost = new List<Item>();
         long exp;
         int levels;
         bool castSpell = false, noExpTable = false, noSkillData = false;
@@ -496,6 +498,11 @@ public sealed class World(
                     outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, unchecked((int)ServerPackets.ClientExp(exp)))));
                     outgoing.Add((player, ServerPackets.RemoveMob(mob.Id, ServerPackets.RemoveDead)));
                 }
+
+                // Drop: os itens da lista do monstro que saírem no sorteio vão direto para o inventário.
+                var (into, missed) = StoreDrops(me, RollDrops(mob, me.ItemBonus.DropBonus));
+                stored.AddRange(into);
+                lost.AddRange(missed);
             }
         }
 
@@ -534,6 +541,20 @@ public sealed class World(
             }
             logger.LogInformation("[{Id}] {Name} matou {Mobs} (exp {Exp}, gold {Coin}).", session.Id, me.Name,
                 string.Join(", ", killed.Select(m => m.Template.Name)), exp, me.Coin);
+            foreach (var (slot, item) in stored)
+                await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, item));
+            if (stored.Count > 0)
+                logger.LogInformation("[{Id}] Drop para o inventário: {Items}.", session.Id, string.Join(", ", stored.Select(s => s.Item.Index)));
+            if (lost.Count > 0)
+            {
+                logger.LogInformation("[{Id}] Inventário cheio, drop perdido: {Items}.", session.Id, string.Join(", ", lost.Select(i => i.Index)));
+                await session.SendMessageAsync("Inventário cheio: o drop foi perdido.");
+            }
+            if (stored.Count > 0)
+            {
+                try { await characters.SaveItemsAsync(me); }
+                catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar os itens de {Name}.", me.Name); }
+            }
             try { await characters.SaveProgressAsync(me); }
             catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", me.Name); }
         }

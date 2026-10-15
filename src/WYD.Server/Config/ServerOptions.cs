@@ -71,6 +71,13 @@ public sealed class ServerOptions
     /// <summary>Pasta com um arquivo por monstro/NPC (STRUCT_MOB de 816 bytes).</summary>
     public string NpcPath { get; set; } = "data/npc";
 
+    /// <summary>
+    /// Chance, em centésimos de 1% (10000 = sempre), de cada item da lista do monstro (os 64 slots do arquivo de
+    /// NPC) cair quando ele morre; vai direto para o inventário de quem matou. O bônus de drop (Garnet, ancient de
+    /// drop) multiplica.
+    /// </summary>
+    public int DropChance { get; set; } = 200;
+
     /// <summary>Segundos até um monstro morto renascer.</summary>
     public int RespawnSeconds { get; set; } = 20;
 

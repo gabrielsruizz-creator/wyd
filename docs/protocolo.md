@@ -437,3 +437,10 @@ salva no `config.txt` sobe junto. Uma linha `NOTICE largura altura url` troca a 
 Os arquivos são baixados com `InternetConnectA` na porta 80 fixa (o endereço é quebrado nas três primeiras `/`, sem
 ler porta) e `HttpOpenRequestA` com o caminho sem a `/` inicial. A resposta precisa ter status 200 e
 `Content-Length` maior que zero.
+
+## Drop
+
+O drop de cada monstro está nos 64 slots do `Carry` do arquivo de NPC (0x10C). Efeitos de 100 em diante nesses
+itens (101 a 104) marcam adicionais sorteados e saem do item. No 7.54 não existe item no chão: o que cai vai direto
+para o inventário de quem matou (0x182, inventário). O client ainda manda o `0x272` (largar, 32 bytes: int tipo,
+int slot, int rotação, short X, short Y) ao arrastar um item para fora; o servidor ignora e o item fica no slot.
