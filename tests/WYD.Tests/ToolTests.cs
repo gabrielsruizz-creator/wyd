@@ -461,6 +461,37 @@ public class ToolTests
         Assert.Equal(0, Refining.Chance(new Item(1208), items, RefineMaterial.Laktorerium));
     }
 
+    [Fact]
+    public void Laktorerium_takes_a_plus_10_to_plus_11()
+    {
+        var items = ItemListTests.TestItems();
+        var plus10 = new Item(1210) { Effect1 = Stats.EfSanc, Value1 = 232 };            // +10 com gema de coral
+        const RefineMaterial lac = RefineMaterial.Laktorerium;
+
+        Assert.Equal(Refining.HighChance, Refining.Chance(plus10, items, lac, Refining.LaktoreriumPowder));
+        Assert.Equal(100, Refining.Chance(plus10, items, lac, Refining.LaktoreriumHundred));
+        Assert.Null(Refining.Refusal(10, lac, Refining.LaktoreriumPowder));
+
+        // Falhou: o +10 fica igual (sem contar falha).
+        var (same, failed) = Refining.Try(plus10, Refining.HighChance, new FixedRandom(50));
+        Assert.False(failed);
+        Assert.Equal(232, Stats.RawSanc(same));
+
+        // Passou: +11 e a gema continua.
+        var (plus11, ok) = Refining.Try(plus10, 100, new FixedRandom(0));
+        Assert.True(ok);
+        Assert.Equal(11, Stats.Refine(plus11));
+        Assert.Equal(AncientEffect.Perforation, Ancient.GemOf(plus11));
+
+        // O +9 não passa para +10 com Laktorerium; a Laktorerium 100 é só para o +10; o +11 já não sobe.
+        Assert.Equal(0, Refining.Chance(Refining.WithRefine(new Item(1210), 9, 0), items, lac, Refining.LaktoreriumPowder));
+        Assert.Equal("O Laktorerium não passa do +9 para o +10.", Refining.Refusal(9, lac, Refining.LaktoreriumPowder));
+        Assert.Equal(0, Refining.Chance(Refining.WithRefine(new Item(1210), 5, 0), items, lac, Refining.LaktoreriumHundred));
+        Assert.Equal("A Laktorerium 100 só funciona em itens +10.", Refining.Refusal(5, lac, Refining.LaktoreriumHundred));
+        Assert.Equal(0, Refining.Chance(plus11, items, lac, Refining.LaktoreriumPowder));
+        Assert.Equal("O Laktorerium refina só até +11.", Refining.Refusal(11, lac, Refining.LaktoreriumPowder));
+    }
+
     /// <summary>Um "WYD.exe" com o cabeçalho PE e a .text do client 7.54 e as quatro somas no lugar.</summary>
     private static byte[] FakeClient()
     {

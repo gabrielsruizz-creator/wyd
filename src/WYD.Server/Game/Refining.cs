@@ -15,10 +15,19 @@ public enum RefineMaterial
 /// e tabelas em 0x5C80EC, 0x5C820C e 0x5C832C). Abaixo do +10 o efeito 43 guarda a refinação nas unidades e as
 /// falhas nas dezenas: cada falha soma à chance seguinte (<see cref="FailBonus"/>), e o sucesso zera as falhas.
 /// O Oriharukon leva até +6 e o Laktorerium até +9; a chance depende do grau do item (efeito 87, de 1 a 6).
+/// O Laktorerium também tenta o +10 → +11 com <see cref="HighChance"/>% (coluna 10 da tabela do client; a 9, do
+/// +9 → +10, é 0), e o Laktorerium 100 (4141) passa o +10 direto para +11. Do +10 em diante não há contagem de
+/// falhas (o efeito 43 guarda 230 + 4 × (refino − 10) + gema), e a falha deixa o item como está.
 /// </summary>
 public static class Refining
 {
     public const short OriharukonPowder = 412, LaktoreriumPowder = 413;
+
+    /// <summary>Laktorerium 100: mesmo uso do Laktorerium (5), mas passa o +10 direto para +11.</summary>
+    public const short LaktoreriumHundred = 4141;
+
+    /// <summary>Chance (%) do Laktorerium no +10 → +11, igual em todos os graus no client.</summary>
+    public const int HighChance = 3;
     public const short UsableOriharukon = 4, UsableLaktorerium = 5;
 
     /// <summary>Grau do item (efeito 87 no ItemList): escolhe a linha da tabela.</summary>
@@ -62,7 +71,8 @@ public static class Refining
         _ => null,
     };
 
-    public static string Name(RefineMaterial m) => m == RefineMaterial.Oriharukon ? "Oriharukon" : "Laktorerium";
+    public static string Name(RefineMaterial m, short powder = 0) =>
+        powder == LaktoreriumHundred ? "Laktorerium 100" : m == RefineMaterial.Oriharukon ? "Oriharukon" : "Laktorerium";
 
     /// <summary>Grau do item (1 a 6), ou 0 se não é refinável.</summary>
     public static int Grade(Item item, ItemList items)
@@ -81,11 +91,29 @@ public static class Refining
         return raw is > 0 and <= 210 ? raw / 10 : 0;
     }
 
-    /// <summary>Chance (%) de o material subir o item mais um, ou 0 se não dá.</summary>
-    public static int Chance(Item item, ItemList items, RefineMaterial m)
+    /// <summary>
+    /// O pó (<paramref name="powder"/>, o índice do item) consegue tentar subir esta refinação? O Laktorerium pula
+    /// só o +9 (o client dá 0% para o +10).
+    /// </summary>
+    public static bool CanTry(int refine, RefineMaterial m, short powder) =>
+        powder == LaktoreriumHundred ? refine == 10
+        : m == RefineMaterial.Oriharukon ? refine < MaxRefine(m)
+        : refine < MaxRefine(m) || refine == 10;
+
+    /// <summary>Por que o pó não sobe o item (null se pode tentar).</summary>
+    public static string? Refusal(int refine, RefineMaterial m, short powder) =>
+        CanTry(refine, m, powder) ? null
+        : powder == LaktoreriumHundred ? "A Laktorerium 100 só funciona em itens +10."
+        : m == RefineMaterial.Oriharukon ? $"O Oriharukon refina só até +{MaxRefine(m)}."
+        : refine == 9 ? "O Laktorerium não passa do +9 para o +10."
+        : "O Laktorerium refina só até +11.";
+
+    /// <summary>Chance (%) de o pó subir o item mais um, ou 0 se não dá.</summary>
+    public static int Chance(Item item, ItemList items, RefineMaterial m, short powder = 0)
     {
         int grade = Grade(item, items), refine = Stats.Refine(item);
-        if (grade == 0 || refine >= MaxRefine(m)) return 0;
+        if (grade == 0 || !CanTry(refine, m, powder)) return 0;
+        if (refine == 10) return powder == LaktoreriumHundred ? 100 : HighChance;
         int rate = (m == RefineMaterial.Oriharukon ? Oriharukon : Laktorerium)[grade - 1][refine];
         return Math.Min(100, rate + FailBonus[refine] * Fails(item));
     }
@@ -111,8 +139,23 @@ public static class Refining
     public static (Item Item, bool Success) Try(Item item, int chance, Random random)
     {
         int refine = Stats.Refine(item);
-        return random.Next(100) < chance
+        bool success = random.Next(100) < chance;
+        if (refine >= Ancient.MinRefine)
+            return success ? (WithHighRefine(item, refine + 1), true) : (item, false);
+        return success
             ? (WithRefine(item, refine + 1, 0), true)
             : (WithRefine(item, refine, Fails(item) + 1), false);
+    }
+
+    /// <summary>O item +10 ou mais com outra refinação, mantendo a gema guardada nos 2 bits de baixo.</summary>
+    public static Item WithHighRefine(Item item, int refine)
+    {
+        int raw = Stats.RawSanc(item);
+        int gem = raw >= Ancient.RefinedBase ? (raw - Ancient.RefinedBase) % 4 : 0;
+        byte value = (byte)(Ancient.RefinedBase + 4 * (refine - Ancient.MinRefine) + gem);
+        if (item.Effect1 == Stats.EfSanc) item.Value1 = value;
+        else if (item.Effect2 == Stats.EfSanc) item.Value2 = value;
+        else if (item.Effect3 == Stats.EfSanc) item.Value3 = value;
+        return item;
     }
 }

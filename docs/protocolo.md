@@ -291,6 +291,11 @@ do +6 em diante e o Laktorerium do +9. Montarias (2330-2389), joias (3200-3299) 
 | 5 | 100 100 100 85 70 40 | 100 100 100 100 100 56 35 18 5 |
 | 6 | 100 100 100 85 70 40 | 100 100 100 100 100 56 25 18 5 |
 
+As linhas da tabela têm 12 colunas (o índice é o refino % 12). No Laktorerium a coluna 9 (+9→+10) é 0 e a 10
+(+10→+11) é 3 em todos os graus. Do +10 em diante não há falhas guardadas (o efeito 43 é 230 + 4 × (refino − 10) +
+gema), então a chance fica nos 3% e a falha deixa o item igual. O Laktorerium 100 (4141, mesmo uso 5 do pó comum)
+passa o +10 direto para +11.
+
 ## Efeitos (buffs)
 
 Os ícones do canto com o tempo vêm do `0x3B9`. O efeito visual (como a aura do Trovão) é uma flag que o client

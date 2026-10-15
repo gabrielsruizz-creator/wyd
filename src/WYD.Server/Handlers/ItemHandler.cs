@@ -228,7 +228,7 @@ public sealed class ItemHandler(
     }
 
     /// <summary>
-    /// Pó de Oriharukon (até +6) ou de Laktorerium (até +9) arrastado num item: tenta subir a refinação com a
+    /// Pó de Oriharukon (até +6) ou de Laktorerium (até +9, e do +10 para o +11) arrastado num item: tenta subir a refinação com a
     /// chance do client (ver <see cref="Game.Refining"/>). O pó é gasto sempre; na falha o item fica igual, mas a
     /// próxima tentativa tem mais chance.
     /// </summary>
@@ -244,20 +244,21 @@ public sealed class ItemHandler(
         }
 
         var target = dest[destPos];
-        string name = Game.Refining.Name(material);
+        short powder = powders[powderPos].Index;
+        string name = Game.Refining.Name(material, powder);
         int refine = Game.Stats.Refine(target);
         if (Game.Refining.Grade(target, catalog.List!) == 0 || !Game.Refining.CanStore(target))
         {
             await session.SendMessageAsync($"Este item não pode ser refinado com {name}.");
             return false;
         }
-        if (refine >= Game.Refining.MaxRefine(material))
+        if (Game.Refining.Refusal(refine, material, powder) is { } refusal)
         {
-            await session.SendMessageAsync($"O {name} refina só até +{Game.Refining.MaxRefine(material)}.");
+            await session.SendMessageAsync(refusal);
             return false;
         }
 
-        int chance = Game.Refining.Chance(target, catalog.List!, material);
+        int chance = Game.Refining.Chance(target, catalog.List!, material, powder);
         var (result, success) = Game.Refining.Try(target, chance, Random);
         dest[destPos] = result;
         Consume(powders, powderPos);
