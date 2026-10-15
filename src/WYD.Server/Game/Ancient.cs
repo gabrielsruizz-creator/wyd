@@ -13,11 +13,16 @@ public enum AncientEffect : byte
 }
 
 /// <summary>
-/// Itens ancient vêm em grupos de 4 cópias seguidas no ItemList, iguais a não ser pelo Grade (5, 6, 7 e 8).
-/// Usar uma gema (Diamond_Gem 3386, Emerald_Gem 3387, Coral_Gem 3388, Granet_Gem 3389; uso 180 a 183 no
-/// ItemList, ou seja, Grade + 175) num ancient troca o item pela cópia do grupo com o efeito da gema.
+/// Gemas (Diamond_Gem 3386, Emerald_Gem 3387, Coral_Gem 3388, Granet_Gem 3389; uso 180 a 183 no ItemList, ou
+/// seja, Grade + 175) dão a um item um destes efeitos, cada um valendo <see cref="BonusPercent"/>% equipado:
+/// <list type="bullet">
+/// <item>Ancient: os itens vêm em grupos de 4 cópias seguidas no ItemList, iguais a não ser pelo Grade (5 a 8);
+/// a gema troca o item pela cópia do grupo com o efeito dela.</item>
+/// <item>Item +10 ou mais (arma, armadura, qualquer um): a gema fica nos 2 bits de baixo do valor da refinação
+/// (efeito 43): valor = 230 + 4 × (refino − 10) + gema. O client lê esses bits como o Grade (0x419297:
+/// (valor − 230) % 4 + 5) e muda o brilho do item.</item>
+/// </list>
 /// As pedras 2441 a 2444 (Diamond, Emerald, Coral, Garnet) são material de composição, não gemas.
-/// Com o item +10 ou mais equipado, o efeito vale <see cref="BonusPercent"/>%.
 /// </summary>
 public static class Ancient
 {
@@ -29,8 +34,11 @@ public static class Ancient
     /// <summary>Quanto cada ancient +10 equipado soma ao efeito dele.</summary>
     public const int BonusPercent = 10;
 
-    /// <summary>Refinação mínima para o efeito valer.</summary>
+    /// <summary>Refinação a partir da qual qualquer item guarda uma gema.</summary>
     public const int MinRefine = 10;
+
+    /// <summary>Valor do efeito 43 do +10 sem gema (o client tira 230 e divide por 4).</summary>
+    public const int RefinedBase = 230;
 
     /// <summary>O efeito que a gema dá, pelo uso dela no ItemList (180 a 183).</summary>
     public static AncientEffect? GemEffect(short usable) =>
@@ -49,6 +57,30 @@ public static class Ancient
         def is not null && def.Name.Contains("(Ancient)", StringComparison.OrdinalIgnoreCase) && def.Grade is >= 5 and <= 8
             ? (AncientEffect)def.Grade
             : null;
+
+    /// <summary>Gema guardada num item +10 ou mais (sem gema os bits valem 0: Experiência, como no client).</summary>
+    public static AncientEffect? GemOf(Item item)
+    {
+        if (Stats.Refine(item) < MinRefine) return null;
+        int raw = Stats.RawSanc(item);
+        return (AncientEffect)((raw - RefinedBase) % 4 + (int)AncientEffect.Exp);
+    }
+
+    /// <summary>O item +10 ou mais com a gema trocada (a refinação continua a mesma).</summary>
+    public static Item WithGem(Item item, AncientEffect gem)
+    {
+        int refine = Stats.Refine(item);
+        if (refine < MinRefine) return item;
+        byte raw = (byte)(RefinedBase + 4 * (refine - MinRefine) + ((int)gem - (int)AncientEffect.Exp));
+        if (item.Effect1 == Stats.EfSanc) item.Value1 = raw;
+        else if (item.Effect2 == Stats.EfSanc) item.Value2 = raw;
+        else if (item.Effect3 == Stats.EfSanc) item.Value3 = raw;
+        return item;
+    }
+
+    /// <summary>O efeito que o item equipado dá: o do ancient, ou a gema de um item +10 ou mais.</summary>
+    public static AncientEffect? EquippedEffect(Item item, ItemList? items) =>
+        item.IsEmpty ? null : EffectOf(items?[item.Index]) ?? GemOf(item);
 
     /// <summary>O índice da cópia do grupo com o efeito pedido (null se o grupo não estiver completo no ItemList).</summary>
     public static short? Variant(short index, ItemList items, AncientEffect wanted)

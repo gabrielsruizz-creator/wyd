@@ -158,7 +158,10 @@ public sealed class ItemHandler(
         await SaveAsync(session, cargo: srcType == 2);
     }
 
-    /// <summary>Gema arrastada num item ancient: troca o efeito dele pelo da gema (o item vira a cópia do grupo).</summary>
+    /// <summary>
+    /// Gema arrastada num item: no ancient o item vira a cópia do grupo com o efeito da gema; num item +10 ou mais
+    /// (arma ou armadura) a gema vai para os bits da refinação, que mudam o brilho (ver <see cref="Game.Ancient"/>).
+    /// </summary>
     private async Task<bool> ApplyGemAsync(ClientSession session, Item[] gems, int gemPos, int gemType, int destType, int destPos,
         Game.AncientEffect effect)
     {
@@ -171,24 +174,31 @@ public sealed class ItemHandler(
         }
 
         var target = dest[destPos];
-        var current = Game.Ancient.EffectOf(catalog.List![target.Index]);
-        if (current is null)
+        var ancient = Game.Ancient.EffectOf(catalog.List![target.Index]);
+        bool refined = Game.Stats.Refine(target) >= Game.Ancient.MinRefine;
+        if (ancient is null && !refined)
         {
-            await session.SendMessageAsync("A gema só funciona em itens ancient.");
+            await session.SendMessageAsync("A gema só funciona em itens ancient ou refinados +10 ou mais.");
             return false;
         }
-        if (current == effect)
+        var changed = target;
+        if (ancient is not null && ancient != effect)
+        {
+            if (Game.Ancient.Variant(target.Index, catalog.List, effect) is { } index)
+                changed = changed with { Index = index };                // refinação e adicionais continuam
+            else if (!refined)
+            {
+                await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
+                return false;
+            }
+        }
+        if (refined) changed = Game.Ancient.WithGem(changed, effect);
+        if (changed.Index == target.Index && Game.Stats.RawSanc(changed) == Game.Stats.RawSanc(target))
         {
             await session.SendMessageAsync($"Este item já tem o efeito de {Game.Ancient.Name(effect)}.");
             return false;
         }
-        if (Game.Ancient.Variant(target.Index, catalog.List, effect) is not { } index)
-        {
-            await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
-            return false;
-        }
-
-        dest[destPos] = target with { Index = index };                 // refinação e adicionais continuam
+        dest[destPos] = changed;
         Consume(gems, gemPos);
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)gemType, gemPos, gems[gemPos]));
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
@@ -200,7 +210,8 @@ public sealed class ItemHandler(
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
-        await session.SendMessageAsync($"Efeito do ancient trocado para {Game.Ancient.Name(effect)}.");
+        await session.SendMessageAsync(
+            $"Efeito trocado para {Game.Ancient.Name(effect)} (+{Game.Ancient.BonusPercent}% com o item equipado).");
         if (destType == 2 || gemType == 2) await SaveAsync(session, cargo: true);
         return true;
     }

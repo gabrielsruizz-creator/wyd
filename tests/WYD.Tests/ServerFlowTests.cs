@@ -1047,7 +1047,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Gem_changes_the_ancient_effect()
+    public async Task Gem_changes_the_effect_of_ancients_and_refined_items()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
         var c = await CharacterOf("jogadora");
@@ -1059,9 +1059,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
         byte[] Use(int srcPos, int destType, int destPos) =>
             new PacketWriter(Opcodes.UseItem, 36).WriteInt32(1).WriteInt32(srcPos).WriteInt32(destType).WriteInt32(destPos).Skip(8).ToArray();
 
-        // Em item que não é ancient: recusado e a gema fica.
+        // Em item que não é ancient nem +10: recusado e a gema fica.
         await a.SendAsync(Use(0, 1, 2));
-        Assert.Equal("A gema só funciona em itens ancient.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("A gema só funciona em itens ancient ou refinados +10 ou mais.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.Equal(3388, c.Inventory[0].Index);
 
         // A pedra não é gema.
@@ -1074,14 +1074,25 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(Opcodes.UpdateItem, changed.Type);
         changed.Skip(4);
         Assert.Equal(2453, changed.ReadInt16());                                    // a cópia de Grade 7 (perfuração)
-        Assert.Equal("Efeito do ancient trocado para Perfuração.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("Efeito trocado para Perfuração (+10% com o item equipado).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
-        Assert.Equal(230, c.Inventory[1].Value1);                                   // refinação mantida
+        Assert.Equal(232, c.Inventory[1].Value1);                                   // +10 com a gema 2 (Coral) nos bits
+        Assert.Equal(10, Stats.Refine(c.Inventory[1]));
 
-        // Equipado e +10: a perfuração vale 10%.
+        // Item comum +11 (arma ou armadura): a gema vai para os bits da refinação, que o client usa no brilho.
+        c.Inventory[4] = new Item(3388);
+        c.Inventory[5] = new Item(905) { Effect1 = 43, Value1 = 234 };            // +11, sem gema
+        await a.SendAsync(Use(4, 1, 5));
+        for (int i = 0; i < 3; i++) await a.ReceiveAsync();
+        Assert.Equal(236, c.Inventory[5].Value1);
+        Assert.Equal(11, Stats.Refine(c.Inventory[5]));
+        Assert.Equal(AncientEffect.Perforation, Ancient.GemOf(c.Inventory[5]));
+
+        // Equipados: cada um vale 10% de perfuração.
         c.Equip[6] = c.Inventory[1];
+        c.Equip[2] = c.Inventory[5];
         Stats.Recalculate(c, ItemListTests.TestItems());
-        Assert.Equal(Ancient.BonusPercent, c.ItemBonus.Perforation);
+        Assert.Equal(2 * Ancient.BonusPercent, c.ItemBonus.Perforation);
     }
 
     [Fact]

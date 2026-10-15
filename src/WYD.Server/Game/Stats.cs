@@ -88,11 +88,15 @@ public static class Stats
     public static int Refine(Item item)
     {
         if (IsMount(item.Index)) return 0;
-        int raw = item.Effect1 == EfSanc ? item.Value1 : item.Effect2 == EfSanc ? item.Value2 : item.Effect3 == EfSanc ? item.Value3 : 0;
+        int raw = RawSanc(item);
         int s = raw >= 230 ? raw - 220 : raw % 10;
         if (s is >= 10 and <= 35) s = (s - 10) / 4 + 10;
         return s;
     }
+
+    /// <summary>Valor guardado no efeito 43 (refinação; do +10 em diante também a gema).</summary>
+    public static int RawSanc(Item item) =>
+        item.Effect1 == EfSanc ? item.Value1 : item.Effect2 == EfSanc ? item.Value2 : item.Effect3 == EfSanc ? item.Value3 : 0;
 
     /// <summary>Um efeito de um item, com a refinação aplicada (como o client em 0x556F5B).</summary>
     public static int Ability(Item item, ItemList? items, int effect)
@@ -197,17 +201,13 @@ public static class Stats
             ResistAll: EquipAbility(c, items, EfResistAll));
     }
 
-    /// <summary>Soma do efeito ancient (em %) dos itens +10 ou mais equipados.</summary>
+    /// <summary>Soma (em %) do efeito das gemas no equipamento: ancients e itens +10 ou mais.</summary>
     public static int AncientPercent(Character c, ItemList? items, AncientEffect effect)
     {
-        if (items is null) return 0;
         int total = 0;
         for (int slot = 1; slot < c.Equip.Length; slot++)
-        {
-            var item = c.Equip[slot];
-            if (!item.IsEmpty && Ancient.EffectOf(items[item.Index]) == effect && Refine(item) >= Ancient.MinRefine)
+            if (Ancient.EquippedEffect(c.Equip[slot], items) == effect)
                 total += Ancient.BonusPercent;
-        }
         return total;
     }
 }
