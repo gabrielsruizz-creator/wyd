@@ -107,7 +107,7 @@ public sealed class KingHandler(
         logger.LogInformation("[{Id}] {Name} criou o Arch (corpo {Body}, skills {Skills}) no slot {Slot}.",
             session.Id, c.Name, Arch.BodyOf(c), skills, free);
         await session.SendMessageAsync($"Arch criado com as skills de {Sefirot.ClassName(skills)}. Escolha-o na seleção de personagens.");
-        await characterHandler.ReturnToSelectionAsync(session, listChanged: true);
+        await characterHandler.ReturnToSelectionAsync(session, listChanged: true, effectSlot: free);
     }
 
     private async Task SefirotAsync(ClientSession session, Mob master, bool confirmed)

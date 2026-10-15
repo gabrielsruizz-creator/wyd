@@ -861,6 +861,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
                 (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
             Assert.Equal(Opcodes.CharacterLogoutOk, (await a.ReceiveAsync()).Type);
             Assert.Equal(Opcodes.CreateCharacterOk, (await a.ReceiveAsync()).Type);   // lista nova, com o Arch
+            var effect = await a.ReceiveAsync();
+            Assert.Equal(Opcodes.SelCharEffect, effect.Type);                       // efeito em cima do Arch
+            Assert.Equal(1, effect.ReadInt32());
 
             Assert.True(me.Equip[Arch.SefirotEquipSlot].IsEmpty);
             Assert.Equal(Sefirot.EternalStone, me.Equip[Sefirot.EternalStoneSlot].Index);  // a Eternal Stone fica

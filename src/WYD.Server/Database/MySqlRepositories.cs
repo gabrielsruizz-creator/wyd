@@ -234,10 +234,12 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await using var command = new MySqlCommand("""
             INSERT INTO characters
                 (account_id, slot, name, class, level, exp, coin, guild, pos_x, pos_y,
-                 ac, damage, max_hp, max_mp, hp, mp, str, `int`, dex, con, equip, inventory)
+                 ac, damage, max_hp, max_mp, hp, mp, str, `int`, dex, con, equip, inventory,
+                 score_bonus, special_bonus, skill_bonus, learned_skill)
             VALUES
                 (@account, @slot, @name, @class, @level, @exp, @coin, @guild, @x, @y,
-                 @ac, @damage, @maxhp, @maxmp, @hp, @mp, @str, @int, @dex, @con, @equip, @inventory)
+                 @ac, @damage, @maxhp, @maxmp, @hp, @mp, @str, @int, @dex, @con, @equip, @inventory,
+                 @sb, @spb, @skb, @ls)
             """, connection);
 
         var s = c.BaseScore;
@@ -263,6 +265,10 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         command.Parameters.AddWithValue("@con", s.Con);
         command.Parameters.AddWithValue("@equip", Item.ToBlob(c.Equip));
         command.Parameters.AddWithValue("@inventory", Item.ToBlob(c.Inventory));
+        command.Parameters.AddWithValue("@sb", c.ScoreBonus);           // o Arch nasce com 528 pontos
+        command.Parameters.AddWithValue("@spb", c.SpecialBonus);
+        command.Parameters.AddWithValue("@skb", c.SkillBonus);
+        command.Parameters.AddWithValue("@ls", c.LearnedSkill);
 
         try
         {

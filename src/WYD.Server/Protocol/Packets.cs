@@ -162,6 +162,9 @@ public static class ServerPackets
     /// <summary>Pacote só com o cabeçalho (os sinais de falha 0x119/0x11A/0x11B têm 12 bytes no 7.54).</summary>
     public static byte[] HeaderOnly(ushort type, ushort id = 0) => new PacketWriter(type, HeaderOnlySize, id).ToArray();
 
+    /// <summary>0x3B4: na seleção de personagens, o client (0x4A69DF) solta um efeito em cima do personagem do slot.</summary>
+    public static byte[] SelCharEffect(ushort id, int slot) => new PacketWriter(Opcodes.SelCharEffect, 16, id).WriteInt32(slot).ToArray();
+
     /// <summary>
     /// 0x364: põe um jogador na tela de quem recebe. Layout conferido no WYD.exe 7.54:
     /// <code>

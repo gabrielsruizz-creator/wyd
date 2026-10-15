@@ -141,9 +141,10 @@ public sealed partial class CharacterHandler(
     /// <summary>
     /// Tira o personagem do mundo, grava tudo e manda o client para a seleção de personagens (0x116). O client
     /// mostra a lista que recebeu no login; com <paramref name="listChanged"/> (um personagem novo, como o Arch)
-    /// a lista nova vai logo depois, num 0x110, que a tela de seleção usa para redesenhar os personagens.
+    /// a lista nova vai logo depois, num 0x110, que a tela de seleção usa para redesenhar os personagens; com
+    /// <paramref name="effectSlot"/> o personagem desse slot ganha o efeito de nascimento (0x3B4).
     /// </summary>
-    public async Task ReturnToSelectionAsync(ClientSession session, bool listChanged = false)
+    public async Task ReturnToSelectionAsync(ClientSession session, bool listChanged = false, int? effectSlot = null)
     {
         var c = session.Character!;
         await world.LeaveAsync(session);
@@ -156,7 +157,9 @@ public sealed partial class CharacterHandler(
 
         if (!listChanged) return;
         await Task.Delay(ListRefreshDelay);
-        if (session.State == SessionState.CharacterSelect)
-            await session.SendAsync(ServerPackets.SelCharList(Opcodes.CreateCharacterOk, session.Id, session.Characters));
+        if (session.State != SessionState.CharacterSelect) return;
+        await session.SendAsync(ServerPackets.SelCharList(Opcodes.CreateCharacterOk, session.Id, session.Characters));
+        if (effectSlot is { } slot)
+            await session.SendAsync(ServerPackets.SelCharEffect(session.Id, slot));
     }
 }
