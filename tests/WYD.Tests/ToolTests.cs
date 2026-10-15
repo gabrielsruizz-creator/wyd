@@ -683,4 +683,25 @@ public class ToolTests
         Assert.Equal(30, score.ReadByte());
         Assert.Equal(12, score.ReadByte());
     }
+
+    [Fact]
+    public void Spirit_change_moves_max_mana_into_max_life_like_the_client()
+    {
+        // Mortal: mana / 8 + (Especial 3 + nível) / 4; evoluído: mana / 4 + ...; bit 30 soma 400 ao nível.
+        Assert.Equal(800 / 8 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, 0, evolved: false));
+        Assert.Equal(800 / 4 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, 0, evolved: true));
+        Assert.Equal(800 / 8 + (40 + 500) / 4, Affects.SpiritChangeMoved(800, 40, 100, 1u << 30, evolved: false));
+
+        var c = new WYD.Server.Game.Character { Name = "Teste" };
+        c.BaseScore.MaxHp = 1000;
+        c.BaseScore.MaxMp = 800;
+        c.BaseScore.Level = 100;
+        c.ItemBonus = new ItemBonus(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        var before = c.CurrentScore;
+        c.Affects.Add(new Affect(AffectType.SpiritChange, 0, 87, DateTime.UtcNow.AddMinutes(1)));
+        var after = c.CurrentScore;
+        int moved = before.MaxMp / 8 + (before.Special3 + before.Level) / 4;
+        Assert.Equal(before.MaxHp + moved + Affects.SpiritChangeHp, after.MaxHp);
+        Assert.Equal(before.MaxMp - moved, after.MaxMp);
+    }
 }

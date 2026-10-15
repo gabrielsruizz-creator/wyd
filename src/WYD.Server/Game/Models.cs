@@ -107,8 +107,17 @@ public sealed class Character
 
             int levelBonus = Equip[0].Index % 10 > 5 ? s.Level * 2 : s.Level;
             s.Damage += b.Damage + buff.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
-            s.MaxHp = Math.Clamp((s.MaxHp + b.MaxHp + s.Con * Points.HpPerCon) * (100 + b.HpPercent) / 100, 1, 64000);
-            s.MaxMp = Math.Clamp((s.MaxMp + b.MaxMp + s.Int * Points.MpPerInt) * (100 + b.MpPercent) / 100, 0, 64000);
+            int maxHp = s.MaxHp + b.MaxHp + s.Con * Points.HpPerCon;
+            int maxMp = s.MaxMp + b.MaxMp + s.Int * Points.MpPerInt;
+            if (buff.SpiritChange)
+            {
+                // Troca de Espírito, como o client (0x55C65B): parte da mana máxima vira vida máxima, mais 750.
+                int moved = Game.Affects.SpiritChangeMoved(maxMp, s.Special3, s.Level, LearnedSkill, Equip[0].Index % 10 > 5);
+                maxHp += moved + Game.Affects.SpiritChangeHp;
+                maxMp -= moved;
+            }
+            s.MaxHp = Math.Clamp(maxHp * (100 + b.HpPercent) / 100, 1, 64000);
+            s.MaxMp = Math.Clamp(maxMp * (100 + b.MpPercent) / 100, 0, 64000);
             if (buff.ManaToHpPercent > 0)
             {
                 // Controle de Mana: parte da mana máxima vira vida máxima enquanto dura.

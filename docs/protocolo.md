@@ -465,3 +465,11 @@ o servidor manda no `0x336` (0x55FF5B: (velocidade − 5) × 100 ms), então o s
 O crítico (efeito 42) e a economia de mana (efeito 44) vão nos bytes 0x28 e 0x29 do `0x336` (0x2E6 e 0x2E7 do
 STRUCT_MOB). O client mostra crítico × 0,4 % (0x445CDB) e não calcula o crítico fora das transformações; o servidor
 manda a soma dos itens e dá o dobro do dano com chance de crítico × 4 em 1000.
+
+### Troca de Espírito e Controle de Mana
+
+O client calcula a ficha com os efeitos (0x55A392). A Troca de Espírito (efeito 38, skill 87) passa para a vida
+máxima parte da mana máxima: mana / 4 se o rosto é evoluído (rosto % 10 > 5, 0x56475A) ou / 8 no Mortal, mais
+(Especial 3 + nível) / 4, com 400 a mais no nível se o bit 30 das skills aprendidas estiver ligado; a vida máxima
+ganha ainda 750. Isso entra antes dos efeitos 45/46 (% de vida e mana). O Controle de Mana (efeito 18), no client,
+só liga uma flag (bit 0 em 0x55BC18).

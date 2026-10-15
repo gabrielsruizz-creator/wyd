@@ -47,7 +47,7 @@ public sealed record Affect(AffectType Type, int Amount, int Skill, DateTime Exp
 
 /// <summary>O que os efeitos ativos somam aos atributos.</summary>
 public readonly record struct AffectBonus(int Damage, int Ac, int MagicPercent, int RunSpeed, int Dodge, int RegenHp, int ManaToHpPercent,
-    int AttackSpeed = 0);
+    int AttackSpeed = 0, bool SpiritChange = false);
 
 /// <summary>
 /// Efeitos (buffs) das skills. O client guarda até 16, cada um num short: tipo no byte de cima e o tempo que falta
@@ -61,6 +61,20 @@ public static class Affects
     /// <summary>Quanto da mana máxima o Controle de Mana passa para a vida máxima, enquanto dura.</summary>
     public const int ManaControlPercent = 30;
     public const int SecondsPerUnit = 8;
+
+    /// <summary>Vida máxima que a Troca de Espírito soma além da mana transferida.</summary>
+    public const int SpiritChangeHp = 750;
+
+    /// <summary>
+    /// Quanto da mana máxima a Troca de Espírito (efeito 38) passa para a vida máxima, como o client (0x55C65B):
+    /// mana / 4 (evoluído) ou / 8 (Mortal), mais (Especial 3 + nível) / 4; o bit 30 das skills aprendidas soma 400
+    /// ao nível.
+    /// </summary>
+    public static int SpiritChangeMoved(int maxMp, int special3, int level, uint learnedSkill, bool evolved)
+    {
+        if ((learnedSkill & (1u << 30)) != 0) level += 400;
+        return (evolved ? maxMp / 4 : maxMp / 8) + (special3 + level) / 4;
+    }
 
     /// <summary>
     /// O efeito que a skill dá, ou null se ela não dá nenhum. A duração é o AffectTime (em unidades de 8 s) mais
@@ -145,6 +159,7 @@ public static class Affects
     {
         int damage = 0, ac = 0, magic = 0, speed = 0, dodge = 0, regen = 0;
         int manaToHp = 0, attackSpeed = 0;
+        bool spiritChange = false;
         foreach (var a in c.Affects)
         {
             switch (a.Type)
@@ -173,6 +188,9 @@ public static class Affects
                     break;
                 // Como no client (0x55AEE8 e 0x55B110): lentidão tira 30 da velocidade de ataque, congelar
                 // tira valor/10 + 10.
+                case AffectType.SpiritChange:
+                    spiritChange = true;
+                    break;
                 case AffectType.Slow:
                     attackSpeed -= 30;
                     break;
@@ -181,6 +199,6 @@ public static class Affects
                     break;
             }
         }
-        return new AffectBonus(damage, ac, magic, speed, Math.Min(dodge, 50), regen, manaToHp, attackSpeed);
+        return new AffectBonus(damage, ac, magic, speed, Math.Min(dodge, 50), regen, manaToHp, attackSpeed, spiritChange);
     }
 }
