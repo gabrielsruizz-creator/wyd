@@ -9,9 +9,10 @@ namespace WYD.Server.Tools;
 /// acima de +12 a conta cai no efeito do Grade seguinte, por isso as armas +13 a +15 (ancient ou não) soltam o
 /// efeito errado. A correção troca as quatro somas (mão direita e esquerda, nos dois caminhos) por uma chamada que
 /// soma no máximo 12. O nome e a refinação do item continuam os de verdade.</item>
-/// <item>Cada item ocupa 1 slot no inventário. O tamanho vem do efeito 33 do item, que escolhe um dos 8 pares
-/// largura × altura da tabela em 0x5C88F4 (1×1 a 2×4); o client usa a mesma tabela no ícone, na busca de slot livre
-/// e no encaixe. A correção põe 1×1 nos 8.</item>
+/// <item>Cada item ocupa 1 slot no inventário. O tamanho vem do efeito 33 do item (0 a 7), que escolhe um dos 8
+/// pares largura × altura da tabela em 0x5C88F4 (1×1 a 2×4; ícone, busca de slot livre e encaixe) e uma das 8
+/// máscaras de 2 colunas × 4 linhas em 0x5C8934 (quais slots ficam ocupados, no inventário e no baú, 0x55D797).
+/// A correção põe 1×1 nos 8 pares e só o primeiro quadrado nas 8 máscaras.</item>
 /// </list>
 /// Cada correção só é aplicada se os bytes forem os do client 7.54 conhecido; as que já estão aplicadas ficam.
 /// </summary>
@@ -38,6 +39,21 @@ public static class ClientPatcher
     /// <summary>Tabela {int largura, int altura}[8] do tamanho dos itens no inventário (na .data).</summary>
     private const uint GridTable = 0x5C88F4;
     private static readonly (int W, int H)[] OriginalGrid = [(1, 1), (1, 2), (1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)];
+
+    /// <summary>Máscaras byte[2 colunas × 4 linhas][8] dos slots que cada tamanho ocupa (na .data).</summary>
+    private const uint ShapeTable = 0x5C8934;
+    private static readonly byte[] OriginalShapes = Convert.FromHexString(
+        "0100000000000000" + "0100010000000000" + "0100010001000000" + "0100010001000100" +
+        "0101000000000000" + "0101010100000000" + "0101010101010000" + "0101010101010101");
+    private static byte[] OneSlotShapes =>
+        Enumerable.Range(0, 8).SelectMany(_ => new byte[] { 1, 0, 0, 0, 0, 0, 0, 0 }).ToArray();
+
+    /// <summary>Trocas de dados na .data: endereço, bytes do client conhecido, bytes corrigidos.</summary>
+    private static (uint Va, byte[] Original, byte[] Patched)[] DataPatches =>
+    [
+        (GridTable, Grid(OriginalGrid), OneSlotGrid),
+        (ShapeTable, OriginalShapes, OneSlotShapes),
+    ];
 
     private static byte[] Original(byte field) => [0x02, 0x82, field, 0x01, 0x00, 0x00];
 
@@ -75,14 +91,16 @@ public static class ClientPatcher
         if (!TrySection(exe, ".text", out var text) || !TrySection(exe, ".data", out var data)) return Result.Unknown;
 
         var weapon = WeaponState(exe, text);
-        var grid = data.Matches(exe, GridTable, OneSlotGrid) ? State.Patched
-            : data.Matches(exe, GridTable, Grid(OriginalGrid)) ? State.Original
-            : State.Unknown;
-        if (weapon == State.Unknown || grid == State.Unknown) return Result.Unknown;
-        if (weapon == State.Patched && grid == State.Patched) return Result.AlreadyPatched;
+        var tables = DataPatches.Select(p =>
+            (p.Va, p.Patched, State: data.Matches(exe, p.Va, p.Patched) ? State.Patched
+                : data.Matches(exe, p.Va, p.Original) ? State.Original
+                : State.Unknown)).ToList();
+        if (weapon == State.Unknown || tables.Any(t => t.State == State.Unknown)) return Result.Unknown;
+        if (weapon == State.Patched && tables.All(t => t.State == State.Patched)) return Result.AlreadyPatched;
 
         if (weapon == State.Original) PatchWeapon(exe, text);
-        if (grid == State.Original) OneSlotGrid.CopyTo(exe, data.Offset(GridTable));
+        foreach (var t in tables.Where(t => t.State == State.Original))
+            t.Patched.CopyTo(exe, data.Offset(t.Va));
         return Result.Patched;
     }
 

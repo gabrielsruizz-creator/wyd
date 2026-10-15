@@ -522,11 +522,19 @@ public class ToolTests
         int[] grid = [1, 1, 1, 2, 1, 3, 1, 4, 2, 1, 2, 2, 2, 3, 2, 4];
         for (int i = 0; i < grid.Length; i++)
             BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(GridOffset + i * 4), grid[i]);
+        OriginalShapes.CopyTo(exe, ShapeOffset);
         return exe;
     }
 
     /// <summary>Posição no arquivo da tabela de tamanho dos itens (0x5C88F4 na .data).</summary>
     private const int GridOffset = 0x5C88F4 - 0x5BB000 + 0x1BB000;
+
+    /// <summary>Posição no arquivo das máscaras de slots ocupados (0x5C8934 na .data), 2 colunas × 4 linhas.</summary>
+    private const int ShapeOffset = 0x5C8934 - 0x5BB000 + 0x1BB000;
+
+    private static readonly byte[] OriginalShapes = Convert.FromHexString(
+        "0100000000000000" + "0100010000000000" + "0100010001000000" + "0100010001000100" +
+        "0101000000000000" + "0101010100000000" + "0101010101010000" + "0101010101010101");
 
     private static int[] GridOf(byte[] exe) =>
         Enumerable.Range(0, 16).Select(i => BinaryPrimitives.ReadInt32LittleEndian(exe.AsSpan(GridOffset + i * 4))).ToArray();
@@ -551,8 +559,10 @@ public class ToolTests
         Assert.Equal(0x8D, exe[0x5AC860 - 0x400000 + 4]);
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 0xE0 + 8)) >= 0x5AC860 + 22 - 0x401000);
 
-        // Todo item ocupa 1 slot: os 8 tamanhos viram 1x1.
+        // Todo item ocupa 1 slot: os 8 tamanhos viram 1x1 e as 8 máscaras marcam só o primeiro quadrado.
         Assert.All(GridOf(exe), v => Assert.Equal(1, v));
+        for (int i = 0; i < 8; i++)
+            Assert.Equal(new byte[] { 1, 0, 0, 0, 0, 0, 0, 0 }, exe.AsSpan(ShapeOffset + i * 8, 8).ToArray());
 
         Assert.Equal(ClientPatcher.Result.AlreadyPatched, ClientPatcher.Patch(exe));
     }
@@ -570,6 +580,13 @@ public class ToolTests
         Assert.Equal(ClientPatcher.Result.Patched, ClientPatcher.Patch(exe));
         Assert.All(GridOf(exe), v => Assert.Equal(1, v));
         Assert.Equal(weaponFixed, exe.AsSpan(0x1000, 0x1AC000).ToArray());       // a .text não mudou de novo
+
+        // Client com a tabela de tamanhos já corrigida, mas não as máscaras (o WYD.exe da versão anterior).
+        OriginalShapes.CopyTo(exe, ShapeOffset);
+        Assert.Equal(ClientPatcher.Result.Patched, ClientPatcher.Patch(exe));
+        Assert.Equal(1, exe[ShapeOffset + 8 * 7]);
+        Assert.Equal(0, exe[ShapeOffset + 8 * 7 + 1]);
+        Assert.Equal(ClientPatcher.Result.AlreadyPatched, ClientPatcher.Patch(exe));
     }
 
     [Fact]

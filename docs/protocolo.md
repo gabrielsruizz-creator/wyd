@@ -449,5 +449,8 @@ int slot, int rotação, short X, short Y) ao arrastar um item para fora; o serv
 
 O efeito 33 do item (0 a 7) escolhe um par largura × altura na tabela `{int, int}[8]` em 0x5C88F4 (na `.data`):
 1×1, 1×2, 1×3, 1×4, 2×1, 2×2, 2×3, 2×4. O client usa a mesma tabela no ícone (0x40C916), na busca de slot livre
-ao pegar item (0x52318D) e no encaixe da grade (0x4230F6, 0x423605). O `patch-client` põe 1×1 nos 8: todo item
-ocupa 1 slot (o slot de um item é sempre linha × 9 + coluna).
+ao pegar item (0x52318D) e no encaixe da grade (0x4230F6, 0x423605). Os slots ocupados vêm de outra tabela, de
+máscaras `byte[8]` (2 colunas × 4 linhas) em 0x5C8934, uma por tamanho, que o client percorre para montar o mapa do
+inventário (64 slots) e do baú (128) em 0x55D797/0x55D9B4. O `patch-client` põe 1×1 nos 8 pares e só o primeiro
+quadrado nas 8 máscaras: todo item ocupa 1 slot (o slot de um item é sempre linha × 9 + coluna; o inventário tem
+63, 9 × 7).
