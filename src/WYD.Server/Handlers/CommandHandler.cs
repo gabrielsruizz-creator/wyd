@@ -22,8 +22,11 @@ public sealed class CommandHandler(
     Game.TeleportTable teleports,
     ILogger<CommandHandler> logger)
 {
-    /// <summary>Inventário básico (sem bolsas): os slots que o client mostra.</summary>
-    public const int BasicInventorySlots = 30;
+    /// <summary>
+    /// Slots do inventário que o client 7.54 mostra: 63, numa grade de 9 colunas × 7 linhas (slot = linha × 9 +
+    /// coluna; o client limpa e redesenha os 63 em 0x537E67). O 7.54 não tem bolsas.
+    /// </summary>
+    public const int BasicInventorySlots = 63;
 
     /// <summary>Os comandos de GM com o que fazem, na ordem do /gm ajuda.</summary>
     public static readonly (string Usage, string Description)[] GmCommands =
