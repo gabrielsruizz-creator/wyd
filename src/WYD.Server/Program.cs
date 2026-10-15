@@ -36,6 +36,8 @@ public static class Program
                 return ToolCommands.ExtractExpTableCommand(exe);
             case ["patch-client", var exe]:
                 return ToolCommands.PatchClientCommand(exe);
+            case ["publish-client", var exe]:
+                return ToolCommands.PublishClientCommand(exe);
             case ["find-keytable", var clientFile, .. var options]:
                 return await ToolCommands.FindKeyTableAsync(
                     clientFile, int.Parse(OptionValue(options, "--port") ?? "8281"), OptionValue(options, "--status"));
@@ -95,6 +97,7 @@ public static class Program
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
                       WYD.Server patch-client <WYD.exe>             corrige o efeito das armas +13 a +15 no client
+                      WYD.Server publish-client <WYD.exe>           põe o WYD.exe corrigido em data/patch para o launcher baixar
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
                 return 2;

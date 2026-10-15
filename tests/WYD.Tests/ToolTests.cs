@@ -516,4 +516,50 @@ public class ToolTests
         Assert.Equal(before, exe);
         Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(new byte[100]));
     }
+
+    [Fact]
+    public void Launcher_list_gets_a_new_version_for_each_publish()
+    {
+        var (first, v1) = LauncherPatch.Publish(null, "WYD.EXE");
+        Assert.Equal(7542, v1);
+        Assert.Equal("[WYD]\n7000 notice.txt\n7542 WYD.EXE\n", first);
+
+        // Publicar de novo troca a linha antiga; as outras entradas e o NOTICE ficam.
+        var (second, v2) = LauncherPatch.Publish(
+            "[WYD]\r\n7000 notice.txt\r\n7542 WYD.EXE serverlist.bin\r\n\r\nNOTICE 598 368 http://x/n.htm\r\n", "wyd.exe");
+        Assert.Equal(7543, v2);
+        Assert.Equal("[WYD]\n7000 notice.txt\n7542 serverlist.bin\n7543 wyd.exe\nNOTICE 598 368 http://x/n.htm\n", second);
+    }
+
+    [Fact]
+    public async Task Status_server_hands_patch_files_to_the_launcher()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "wyd-patch-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(folder, "WYD.EXE"), [1, 2, 3, 4]);
+            var logs = new List<string>();
+            var server = new StatusHttpServer(0, () => "9\n", logs.Add, folder);
+            var listener = server.Start()!;
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            using var cts = new CancellationTokenSource();
+            var run = server.RunAsync(listener, cts.Token);
+
+            using var http = new HttpClient();
+            string root = $"http://127.0.0.1:{port}";
+            // Sem update1.htm na pasta, a lista vazia; o launcher pede sem a "/" do começo, mas o nome é o que conta.
+            Assert.Equal(LauncherPatch.DefaultList, await http.GetStringAsync($"{root}/patch/update1.htm"));
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, await http.GetByteArrayAsync($"{root}/patch/wyd.exe"));
+            Assert.Equal("9\n", await http.GetStringAsync($"{root}/serv00.asp"));
+            Assert.Equal("9\n", await http.GetStringAsync($"{root}/..%5CWYD.EXE"));
+            Assert.Contains(logs, l => l.Contains("baixou WYD.EXE (4 bytes)"));
+            cts.Cancel();
+            await run;
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
+        }
+    }
 }

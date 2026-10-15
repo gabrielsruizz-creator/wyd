@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WYD.Server.Config;
+using WYD.Server.Tools;
 
 namespace WYD.Server.Network;
 
@@ -12,18 +13,22 @@ namespace WYD.Server.Network;
 /// Responde as páginas de status (serv00.asp, serv01.asp…) que o client consulta na tela de servidores.
 /// Sem resposta, todos os canais aparecem "Inexistente." e o client se recusa a conectar.
 /// O corpo é uma lista de números, um por canal, com a quantidade de jogadores (-1 = canal desligado).
+/// Também entrega os arquivos da pasta de patch para o WYDLauncher (veja <see cref="LauncherPatch"/>), que só
+/// baixa pela porta 80.
 /// </summary>
 public sealed class StatusHttpServer
 {
     private readonly int _port;
     private readonly Func<string> _body;
     private readonly Action<string> _log;
+    private readonly string? _patchFolder;
 
-    public StatusHttpServer(int port, Func<string> body, Action<string> log)
+    public StatusHttpServer(int port, Func<string> body, Action<string> log, string? patchFolder = null)
     {
         _port = port;
         _body = body;
         _log = log;
+        _patchFolder = patchFolder;
     }
 
     /// <summary>Corpo padrão: o número de jogadores online repetido para cada canal, um por linha.</summary>
@@ -86,21 +91,43 @@ public sealed class StatusHttpServer
                 }
 
                 string firstLine = request.ToString().Split("\r\n")[0];
-                string body = _body();
-                _log($"Status pedido por {client.Client.RemoteEndPoint}: {firstLine}");
+                string target = firstLine.Split(' ') is [_, var t, ..] ? t : "/";
+                if (_patchFolder is not null && await PatchFileAsync(target, timeout.Token) is { } patch)
+                {
+                    timeout.CancelAfter(TimeSpan.FromMinutes(10)); // o WYD.EXE demora numa conexão lenta
+                    _log($"Launcher {client.Client.RemoteEndPoint} baixou {patch.Name} ({patch.Content.Length} bytes).");
+                    await SendAsync(stream, "application/octet-stream", patch.Content, timeout.Token);
+                    return;
+                }
 
-                var bodyBytes = Encoding.ASCII.GetBytes(body);
-                var header = Encoding.ASCII.GetBytes(
-                    "HTTP/1.1 200 OK\r\n" +
-                    "Content-Type: text/html\r\n" +
-                    $"Content-Length: {bodyBytes.Length}\r\n" +
-                    "Cache-Control: no-cache\r\n" +
-                    "Connection: close\r\n\r\n");
-                await stream.WriteAsync(header, timeout.Token);
-                await stream.WriteAsync(bodyBytes, timeout.Token);
+                _log($"Status pedido por {client.Client.RemoteEndPoint}: {firstLine}");
+                await SendAsync(stream, "text/html", Encoding.ASCII.GetBytes(_body()), timeout.Token);
             }
             catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException) { }
         }
+    }
+
+    /// <summary>O arquivo da pasta de patch; sem update1.htm lá, uma lista vazia (o launcher só abre o jogo).</summary>
+    private async Task<(string Name, byte[] Content)?> PatchFileAsync(string target, CancellationToken token)
+    {
+        if (LauncherPatch.Find(_patchFolder!, target) is { } file)
+            return (Path.GetFileName(file), await File.ReadAllBytesAsync(file, token));
+        return LauncherPatch.IsList(target)
+            ? (LauncherPatch.ListName, Encoding.ASCII.GetBytes(LauncherPatch.DefaultList))
+            : null;
+    }
+
+    /// <summary>O launcher recusa resposta sem Content-Length (ou com 0).</summary>
+    private static async Task SendAsync(NetworkStream stream, string type, byte[] body, CancellationToken token)
+    {
+        var header = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\r\n" +
+            $"Content-Type: {type}\r\n" +
+            $"Content-Length: {body.Length}\r\n" +
+            "Cache-Control: no-cache\r\n" +
+            "Connection: close\r\n\r\n");
+        await stream.WriteAsync(header, token);
+        await stream.WriteAsync(body, token);
     }
 }
 
@@ -118,7 +145,8 @@ public sealed class StatusService(IOptions<ServerOptions> options, SessionManage
             () => string.IsNullOrEmpty(o.StatusBody)
                 ? StatusHttpServer.BuildBody(o.StatusChannels, sessions.Count)
                 : o.StatusBody.Replace("{online}", sessions.Count.ToString()).Replace("\\n", "\n"),
-            message => logger.LogInformation("{Message}", message));
+            message => logger.LogInformation("{Message}", message),
+            PathResolver.ResolveDirectory(o.PatchPath));
 
         var listener = server.Start();
         return listener is null ? Task.CompletedTask : server.RunAsync(listener, stoppingToken);

@@ -418,3 +418,17 @@ conta passa para o efeito do Grade seguinte, por isso armas +13 a +15 (ancient o
 comando `patch-client` troca as quatro somas (`add al, [edx+0x18C|0x18D]` em 0x524865, 0x524904, 0x52498C e
 0x524A0F) por uma chamada a um trecho novo no fim da `.text` (0x5AC840 e 0x5AC860) que soma no máximo 12. O nome e
 a refinação do item não mudam.
+
+## WYDLauncher
+
+O launcher lê o endereço de patch na primeira linha do `Settings.txt` (o resto do arquivo são os textos da janela) e
+baixa `endereço + update1.htm` com `InternetOpenUrlA` (até 8 KB; o launcher grava a cópia em `update.dat`). A
+resposta precisa começar com `[WYD]`; cada linha seguinte é `versão arquivo [arquivo...]` (versão abaixo de 1000 é
+multiplicada por 10). A primeira linha é a versão mínima: se o `[VERSION]` do `config.txt` for menor, o launcher
+manda baixar o jogo do site. Os arquivos das linhas com versão maior que a do `config.txt` são baixados de
+`endereço + arquivo` para a pasta do jogo (um `.zip` é extraído com os caminhos de dentro e apagado), e a versão
+salva no `config.txt` sobe junto. Uma linha `NOTICE largura altura url` troca a página mostrada na janela.
+
+Os arquivos são baixados com `InternetConnectA` na porta 80 fixa (o endereço é quebrado nas três primeiras `/`, sem
+ler porta) e `HttpOpenRequestA` com o caminho sem a `/` inicial. A resposta precisa ter status 200 e
+`Content-Length` maior que zero.

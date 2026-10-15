@@ -312,6 +312,38 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>
+    /// publish-client &lt;WYD.exe&gt;: põe uma cópia corrigida do WYD.exe em data/patch e uma versão nova no
+    /// update1.htm, para o WYDLauncher de cada jogador baixar na próxima vez que abrir.
+    /// </summary>
+    public static int PublishClientCommand(string exePath, string folder = "data/patch")
+    {
+        if (!File.Exists(exePath))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {exePath}");
+            return 1;
+        }
+
+        var exe = File.ReadAllBytes(exePath);
+        if (ClientPatcher.Patch(exe) == ClientPatcher.Result.Unknown)
+        {
+            Console.Error.WriteLine("Este não é o WYD.exe 7.54 conhecido (ou já foi modificado de outro jeito); nada foi publicado.");
+            return 1;
+        }
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "WYD.EXE"), exe);
+        string listPath = Path.Combine(folder, LauncherPatch.ListName);
+        var (list, version) = LauncherPatch.Publish(File.Exists(listPath) ? File.ReadAllText(listPath) : null, "WYD.EXE");
+        File.WriteAllText(listPath, list);
+
+        Console.WriteLine($"WYD.EXE corrigido publicado em {folder} como versão {version}.");
+        Console.WriteLine("Na pasta do jogo de cada jogador, a primeira linha do Settings.txt do launcher deve ser");
+        Console.WriteLine("  http://IP-DO-SERVIDOR/");
+        Console.WriteLine($"(com o servidor aberto; usa a porta 80, a mesma do status). O launcher baixa o WYD.EXE e o config.txt passa a {version}.");
+        return 0;
+    }
+
     private static void PrintStrings(string title, List<(int Offset, string Text)> strings)
     {
         Console.WriteLine(title);

@@ -47,6 +47,12 @@ public sealed class ServerOptions
     /// <summary>Resposta fixa da página de status, para testes ("{online}" vira o número de jogadores; "\n" quebra linha).</summary>
     public string StatusBody { get; set; } = "";
 
+    /// <summary>
+    /// Pasta com os arquivos que o WYDLauncher baixa pela porta do status (update1.htm, WYD.EXE...). O comando
+    /// publish-client monta. A primeira linha do Settings.txt do launcher precisa ser "http://ip-do-servidor/".
+    /// </summary>
+    public string PatchPath { get; set; } = "data/patch";
+
     /// <summary>Lista de itens do client (opcional): usada para conferir os itens criados por GMs.</summary>
     public string ItemListPath { get; set; } = "data/ItemList.bin";
 

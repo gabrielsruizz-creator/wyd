@@ -15,3 +15,5 @@ data/ExpTable*.txt
 data/kingdoms.txt
 data/teleports.txt
 data/npc-visual.txt
+# Arquivos que o launcher baixa (client corrigido)
+data/patch/

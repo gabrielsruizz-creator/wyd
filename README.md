@@ -118,14 +118,31 @@ dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.
 ```
 
 **4. Corrija o efeito das armas +13 a +15 no client** (opcional, mas sem isso a arma +13 ou mais solta o efeito
-do Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12):
+do Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12).
+
+No seu PC, direto no arquivo (o original fica em `WYD.exe.bak`):
 
 ```powershell
 dotnet run --project src\WYD.Server -- patch-client "C:\caminho\do\jogo\WYD.exe"
 ```
 
-O original fica em `WYD.exe.bak`. Para desfazer, apague o `WYD.exe` e renomeie o `.bak`. Nos outros PCs, copie o
-`WYD.exe` corrigido ou rode o mesmo comando.
+Para os jogadores receberem pelo WYDLauncher:
+
+```powershell
+dotnet run --project src\WYD.Server -- publish-client "C:\caminho\do\jogo\WYD.exe"
+```
+
+Isso põe o WYD.EXE corrigido e o `update1.htm` em `data/patch` (fora do repositório). Com o servidor aberto, o
+launcher baixa pela porta 80, a mesma do status dos canais. Em cada client, troque a **primeira linha** do
+`Settings.txt` (na pasta do jogo) pelo endereço do servidor, terminado em `/`:
+
+```
+http://127.0.0.1/
+```
+
+(o IP do servidor para quem joga de outro PC; o launcher não aceita outra porta). Ao abrir, o launcher baixa o
+WYD.EXE uma vez e o `[VERSION]` do `config.txt` sobe para a versão publicada. Cada `publish-client` cria uma versão
+nova, então rode de novo quando trocar o arquivo.
 
 **5. Inicie o servidor e entre no jogo:**
 
@@ -210,6 +227,7 @@ sobrescrever qualquer opção pela linha de comando, por exemplo `--Server:LogPa
 | `Server:StrictChecksum`        | `false`             | Derruba quem mandar pacote com checksum errado              |
 | `Server:StatusPort`            | `80`                | Porta das páginas de status dos canais (0 desliga)          |
 | `Server:StartX` / `StartY`     | `2100` / `2100`     | Onde os personagens novos começam                           |
+| `Server:PatchPath`             | `data/patch`        | Arquivos que o WYDLauncher baixa (`publish-client`)         |
 | `Server:ExpTablePath`          | `data/ExpTable.txt` | Experiência de cada nível (`extract-exptable`)              |
 | `Database:ConnectionString`    | `…Database=wyd…`    | Conexão com o MySQL                                         |
 
