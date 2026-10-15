@@ -6,13 +6,17 @@ namespace WYD.Server.Game;
 /// Criação do Arch no rei do reino: o Mortal no nível 400 equipa a Eternal Stone (slot 10) e o Sefirot (slot 11;
 /// 1760 TK, 1761 FM, 1762 BM, 1763 HT) e fala com o rei. Sem os dois equipados o client 7.54 nem manda o clique
 /// (0x45D86B). Nasce um personagem novo, com o mesmo nome, num slot livre da conta. O corpo é o da classe do Mortal e as skills
-/// são as da classe do Sefirot (dá para ter corpo de HT com skills de Foema). O Arch começa no nível 1, sem itens,
-/// com 528 pontos de atributo; o Mortal continua na conta, só sem o Sefirot.
+/// são as da classe do Sefirot (dá para ter corpo de HT com skills de Foema). O Arch começa no nível 1, só com a
+/// Cythera de Prata no elmo, com 528 pontos de atributo; o Mortal continua na conta, só sem o Sefirot.
 /// </summary>
 public static class Arch
 {
     /// <summary>Pontos de atributo com que o Arch nasce.</summary>
     public const short ScorePoints = 528;
+
+    /// <summary>Cythera de Prata (Silver_Circlet no ItemList), que o Arch já nasce usando no elmo.</summary>
+    public const short SilverCythera = 3500;
+    public const int HelmetSlot = 1;
 
     /// <summary>
     /// Rostos de Arch no ItemList: 6-9 Transknight, 16-19 Foema, 26-29 Beastmaster, 36-39 Hunter (malha 40). As
@@ -45,6 +49,7 @@ public static class Arch
         var arch = ClassTemplates.Create(mortal.AccountId, slot, mortal.Name, skills, x, y);
         arch.Equip[0] = new Item(Face(BodyOf(mortal), skills));
         arch.Evolution = Evolution.Arch;
+        arch.Equip[HelmetSlot] = new Item(SilverCythera);
         arch.ScoreBonus = ScorePoints;
         return arch;
     }

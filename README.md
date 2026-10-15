@@ -170,7 +170,7 @@ Rei Glantuar, e branca (ou sem capa) com qualquer um dos dois.
 **Arch:** o Mortal 400 equipa a Eternal Stone (slot 10) e o Sefirot da classe que o Arch vai ter (slot 11, ao lado)
 e fala com o rei; sem os dois equipados o client nem manda o clique. O Sefirot é gasto e a Eternal Stone fica. Nasce um personagem novo, com o mesmo
 nome, num slot livre da conta: corpo da classe do Mortal, skills da classe do Sefirot (ex.: corpo de HT com skills
-de Foema), nível 1, sem itens e com 528 pontos de atributo. O Mortal continua na conta e o client volta para a
+de Foema), nível 1, só com a Cythera de Prata (3500) no elmo e com 528 pontos de atributo. O Mortal continua na conta e o client volta para a
 seleção de personagens. Do Arch em diante o nível mínimo dos equipamentos não vale.
 | `/Fulano oi` | sussurra "oi" para o jogador Fulano |
 

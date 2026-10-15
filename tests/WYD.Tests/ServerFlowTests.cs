@@ -875,6 +875,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(Evolution.Arch, arch.Evolution);
             Assert.Equal(0, arch.BaseScore.Level);
             Assert.Equal(Arch.ScorePoints, arch.ScoreBonus);
+            Assert.Equal(Arch.SilverCythera, arch.Equip[Arch.HelmetSlot].Index);       // Cythera de Prata no elmo
 
             // Entrando com o Arch.
             await a.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(1).Skip(20).ToArray());
