@@ -186,17 +186,22 @@ public sealed class ItemHandler(
             return false;
         }
         var changed = target;
-        if (ancient is not null && ancient != effect)
+        if (ancient is not null)
         {
-            if (Game.Ancient.Variant(target.Index, catalog.List, effect) is { } index)
-                changed = changed with { Index = index };                // refinação e adicionais continuam
-            else if (!refined)
+            // Ancient: só troca pela cópia do grupo (a refinação fica como está; mexer nos bits da gema de um
+            // ancient +10 derrubava o client).
+            if (ancient != effect)
             {
-                await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
-                return false;
+                if (Game.Ancient.Variant(target.Index, catalog.List, effect) is not { } index)
+                {
+                    await session.SendMessageAsync("Este item não tem a versão com esse efeito.");
+                    return false;
+                }
+                changed = changed with { Index = index };
             }
         }
-        if (refined) changed = Game.Ancient.WithGem(changed, effect);
+        else if (refined)
+            changed = Game.Ancient.WithGem(changed, effect);
         if (changed.Index == target.Index && Game.Stats.RawSanc(changed) == Game.Stats.RawSanc(target))
         {
             await session.SendMessageAsync($"Este item já tem o efeito de {Game.Ancient.Name(effect)}.");

@@ -1106,7 +1106,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(2453, changed.ReadInt16());                                    // a cópia de Grade 7 (perfuração)
         Assert.Equal("Efeito trocado para Perfuração (+10%% com o item equipado).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
-        Assert.Equal(232, c.Inventory[1].Value1);                                   // +10 com a gema 2 (Coral) nos bits
+        Assert.Equal(230, c.Inventory[1].Value1);                                   // ancient: a refinação fica como estava
         Assert.Equal(10, Stats.Refine(c.Inventory[1]));
 
         // Item comum +11 (arma ou armadura): a gema vai para os bits da refinação, que o client usa no brilho.
