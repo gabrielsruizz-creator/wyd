@@ -1121,7 +1121,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var motion = await a.ReceiveAsync();
         Assert.Equal(Opcodes.Motion, motion.Type);                                  // comemora
         Assert.Equal(ServerPackets.MotionCheer, motion.ReadInt16());
-        Assert.Equal("Refinação bem-sucedida: +1 (100% de chance).", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("Refinação sucesso (100%)", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
         Assert.Equal(1, Stats.Refine(c.Inventory[1]));
 

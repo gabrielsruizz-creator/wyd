@@ -274,9 +274,7 @@ public sealed class ItemHandler(
 
         logger.LogInformation("[{Id}] {Name} refinou {Item} com {Material}: {Result} ({Chance}%).", session.Id, c.Name,
             Name(catalog.List![target.Index]!), name, success ? $"+{refine + 1}" : "falhou", chance);
-        string message = success
-            ? $"Refinação bem-sucedida: +{refine + 1} ({chance}% de chance)."
-            : $"A refinação falhou ({chance}% de chance). A próxima tentativa terá mais chance.";
+        string message = success ? $"Refinação sucesso ({chance}%)" : "Refinação falhou";
         await session.SendMessageAsync(message);   // faixa no alto da tela por 4 s, como o "LEVEL UP" (0x49A134)
         if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
         return true;
