@@ -444,3 +444,10 @@ O drop de cada monstro está nos 64 slots do `Carry` do arquivo de NPC (0x10C). 
 itens (101 a 104) marcam adicionais sorteados e saem do item. No 7.54 não existe item no chão: o que cai vai direto
 para o inventário de quem matou (0x182, inventário). O client ainda manda o `0x272` (largar, 32 bytes: int tipo,
 int slot, int rotação, short X, short Y) ao arrastar um item para fora; o servidor ignora e o item fica no slot.
+
+## Tamanho dos itens no inventário
+
+O efeito 33 do item (0 a 7) escolhe um par largura × altura na tabela `{int, int}[8]` em 0x5C88F4 (na `.data`):
+1×1, 1×2, 1×3, 1×4, 2×1, 2×2, 2×3, 2×4. O client usa a mesma tabela no ícone (0x40C916), na busca de slot livre
+ao pegar item (0x52318D) e no encaixe da grade (0x4230F6, 0x423605). O `patch-client` põe 1×1 nos 8: todo item
+ocupa 1 slot (o slot de um item é sempre linha × 9 + coluna).

@@ -495,12 +495,12 @@ public class ToolTests
     /// <summary>Um "WYD.exe" com o cabeçalho PE e a .text do client 7.54 e as quatro somas no lugar.</summary>
     private static byte[] FakeClient()
     {
-        var exe = new byte[0x1AD000];
+        var exe = new byte[0x1D5000];
         exe[0] = (byte)'M';
         exe[1] = (byte)'Z';
         BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(0x3C), 0x80);
         BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80), 0x4550);
-        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 6), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 6), 2);
         BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 20), 0xE0);
         BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 28), 0x400000);
         int h = 0x80 + 24 + 0xE0;
@@ -511,8 +511,25 @@ public class ToolTests
         BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(h + 20), 0x1000);
         foreach (var (va, field) in new[] { (0x524865, 0x8C), (0x524904, 0x8D), (0x52498C, 0x8C), (0x524A0F, 0x8D) })
             new byte[] { 0x02, 0x82, (byte)field, 0x01, 0x00, 0x00 }.CopyTo(exe, va - 0x400000);
+
+        // .data com a tabela de tamanho dos itens no inventário (1x1 a 2x4).
+        int d = h + 40;
+        ".data"u8.CopyTo(exe.AsSpan(d));
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(d + 8), 0xE09025);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(d + 12), 0x1BB000);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(d + 16), 0x1A000);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(d + 20), 0x1BB000);
+        int[] grid = [1, 1, 1, 2, 1, 3, 1, 4, 2, 1, 2, 2, 2, 3, 2, 4];
+        for (int i = 0; i < grid.Length; i++)
+            BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(GridOffset + i * 4), grid[i]);
         return exe;
     }
+
+    /// <summary>Posição no arquivo da tabela de tamanho dos itens (0x5C88F4 na .data).</summary>
+    private const int GridOffset = 0x5C88F4 - 0x5BB000 + 0x1BB000;
+
+    private static int[] GridOf(byte[] exe) =>
+        Enumerable.Range(0, 16).Select(i => BinaryPrimitives.ReadInt32LittleEndian(exe.AsSpan(GridOffset + i * 4))).ToArray();
 
     [Fact]
     public void Patches_client_weapon_effect_to_cap_refine_at_12()
@@ -534,7 +551,25 @@ public class ToolTests
         Assert.Equal(0x8D, exe[0x5AC860 - 0x400000 + 4]);
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 0xE0 + 8)) >= 0x5AC860 + 22 - 0x401000);
 
+        // Todo item ocupa 1 slot: os 8 tamanhos viram 1x1.
+        Assert.All(GridOf(exe), v => Assert.Equal(1, v));
+
         Assert.Equal(ClientPatcher.Result.AlreadyPatched, ClientPatcher.Patch(exe));
+    }
+
+    [Fact]
+    public void Client_with_only_the_weapon_fix_gets_the_one_slot_inventory()
+    {
+        var exe = FakeClient();
+        ClientPatcher.Patch(exe);
+        int[] original = [1, 1, 1, 2, 1, 3, 1, 4, 2, 1, 2, 2, 2, 3, 2, 4];
+        for (int i = 0; i < original.Length; i++)                               // como o WYD.exe corrigido antes
+            BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(GridOffset + i * 4), original[i]);
+        var weaponFixed = exe.AsSpan(0x1000, 0x1AC000).ToArray();
+
+        Assert.Equal(ClientPatcher.Result.Patched, ClientPatcher.Patch(exe));
+        Assert.All(GridOf(exe), v => Assert.Equal(1, v));
+        Assert.Equal(weaponFixed, exe.AsSpan(0x1000, 0x1AC000).ToArray());       // a .text não mudou de novo
     }
 
     [Fact]
@@ -545,6 +580,13 @@ public class ToolTests
         var before = (byte[])exe.Clone();
         Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(exe));
         Assert.Equal(before, exe);
+
+        // Tabela de tamanho diferente da conhecida: também não mexe em nada.
+        var other = FakeClient();
+        BinaryPrimitives.WriteInt32LittleEndian(other.AsSpan(GridOffset), 3);
+        var otherBefore = (byte[])other.Clone();
+        Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(other));
+        Assert.Equal(otherBefore, other);
         Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(new byte[100]));
     }
 

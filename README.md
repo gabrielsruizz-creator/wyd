@@ -121,8 +121,9 @@ O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir,
 dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.exe"
 ```
 
-**4. Corrija o efeito das armas +13 a +15 no client** (opcional, mas sem isso a arma +13 ou mais solta o efeito
-do Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12).
+**4. Corrija o client** (opcional): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
+Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12) e o inventário
+com cada item ocupando 1 slot (no original as botas ocupam 2×2, as armas até 2×4).
 
 No seu PC, direto no arquivo (o original fica em `WYD.exe.bak`):
 

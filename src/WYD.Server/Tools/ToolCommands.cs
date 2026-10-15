@@ -284,7 +284,7 @@ public static class ToolCommands
         return 0;
     }
 
-    /// <summary>patch-client &lt;WYD.exe&gt;: corrige o efeito das armas +13 a +15 (guarda o original em WYD.exe.bak).</summary>
+    /// <summary>patch-client &lt;WYD.exe&gt;: corrige o efeito das armas +13 a +15 e põe cada item em 1 slot (guarda o original em WYD.exe.bak).</summary>
     public static int PatchClientCommand(string exePath)
     {
         if (!File.Exists(exePath))
@@ -308,7 +308,7 @@ public static class ToolCommands
         if (!File.Exists(backup))
             File.Copy(exePath, backup);
         File.WriteAllBytes(exePath, exe);
-        Console.WriteLine($"WYD.exe corrigido: armas +13 a +15 usam o efeito do +12. Original guardado em {backup}.");
+        Console.WriteLine($"WYD.exe corrigido: armas +13 a +15 usam o efeito do +12 e cada item ocupa 1 slot no inventário. Original guardado em {backup}.");
         return 0;
     }
 
