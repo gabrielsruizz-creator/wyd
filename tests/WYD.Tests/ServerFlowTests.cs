@@ -665,6 +665,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(2, score.ReadInt16());          // nível (0 = nível 1 na tela)
             var hpMp = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateHpMp, hpMp.Type);
+            Assert.Equal(ServerPackets.LevelUpText, (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
             // O progresso ficou salvo e o monstro renasce (RespawnSeconds = 1 no teste).
             var saved = (await _store.ListByAccountAsync(account.Id))[0];
@@ -835,7 +836,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
                 (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
             await a.SendAsync(CommandPacket("gm", "nivel 400"));
-            for (int i = 0; i < 4; i++) await a.ReceiveAsync();
+            for (int i = 0; i < 5; i++) await a.ReceiveAsync();
 
             // Capa vermelha: este rei não evolui.
             me.Equip[Kingdoms.CapeSlot] = new Item(3192);
@@ -1283,6 +1284,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
 
         await a.SendAsync(CommandPacket("gm", "nivel 3"));     // tabela do teste: 100/200/300/400
+        Assert.Equal(Opcodes.Motion, (await a.ReceiveAsync()).Type);    // efeito de LEVEL UP, também para o Bruno
+        Assert.Equal(Opcodes.Motion, (await b.ReceiveAsync()).Type);
         var score = await a.ReceiveAsync();
         Assert.Equal(Opcodes.UpdateScore, score.Type);
         Assert.Equal(2, score.ReadInt16());
@@ -1291,7 +1294,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         etc.Skip(4);
         Assert.Equal(200, etc.ReadInt32());
         Assert.Equal(Opcodes.UpdateHpMp, (await a.ReceiveAsync()).Type);
-        Assert.Equal("Agora você está no nível 3.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.Equal("++++ LEVEL UP ++++ (nível 3)", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
         await a.SendAsync(CommandPacket("gm", "gold 123456"));
         var coin = await a.ReceiveAsync();

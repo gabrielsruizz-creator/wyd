@@ -176,6 +176,9 @@ public static class ServerPackets
     /// <summary>Parâmetro 3 do 0x36A: o client cria o efeito de subir de nível em cima do personagem (0x4D3E70).</summary>
     public const short MotionLevelUpEffect = 3;
 
+    /// <summary>Faixa do alto quando o personagem sobe de nível.</summary>
+    public const string LevelUpText = "++++ LEVEL UP ++++";
+
     /// <summary>Subiu de nível: comemora com o efeito de LEVEL UP.</summary>
     public static byte[] LevelUp(ushort id) => Motion(id, MotionCheer, MotionLevelUpEffect);
 

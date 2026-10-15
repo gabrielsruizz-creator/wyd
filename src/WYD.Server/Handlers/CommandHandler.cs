@@ -408,12 +408,20 @@ public sealed class CommandHandler(
             return;
         }
 
+        bool up = shown - 1 > character.BaseScore.Level;
         Game.Leveling.SetLevel(character, shown - 1, expTable.For(character.Evolution));
+        if (up)
+        {
+            var levelUp = ServerPackets.LevelUp(session.Id);
+            await session.SendAsync(levelUp);
+            foreach (var viewer in world.Viewers(session))
+                await viewer.SendAsync(levelUp);
+        }
         await SendProgressAsync(session);
         await characters.SaveProgressAsync(character);
 
         logger.LogInformation("[{Id}] GM '{Account}' colocou {Name} no nível {Level}.", session.Id, account.Username, character.Name, shown);
-        await session.SendMessageAsync($"Agora você está no nível {shown}.");
+        await session.SendMessageAsync(up ? $"{ServerPackets.LevelUpText} (nível {shown})" : $"Agora você está no nível {shown}.");
     }
 
     /// <summary>Ficha, experiência/pontos e vida/mana novas para o próprio jogador.</summary>
