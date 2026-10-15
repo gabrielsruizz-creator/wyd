@@ -265,11 +265,19 @@ public sealed class ItemHandler(
                 await viewer.SendAsync(update);
         }
 
+        // Comemora ou lamenta, para ele e para quem está vendo.
+        var motion = success ? ServerPackets.Motion(session.Id, ServerPackets.MotionCheer, 3) : ServerPackets.Motion(session.Id, ServerPackets.MotionSad, 0);
+        await session.SendAsync(motion);
+        foreach (var viewer in world.Viewers(session))
+            await viewer.SendAsync(motion);
+
         logger.LogInformation("[{Id}] {Name} refinou {Item} com {Material}: {Result} ({Chance}%).", session.Id, c.Name,
             Name(catalog.List![target.Index]!), name, success ? $"+{refine + 1}" : "falhou", chance);
-        await session.SendMessageAsync(success
+        string message = success
             ? $"Refinação bem-sucedida: +{refine + 1} ({chance}% de chance)."
-            : $"A refinação falhou ({chance}% de chance). A próxima tentativa terá mais chance.");
+            : $"A refinação falhou ({chance}% de chance). A próxima tentativa terá mais chance.";
+        await session.SendMessageAsync(message);
+        await session.SendAsync(ServerPackets.Whisper(session.Id, "Sistema", message));   // fica no chat (a caixa some rápido)
         if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
         return true;
     }

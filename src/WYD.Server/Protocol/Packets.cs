@@ -162,6 +162,16 @@ public static class ServerPackets
     /// <summary>Pacote só com o cabeçalho (os sinais de falha 0x119/0x11A/0x11B têm 12 bytes no 7.54).</summary>
     public static byte[] HeaderOnly(ushort type, ushort id = 0) => new PacketWriter(type, HeaderOnlySize, id).ToArray();
 
+    /// <summary>
+    /// 0x36A: o personagem <paramref name="id"/> faz uma animação (o client em 0x532FDF lê o movimento em 0x0C e o
+    /// parâmetro em 0x0E; o movimento 100 solta um efeito).
+    /// </summary>
+    public static byte[] Motion(ushort id, short motion, short parm) =>
+        new PacketWriter(Opcodes.Motion, 20, id).WriteInt16(motion).WriteInt16(parm).Skip(4).ToArray();
+
+    /// <summary>Animação de comemorar (refinação que passou) e de lamentar (que falhou).</summary>
+    public const short MotionCheer = 14, MotionSad = 15;
+
     /// <summary>0x3B4: na seleção de personagens, o client (0x4A69DF) solta um efeito em cima do personagem do slot.</summary>
     public static byte[] SelCharEffect(ushort id, int slot) => new PacketWriter(Opcodes.SelCharEffect, 16, id).WriteInt32(slot).ToArray();
 
