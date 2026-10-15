@@ -460,4 +460,60 @@ public class ToolTests
         Assert.Equal(0, Refining.Chance(Refining.WithRefine(armor, 9, 0), items, RefineMaterial.Laktorerium));
         Assert.Equal(0, Refining.Chance(new Item(1208), items, RefineMaterial.Laktorerium));
     }
+
+    /// <summary>Um "WYD.exe" com o cabeçalho PE e a .text do client 7.54 e as quatro somas no lugar.</summary>
+    private static byte[] FakeClient()
+    {
+        var exe = new byte[0x1AD000];
+        exe[0] = (byte)'M';
+        exe[1] = (byte)'Z';
+        BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(0x3C), 0x80);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80), 0x4550);
+        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 6), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 20), 0xE0);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 28), 0x400000);
+        int h = 0x80 + 24 + 0xE0;
+        ".text"u8.CopyTo(exe.AsSpan(h));
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(h + 8), 0x1AB83E);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(h + 12), 0x1000);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(h + 16), 0x1AC000);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(h + 20), 0x1000);
+        foreach (var (va, field) in new[] { (0x524865, 0x8C), (0x524904, 0x8D), (0x52498C, 0x8C), (0x524A0F, 0x8D) })
+            new byte[] { 0x02, 0x82, (byte)field, 0x01, 0x00, 0x00 }.CopyTo(exe, va - 0x400000);
+        return exe;
+    }
+
+    [Fact]
+    public void Patches_client_weapon_effect_to_cap_refine_at_12()
+    {
+        var exe = FakeClient();
+        Assert.Equal(ClientPatcher.Result.Patched, ClientPatcher.Patch(exe));
+
+        // Cada soma vira "call" para o código novo + nop.
+        int site = 0x524865 - 0x400000;
+        Assert.Equal(0xE8, exe[site]);
+        Assert.Equal(0x90, exe[site + 5]);
+        Assert.Equal(0x5AC840 - (0x524865 + 5), BinaryPrimitives.ReadInt32LittleEndian(exe.AsSpan(site + 1)));
+        int left = 0x524A0F - 0x400000;
+        Assert.Equal(0x5AC860 - (0x524A0F + 5), BinaryPrimitives.ReadInt32LittleEndian(exe.AsSpan(left + 1)));
+
+        // O código novo lê o mesmo campo e limita em 12; a .text passa a cobri-lo.
+        Assert.Equal(new byte[] { 0x51, 0x0F, 0xB6, 0x8A, 0x8C, 0x01, 0x00, 0x00, 0x83, 0xF9, 12 },
+            exe.AsSpan(0x5AC840 - 0x400000, 11).ToArray());
+        Assert.Equal(0x8D, exe[0x5AC860 - 0x400000 + 4]);
+        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 0xE0 + 8)) >= 0x5AC860 + 22 - 0x401000);
+
+        Assert.Equal(ClientPatcher.Result.AlreadyPatched, ClientPatcher.Patch(exe));
+    }
+
+    [Fact]
+    public void Does_not_patch_an_unknown_client()
+    {
+        var exe = FakeClient();
+        exe[0x52498C - 0x400000] = 0x03;
+        var before = (byte[])exe.Clone();
+        Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(exe));
+        Assert.Equal(before, exe);
+        Assert.Equal(ClientPatcher.Result.Unknown, ClientPatcher.Patch(new byte[100]));
+    }
 }

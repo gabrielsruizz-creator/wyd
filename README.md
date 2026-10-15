@@ -117,7 +117,17 @@ O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir,
 dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.exe"
 ```
 
-**4. Inicie o servidor e entre no jogo:**
+**4. Corrija o efeito das armas +13 a +15 no client** (opcional, mas sem isso a arma +13 ou mais solta o efeito
+do Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12):
+
+```powershell
+dotnet run --project src\WYD.Server -- patch-client "C:\caminho\do\jogo\WYD.exe"
+```
+
+O original fica em `WYD.exe.bak`. Para desfazer, apague o `WYD.exe` e renomeie o `.bak`. Nos outros PCs, copie o
+`WYD.exe` corrigido ou rode o mesmo comando.
+
+**5. Inicie o servidor e entre no jogo:**
 
 ```powershell
 dotnet run --project src\WYD.Server -- --Server:LogPackets=true

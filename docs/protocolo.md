@@ -410,3 +410,11 @@ o servidor troca tudo pelo Sefirot da classe do mestre: 1760 TK, 1761 FM, 1762 B
 O client 7.54 fecha (uns segundos depois) ao desenhar um NPC com um item que não existe no ItemList dele. Os
 arquivos de NPC do servidor 7.56 têm alguns: o Black Oracle e o Red Oracle dos castelos (item 13 no elmo) e o
 Argus de Noatun (rosto 348). Por isso o servidor troca por 0, no `0x364`, todo item de NPC vazio no ItemList.
+
+## Efeito da arma acima de +12
+
+O client escolhe o efeito da arma como `Grade (offset 138 da ItemList) * 13 + refinação` (0x52482A). Acima de +12 a
+conta passa para o efeito do Grade seguinte, por isso armas +13 a +15 (ancient ou não) soltam o efeito errado. O
+comando `patch-client` troca as quatro somas (`add al, [edx+0x18C|0x18D]` em 0x524865, 0x524904, 0x52498C e
+0x524A0F) por uma chamada a um trecho novo no fim da `.text` (0x5AC840 e 0x5AC860) que soma no máximo 12. O nome e
+a refinação do item não mudam.

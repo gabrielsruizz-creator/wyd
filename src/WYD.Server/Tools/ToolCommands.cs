@@ -284,6 +284,34 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>patch-client &lt;WYD.exe&gt;: corrige o efeito das armas +13 a +15 (guarda o original em WYD.exe.bak).</summary>
+    public static int PatchClientCommand(string exePath)
+    {
+        if (!File.Exists(exePath))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {exePath}");
+            return 1;
+        }
+
+        var exe = File.ReadAllBytes(exePath);
+        switch (ClientPatcher.Patch(exe))
+        {
+            case ClientPatcher.Result.AlreadyPatched:
+                Console.WriteLine("Este WYD.exe já está corrigido.");
+                return 0;
+            case ClientPatcher.Result.Unknown:
+                Console.Error.WriteLine("Este não é o WYD.exe 7.54 conhecido (ou já foi modificado de outro jeito); nada foi alterado.");
+                return 1;
+        }
+
+        string backup = exePath + ".bak";
+        if (!File.Exists(backup))
+            File.Copy(exePath, backup);
+        File.WriteAllBytes(exePath, exe);
+        Console.WriteLine($"WYD.exe corrigido: armas +13 a +15 usam o efeito do +12. Original guardado em {backup}.");
+        return 0;
+    }
+
     private static void PrintStrings(string title, List<(int Offset, string Text)> strings)
     {
         Console.WriteLine(title);
