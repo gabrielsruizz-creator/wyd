@@ -722,6 +722,7 @@ public sealed class World(
     public async Task AurasAsync(DateTime now)
     {
         var hits = new List<(ClientSession Session, byte[] Packet, int Damage)>();
+        var refresh = new List<(ClientSession To, byte[] Packet)>();
         lock (_lock)
         {
             foreach (var player in _players.Values)
@@ -731,6 +732,12 @@ public sealed class World(
                 var aura = c.Affects.FirstOrDefault(a => a.Type is AffectType.LightningStorm or AffectType.ElementalStream && a.Expires > now);
                 if (aura is null) continue;
                 c.NextAuraTick = now + AuraInterval;
+                // A ficha com o efeito de novo: se o client apagou a aura visual, ela volta (0x52D286).
+                var score = ServerPackets.UpdateScore(player.Id, c);
+                refresh.Add((player, score));
+                foreach (var viewer in _players.Values)
+                    if (viewer != player && _visible[viewer.Id].Contains(player.Id))
+                        refresh.Add((viewer, score));
                 var targets = MobsNear(c.PosX, c.PosY)
                     .Where(m => m.Alive && m.Attackable && _visible[player.Id].Contains(m.Id)
                                 && Math.Abs(m.X - c.PosX) <= AuraRange && Math.Abs(m.Y - c.PosY) <= AuraRange)
@@ -741,6 +748,7 @@ public sealed class World(
                     targets.Select(m => (m.Id, m.X, m.Y)).ToList()), damage));
             }
         }
+        await SendAllAsync(refresh);
         foreach (var (session, packet, damage) in hits)
             await AttackAsync(session, packet, damage);
     }
