@@ -190,7 +190,8 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm online` | lista quem está no jogo, com nível e posição |
 | `/gm aviso texto` | mensagem para todos os jogadores |
 | `/gm kick Fulano` | desconecta o jogador |
-| `/gm limpar` | esvazia o seu inventário |
+| `/gm limpar` | esvazia o seu inventário (os 64 slots) e redesenha todos os slots no client |
+| `/gm inventario` | lista os itens que o servidor tem no seu inventário, com linha e coluna |
 | `/gm npc` | lista os NPCs e monstros perto de você (id, nome, posição) |
 | `/gm npc remover <id\|nome>` | tira o NPC do mapa até reiniciar o servidor (para achar NPC que derruba o client) |
 | `/gm ajuda` | lista os comandos de GM no chat |

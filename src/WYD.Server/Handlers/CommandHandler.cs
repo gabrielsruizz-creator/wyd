@@ -48,7 +48,8 @@ public sealed class CommandHandler(
         ("/gm online", "lista quem está no jogo"),
         ("/gm aviso <texto>", "mensagem para todos os jogadores"),
         ("/gm kick <nome>", "desconecta o jogador"),
-        ("/gm limpar", "esvazia o seu inventário"),
+        ("/gm limpar", "esvazia o seu inventário (os 64 slots) e redesenha todos os slots no client"),
+        ("/gm inventario", "lista os itens que o servidor tem no seu inventário, com o slot (linha e coluna)"),
         ("/gm npc", "lista os NPCs e monstros perto de você (id, nome, posição)"),
         ("/gm npc remover <id|nome>", "tira o NPC do mapa até reiniciar o servidor (para achar NPC que derruba o client)"),
         ("/gm ajuda", "mostra esta lista"),
@@ -122,6 +123,7 @@ public sealed class CommandHandler(
             case "aviso": await NoticeAsync(session, args); break;
             case "kick": await KickAsync(session, args); break;
             case "limpar": await ClearInventoryAsync(session); break;
+            case "inventario" or "inv": await ListInventoryAsync(session); break;
             case "npc": await NpcCommandAsync(session, args); break;
             default:
                 await SystemLinesAsync(session, GmCommands.Select(c => $"{c.Usage} - {c.Description}"));
@@ -329,18 +331,37 @@ public sealed class CommandHandler(
         await session.SendMessageAsync($"{target.Character!.Name} foi desconectado.");
     }
 
-    /// <summary>/gm limpar: apaga os itens do inventário básico.</summary>
+    /// <summary>
+    /// /gm limpar: apaga todos os itens do inventário (os 64 do servidor) e manda todos os slots vazios ao client,
+    /// também os que o servidor já achava vazios, para sumir qualquer diferença entre o servidor e a tela.
+    /// </summary>
     private async Task ClearInventoryAsync(ClientSession session)
     {
         var c = session.Character!;
-        for (int slot = 0; slot < BasicInventorySlots; slot++)
+        int removed = c.Inventory.Count(i => !i.IsEmpty);
+        for (int slot = 0; slot < c.Inventory.Length; slot++)
         {
-            if (c.Inventory[slot].IsEmpty) continue;
             c.Inventory[slot] = default;
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, default));
         }
         await characters.SaveInventoryAsync(c.Id, c.Inventory);
-        await session.SendMessageAsync("Inventário limpo.");
+        await session.SendMessageAsync($"Inventário limpo ({removed} itens).");
+    }
+
+    /// <summary>/gm inventario: o que o servidor tem em cada slot do inventário (para achar item que não aparece).</summary>
+    private Task ListInventoryAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        var lines = new List<string>();
+        for (int slot = 0; slot < c.Inventory.Length; slot++)
+        {
+            var item = c.Inventory[slot];
+            if (item.IsEmpty) continue;
+            string name = catalog.List?[item.Index]?.Name ?? "?";
+            lines.Add($"slot {slot} (linha {slot / 9 + 1}, coluna {slot % 9 + 1}): {item.Index} {name}");
+        }
+        if (lines.Count == 0) lines.Add("Inventário vazio no servidor.");
+        return SystemLinesAsync(session, lines);
     }
 
     /// <summary>/gm item 905 ou /gm item 905 43 9 (índice e até 3 pares efeito/valor).</summary>
