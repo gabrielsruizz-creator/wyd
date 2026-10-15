@@ -1230,7 +1230,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             me.BaseScore.Mp = 5;
             await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
             await a.SendAsync(SkillPacket(1, 8, dummyId));
-            Assert.Equal(5, me.BaseScore.Mp);
+            Assert.True(me.BaseScore.Mp >= 5);                                          // não gastou (a regeneração pode somar)
         }
         finally
         {

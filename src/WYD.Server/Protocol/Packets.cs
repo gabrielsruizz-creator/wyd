@@ -150,6 +150,7 @@ public static class ServerPackets
     public const byte EmptySkill = 0xFF;
 
     /// <summary>0x101: caixa de mensagem na tela do client.</summary>
+    /// <summary>0x101: mensagem na faixa do alto da tela. O client só mostra com o id do cabeçalho 0 (0x499438).</summary>
     public static byte[] MessagePanel(string text, ushort id = 0) =>
         new PacketWriter(Opcodes.MessagePanel, MessagePanelSize, id)
             .WriteString(text, MessageLength)

@@ -77,7 +77,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 
 | Opcode  | Nome                | Tamanho | Conteúdo                                                                   | Situação |
 |---------|---------------------|--------:|----------------------------------------------------------------------------|----------|
-| `0x101` | MessagePanel        | 108     | `char Text[96]`                                                            | ✅ |
+| `0x101` | MessagePanel        | 108     | `char Text[96]`; id do cabeçalho tem de ser 0 (com outro id o client ignora, 0x499438); faixa no alto por 4 s | ✅ |
 | `0x10E` | AccountLoginOk      | 1824    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
 | `0x364` | CreateMob           | 176     | põe um jogador na tela (layout abaixo)                                     | ✅ |
 | `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | o mesmo pacote com o dano de cada alvo; `int Hold` (0x20) e `int ExpDoAtacante` (0x24) atualizam a barra de experiência | ✅ layout |

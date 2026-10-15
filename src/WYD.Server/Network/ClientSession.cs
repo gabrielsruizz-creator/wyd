@@ -180,7 +180,11 @@ public sealed class ClientSession
         }
     }
 
-    public Task SendMessageAsync(string text) => SendAsync(ServerPackets.MessagePanel(text, Id));
+    /// <summary>
+    /// Mensagem na faixa do alto da tela (4 s). O id do cabeçalho tem de ser 0: com outro id o client 7.54 ignora
+    /// o 0x101 (0x499438).
+    /// </summary>
+    public Task SendMessageAsync(string text) => SendAsync(ServerPackets.MessagePanel(text));
 
     /// <summary>Envia uma mensagem e fecha a conexão logo depois.</summary>
     public async Task KickAsync(string message)
