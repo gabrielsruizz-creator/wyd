@@ -307,6 +307,24 @@ public static class ServerPackets
 
     public const int AttackOneSize = 48;
 
+    /// <summary>
+    /// 0x36C de uma skill do jogador em vários alvos (até 13), como o client manda; o dano é preenchido pelo
+    /// servidor ao processar. Usado pelas auras (Trovão), que batem sozinhas.
+    /// </summary>
+    public static byte[] SkillHit(ushort attacker, short x, short y, short skill, IReadOnlyList<(ushort Id, short X, short Y)> targets)
+    {
+        var w = new PacketWriter(Opcodes.Attack, 96, attacker);
+        (ushort Id, short X, short Y) first = targets.Count > 0 ? targets[0] : (attacker, x, y);
+        w.WriteUInt16(attacker).WriteInt16(0)
+         .WriteInt16(x).WriteInt16(y).WriteInt16(first.X).WriteInt16(first.Y)
+         .WriteInt16(skill).WriteInt16(-1)
+         .WriteByte(0xFF).Skip(3)
+         .WriteInt32(0).WriteInt32(0).Skip(4);
+        foreach (var t in targets.Take(AttackLayout.MaxTargets)) w.WriteUInt16(t.Id).WriteInt16(0);
+        w.Skip(96 - w.Position);
+        return w.ToArray();
+    }
+
     /// <summary>O client guarda a experiência como número sem sinal de 32 bits (até 4.294.967.295).</summary>
     public static uint ClientExp(long exp) => (uint)Math.Clamp(exp, 0, uint.MaxValue);
 

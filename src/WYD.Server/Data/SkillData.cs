@@ -83,7 +83,7 @@ public sealed class SkillCatalog
         string path = PathResolver.Resolve(options.Value.SkillDataPath);
         if (!File.Exists(path))
         {
-            logger.LogInformation("Sem SkillData.bin em {Path}: aprender skills não gasta pontos de skill.", path);
+            logger.LogWarning("Sem SkillData.bin em {Path}: as skills não têm efeito (buffs, magias, auras) e aprender não gasta pontos. Copie a SkillData.bin do client para lá.", path);
             return;
         }
         try

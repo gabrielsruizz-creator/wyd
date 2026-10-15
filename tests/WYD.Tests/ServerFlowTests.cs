@@ -47,6 +47,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(8, 0, 1, 12, 15, 1, 1, 15),                // Charge: dano físico 15, 12 de mana
             new(27, 0, 2, 15, 2, 6, 6, 100),               // Heal: cura 100, 15 de mana
             new(11, 0, 0, 10, 0, 0, 0, 0, 13, 7, 12),      // Assault: efeito 13 (dano) valor 7 por 12 × 8 s
+            new(37, 0, 0, 75, 0, 0, 0, 0, 0, 0, 12, 22, 100), // Tempestade de Raios: aura (TickType 22) de 100
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -1127,6 +1128,54 @@ public sealed class ServerFlowTests : IAsyncLifetime
         after.Skip(0x2A - 12);
         Assert.Equal(0, after.ReadInt16());
         Assert.Equal(damage, me.CurrentScore.Damage);
+    }
+
+    [Fact]
+    public async Task Lightning_storm_hits_the_monsters_around()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(npcDir, "Boneco"), NpcDataTests.NpcFile("Boneco", 202, 1, 1_000_000));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Boneco", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            var me = await CharacterOf("jogadora");
+            me.Class = CharacterClass.Foema;
+            me.BaseScore.Mp = 100;
+            me.LearnedSkill |= 1u << (37 % 24);
+
+            await a.SendAsync(SkillPacket(1, 37, 1));
+            var score = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
+            score.Skip(0x2A - 12);
+            Assert.Equal((int)AffectType.LightningStorm, score.ReadInt16() >> 8);
+
+            // A aura bate sozinha no boneco ao lado, com o golpe da skill 37.
+            var hit = await ReceiveTypeAsync(a, Opcodes.Attack);
+            hit.Skip(0x18 - 12);
+            Assert.Equal(37, hit.ReadInt16());
+            hit.Skip(0x2C - 0x1A);
+            hit.Skip(2);
+            Assert.True(hit.ReadInt16() > 0);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
+    public void Mana_control_turns_part_of_the_mana_into_life()
+    {
+        var c = ClassTemplates.Create(1, 0, "Teste", CharacterClass.Foema, 2100, 2100);
+        c.BaseScore.MaxMp = 1000;
+        int hp = c.MaxHp, mp = c.MaxMp;
+        Affects.Apply(c, new Affect(AffectType.ManaControl, 0, 46, DateTime.UtcNow.AddMinutes(1)));
+        int moved = mp * Affects.ManaControlPercent / 100;
+        Assert.Equal(mp - moved, c.MaxMp);
+        Assert.Equal(hp + moved, c.MaxHp);
     }
 
     [Fact]

@@ -61,6 +61,9 @@ public sealed class Character
     /// <summary>Efeitos de skill ativos (buffs), até 16 (ver <see cref="Game.Affects"/>).</summary>
     public List<Affect> Affects { get; } = [];
 
+    /// <summary>Quando a aura de dano (Trovão) bate de novo.</summary>
+    public DateTime NextAuraTick { get; set; }
+
     /// <summary>
     /// Os atributos que valem no jogo, calculados como o client 7.54 (0x55A392): base mais equipamento; o dano
     /// soma FOR/3 + DES/8 + Especial 1 + nível (o dobro do nível para rostos evoluídos); CON e INT dão vida e mana;
@@ -89,6 +92,13 @@ public sealed class Character
             s.Damage += b.Damage + buff.Damage + s.Str / 3 + s.Dex / 8 + s.Special1 + levelBonus;
             s.MaxHp = Math.Clamp((s.MaxHp + b.MaxHp + s.Con * Points.HpPerCon) * (100 + b.HpPercent) / 100, 1, 64000);
             s.MaxMp = Math.Clamp((s.MaxMp + b.MaxMp + s.Int * Points.MpPerInt) * (100 + b.MpPercent) / 100, 0, 64000);
+            if (buff.ManaToHpPercent > 0)
+            {
+                // Controle de Mana: parte da mana máxima vira vida máxima enquanto dura.
+                int moved = s.MaxMp * buff.ManaToHpPercent / 100;
+                s.MaxMp -= moved;
+                s.MaxHp = Math.Min(64000, s.MaxHp + moved);
+            }
             s.Hp = Math.Min(s.Hp, s.MaxHp);
             s.Mp = Math.Min(s.Mp, s.MaxMp);
             return s;

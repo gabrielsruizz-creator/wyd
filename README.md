@@ -40,7 +40,9 @@ compatível com o protocolo do client das versões 7.54 e 7.56.
 - [x] Usar skills: dano físico, dano mágico e cura, gastando mana
 - [x] Buffs das skills (em si ou em aliado), com ícone e tempo no client: dano (Assault, Power Up, Magic Weapon, Growth,
       Weapon Mastery), defesa (Magic Shield, Transfer Armor), magia (Skill Amplify), velocidade (Haste), esquiva
-      (Dodge), Controle de Mana e Aura da Vida; os outros mostram o ícone, mas ainda não têm efeito
+      (Dodge), Controle de Mana (30% da mana máxima vira vida), Aura da Vida e as auras de dano (Tempestade de Raios,
+      Corrente Elemental, que batem nos monstros em volta a cada 2 s); os outros mostram o ícone, mas ainda não têm
+      efeito. Precisa da `data/SkillData.bin`
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam

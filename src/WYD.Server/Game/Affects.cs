@@ -46,7 +46,7 @@ public enum AffectType : byte
 public sealed record Affect(AffectType Type, int Amount, int Skill, DateTime Expires);
 
 /// <summary>O que os efeitos ativos somam aos atributos.</summary>
-public readonly record struct AffectBonus(int Damage, int Ac, int MagicPercent, int RunSpeed, int Dodge, int RegenHp, bool ManaShield);
+public readonly record struct AffectBonus(int Damage, int Ac, int MagicPercent, int RunSpeed, int Dodge, int RegenHp, int ManaToHpPercent);
 
 /// <summary>
 /// Efeitos (buffs) das skills. O client guarda até 16, cada um num short: tipo no byte de cima e o tempo que falta
@@ -56,6 +56,9 @@ public readonly record struct AffectBonus(int Damage, int Ac, int MagicPercent, 
 public static class Affects
 {
     public const int Max = 16;
+
+    /// <summary>Quanto da mana máxima o Controle de Mana passa para a vida máxima, enquanto dura.</summary>
+    public const int ManaControlPercent = 30;
     public const int SecondsPerUnit = 8;
 
     /// <summary>
@@ -101,7 +104,7 @@ public static class Affects
     public static AffectBonus Bonus(Character c)
     {
         int damage = 0, ac = 0, magic = 0, speed = 0, dodge = 0, regen = 0;
-        bool manaShield = false;
+        int manaToHp = 0;
         foreach (var a in c.Affects)
         {
             switch (a.Type)
@@ -126,10 +129,10 @@ public static class Affects
                     regen += a.Amount;
                     break;
                 case AffectType.ManaControl:
-                    manaShield = true;
+                    manaToHp = ManaControlPercent;
                     break;
             }
         }
-        return new AffectBonus(damage, ac, magic, speed, Math.Min(dodge, 50), regen, manaShield);
+        return new AffectBonus(damage, ac, magic, speed, Math.Min(dodge, 50), regen, manaToHp);
     }
 }

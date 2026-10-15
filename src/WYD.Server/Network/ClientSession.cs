@@ -64,6 +64,9 @@ public sealed class ClientSession
     /// <summary>Já avisou que o servidor está sem a tabela de experiência.</summary>
     public bool WarnedNoExpTable { get; set; }
 
+    /// <summary>Já avisou que o servidor está sem a SkillData.bin.</summary>
+    public bool WarnedNoSkillData { get; set; }
+
     /// <summary>Personagem em jogo (depois do 0x213).</summary>
     public Character? Character { get; set; }
     public bool IsClosed => Volatile.Read(ref _closed) != 0;

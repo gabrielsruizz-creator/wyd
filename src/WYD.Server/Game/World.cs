@@ -351,25 +351,27 @@ public sealed class World(
     /// Ataque do jogador (0x39D / 0x39E / 0x36C): calcula o dano em cada monstro alvo, devolve o pacote com os
     /// danos a todos que estão vendo e, se algum morrer, dá a experiência e tira o monstro do mapa até renascer.
     /// </summary>
-    public async Task AttackAsync(ClientSession session, byte[] packet)
+    public async Task AttackAsync(ClientSession session, byte[] packet, int? auraDamage = null)
     {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
         long exp;
         int levels;
-        bool castSpell = false, noExpTable = false;
+        bool castSpell = false, noExpTable = false, noSkillData = false;
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id) || IsDead(session.Character!)) return;
             var now = DateTime.UtcNow;
-            if (now - session.LastAttack < MinAttackInterval) return;
+            if (auraDamage is null && now - session.LastAttack < MinAttackInterval) return;
 
             var me = session.Character!;
 
             // Skill: número em 0x18 (-1 = ataque normal). Precisa ter aprendido e ter mana.
             short skill = System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.Skill));
             WYD.Server.Data.SkillDefinition? spell = null;
-            if (skill >= 0 && !SkillUse.IsRangedNormal(skill))
+            if (skill >= 0 && skillCatalog.Data is null && !session.WarnedNoSkillData)
+                noSkillData = session.WarnedNoSkillData = true;
+            if (auraDamage is null && skill >= 0 && !SkillUse.IsRangedNormal(skill))
             {
                 if (!SkillUse.CanUse(me, skill)) return;
                 spell = skillCatalog.Data?[skill];
@@ -378,7 +380,7 @@ public sealed class World(
                 me.BaseScore.Mp -= mana;
                 castSpell = mana > 0;
             }
-            session.LastAttack = now;
+            if (auraDamage is null) session.LastAttack = now;
 
             var mine = _visible[session.Id];
             var response = ServerPackets.Relay(packet, session.Id);
@@ -424,9 +426,11 @@ public sealed class World(
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
                     && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
                 {
-                    damage = (short)(spell is null
-                        ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
-                        : SkillUse.Damage(me, spell, skill, mob.Template.Score));
+                    damage = (short)(auraDamage is int aura
+                        ? Math.Clamp(aura - mob.Template.Score.Ac / 8, 1, short.MaxValue)       // aura (Trovão)
+                        : spell is null
+                            ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
+                            : SkillUse.Damage(me, spell, skill, mob.Template.Score));
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
@@ -486,6 +490,12 @@ public sealed class World(
         }
 
         await SendAllAsync(outgoing);
+        if (noSkillData)
+        {
+            logger.LogWarning("Sem SkillData.bin: as skills não têm efeito. Copie a SkillData.bin do client para a pasta data.");
+            await session.SendAsync(ServerPackets.Whisper(session.Id, "Sistema",
+                "Servidor sem data/SkillData.bin: as skills não têm efeito. Copie a SkillData.bin do client."));
+        }
         if (castSpell)
             await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, session.Character!.BaseScore.Hp, session.Character.BaseScore.Mp));
         if (killed.Count > 0)
@@ -562,13 +572,6 @@ public sealed class World(
                 int damage = Random.Shared.Next(100) < buff.Dodge
                     ? 0                                                       // esquiva (Dodge)
                     : Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
-                if (buff.ManaShield && damage > 0)
-                {
-                    // Controle de Mana: metade do dano sai da mana enquanto houver.
-                    int toMana = Math.Min(c.BaseScore.Mp, damage / 2);
-                    c.BaseScore.Mp -= toMana;
-                    damage -= toMana;
-                }
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
                 var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);
@@ -688,6 +691,42 @@ public sealed class World(
             }
         }
         return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Distância (em células) que as auras de dano (Trovão, Corrente Elemental) alcançam.</summary>
+    public const int AuraRange = 3;
+
+    /// <summary>A cada quanto tempo as auras de dano batem.</summary>
+    public static readonly TimeSpan AuraInterval = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Auras de dano (Tempestade de Raios, Corrente Elemental): enquanto o efeito dura, batem nos monstros em volta
+    /// a cada <see cref="AuraInterval"/>, com o golpe da skill (o client desenha o raio em cada alvo).
+    /// </summary>
+    public async Task AurasAsync(DateTime now)
+    {
+        var hits = new List<(ClientSession Session, byte[] Packet, int Damage)>();
+        lock (_lock)
+        {
+            foreach (var player in _players.Values)
+            {
+                var c = player.Character!;
+                if (IsDead(c) || c.NextAuraTick > now) continue;
+                var aura = c.Affects.FirstOrDefault(a => a.Type is AffectType.LightningStorm or AffectType.ElementalStream && a.Expires > now);
+                if (aura is null) continue;
+                c.NextAuraTick = now + AuraInterval;
+                var targets = MobsNear(c.PosX, c.PosY)
+                    .Where(m => m.Alive && m.Attackable && _visible[player.Id].Contains(m.Id)
+                                && Math.Abs(m.X - c.PosX) <= AuraRange && Math.Abs(m.Y - c.PosY) <= AuraRange)
+                    .Take(ServerPackets.AttackLayout.MaxTargets).ToList();
+                if (targets.Count == 0) continue;
+                int damage = aura.Amount + c.CurrentScore.Int / 4;
+                hits.Add((player, ServerPackets.SkillHit(player.Id, c.PosX, c.PosY, (short)aura.Skill,
+                    targets.Select(m => (m.Id, m.X, m.Y)).ToList()), damage));
+            }
+        }
+        foreach (var (session, packet, damage) in hits)
+            await AttackAsync(session, packet, damage);
     }
 
     /// <summary>Tira os buffs que acabaram e manda a ficha nova (sem o ícone) a quem perdeu algum.</summary>
