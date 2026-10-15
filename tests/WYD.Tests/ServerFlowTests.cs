@@ -847,11 +847,12 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // Capa azul sem Sefirot: o rei pede o Sefirot.
             me.Equip[Kingdoms.CapeSlot] = new Item(3191);
             await a.SendAsync(NpcClickPacket(kingId));
-            Assert.Equal("Traga o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.",
+            Assert.Equal("Equipe a Eternal Stone e o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.",
                 (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
 
             // Com o Sefirot de Foema: nasce o Arch (corpo de TK, skills de FM) no slot 1 e o client volta para a seleção.
-            me.Inventory[20] = new Item(1761);
+            me.Equip[Sefirot.EternalStoneSlot] = new Item(Sefirot.EternalStone);
+            me.Equip[Arch.SefirotEquipSlot] = new Item(1761);
             await a.SendAsync(NpcClickPacket(kingId));
             var used = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateItem, used.Type);
@@ -860,7 +861,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(Opcodes.CharacterLogoutOk, (await a.ReceiveAsync()).Type);
             Assert.Equal(Opcodes.CreateCharacterOk, (await a.ReceiveAsync()).Type);   // lista nova, com o Arch
 
-            Assert.True(me.Inventory[20].IsEmpty);
+            Assert.True(me.Equip[Arch.SefirotEquipSlot].IsEmpty);
+            Assert.Equal(Sefirot.EternalStone, me.Equip[Sefirot.EternalStoneSlot].Index);  // a Eternal Stone fica
             Assert.Equal(Evolution.Mortal, me.Evolution);                               // o Mortal continua
             var arch = (await _store.ListByAccountAsync(me.AccountId)).Single(x => x.Slot == 1);
             Assert.Equal("Alice", arch.Name);

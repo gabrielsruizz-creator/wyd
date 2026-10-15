@@ -263,7 +263,8 @@ e confere a receita ele mesmo. O `BlueOracle` vem vazio em alguns pacotes de dad
 recebeu no login (atualiza só a ficha e o equipamento do personagem que estava em jogo). Na seleção, um `0x110`
 com a lista completa redesenha os quatro personagens (0x4A6CD2): é assim que o Arch novo aparece.
 
-Arch: rostos 6-9 (Transknight), 16-19 (Foema), 26-29 (Beastmaster), 36-39 (Hunter); o servidor usa
+Para falar com o rei, o client de um Mortal exige a Eternal Stone (1742) no slot 10 e um Sefirot (1760-1763) no
+slot 11 (0x45D86B); sem isso o clique não manda nada. Arch: rostos 6-9 (Transknight), 16-19 (Foema), 26-29 (Beastmaster), 36-39 (Hunter); o servidor usa
 `10 × corpo + 6 + classe das skills`. O nome do personagem deixou de ser único no banco: dentro da mesma conta o
 Arch repete o nome do Mortal.
 

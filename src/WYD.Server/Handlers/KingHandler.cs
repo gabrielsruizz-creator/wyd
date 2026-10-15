@@ -78,10 +78,9 @@ public sealed class KingHandler(
     private async Task CreateArchAsync(ClientSession session)
     {
         var c = session.Character!;
-        int sefirot = Arch.SefirotSlot(c, CommandHandler.BasicInventorySlots);
-        if (sefirot < 0)
+        if (Arch.FindSefirot(c, CommandHandler.BasicInventorySlots) is not { } sefirot)
         {
-            await session.SendMessageAsync("Traga o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.");
+            await session.SendMessageAsync("Equipe a Eternal Stone e o Sefirot da classe que o Arch vai ter (as skills): TK, FM, BM ou HT.");
             return;
         }
         var slots = (await characters.ListByAccountAsync(c.AccountId)).Select(x => x.Slot).ToHashSet();
@@ -92,7 +91,8 @@ public sealed class KingHandler(
             return;
         }
 
-        var skills = Arch.SefirotClass(c.Inventory[sefirot]);
+        var place = sefirot.Equipped ? c.Equip : c.Inventory;
+        var skills = Arch.SefirotClass(place[sefirot.Slot]);
         var arch = Arch.Create(c, skills, free, (short)options.Value.StartX, (short)options.Value.StartY);
         if (!await characters.CreateAsync(arch))
         {
@@ -100,8 +100,9 @@ public sealed class KingHandler(
             return;
         }
 
-        c.Inventory[sefirot] = default;
-        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, sefirot, default));
+        place[sefirot.Slot] = default;
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id,
+            sefirot.Equipped ? ServerPackets.ItemPlace.Equip : ServerPackets.ItemPlace.Inventory, sefirot.Slot, default));
         await characters.SaveItemsAsync(c);
         logger.LogInformation("[{Id}] {Name} criou o Arch (corpo {Body}, skills {Skills}) no slot {Slot}.",
             session.Id, c.Name, Arch.BodyOf(c), skills, free);
