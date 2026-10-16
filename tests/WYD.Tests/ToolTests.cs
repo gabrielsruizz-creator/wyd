@@ -704,4 +704,39 @@ public class ToolTests
         Assert.Equal(before.MaxHp + moved + Affects.SpiritChangeHp, after.MaxHp);
         Assert.Equal(before.MaxMp - moved, after.MaxMp);
     }
+
+    [Fact]
+    public void Sephira_skills_use_the_high_bits_and_the_soul_raises_the_chosen_stats()
+    {
+        var c = new WYD.Server.Game.Character { Name = "Teste" };
+        Assert.Equal(25, Skills.Bit(97));                              // Conjure Cannon
+        Assert.Equal(30, Skills.Bit(Skills.SoulOfLimits));
+        Assert.Equal(1, Skills.Bit(25));                               // skill de classe: n % 24
+        Assert.Equal(97, Skills.SephiraOfUsable(32));                  // item 667
+        Assert.Equal(101, Skills.SephiraOfUsable(36));                 // item 671
+        Assert.Null(Skills.SephiraOfUsable(37));
+
+        Skills.Teach(c, 100);                                          // Concentration
+        Assert.True(Skills.Knows(c, 100));
+        Assert.True(SkillUse.CanUse(c, 100));                          // qualquer classe
+        Assert.False(SkillUse.CanUse(c, 101));
+
+        // Soul do Mortal na combinação 1 (FOR +40%, CON +30%) enquanto o buff dura.
+        c.BaseScore.Str = 100;
+        c.BaseScore.Con = 50;
+        c.BaseScore.Int = 70;
+        c.ItemBonus = new ItemBonus(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        Skills.Teach(c, Skills.SoulOfLimits);
+        Assert.Equal(100, c.CurrentScore.Str);                         // sem o buff, nada muda
+        c.Affects.Add(new Affect(AffectType.WeaponMastery, 0, Skills.SoulOfLimits, DateTime.UtcNow + Soul.Duration));
+        Assert.Equal(140, c.CurrentScore.Str);
+        Assert.Equal(65, c.CurrentScore.Con);
+        Assert.Equal(70, c.CurrentScore.Int);
+        Assert.Equal(0, Affects.Bonus(c).Damage);                      // não soma o dano da Maestria em Armas
+
+        c.SoulCombo = 8;                                               // INT +60%
+        Assert.Equal(112, c.CurrentScore.Int);
+        Assert.Equal("INT +120%", Soul.Describe(8, celestial: true));
+        Assert.Equal("FOR +40% e CON +30%", Soul.Describe(1, celestial: false));
+    }
 }

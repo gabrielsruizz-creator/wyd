@@ -72,6 +72,7 @@ public sealed class MySqlDatabase(IOptions<DatabaseOptions> options, ILogger<MyS
         ("characters", "learned_skill", "INT UNSIGNED NOT NULL DEFAULT 0"),
         ("characters", "skill_bar", "VARBINARY(20) NULL"),
         ("characters", "affects", "VARBINARY(192) NULL"),
+        ("characters", "soul_combo", "TINYINT UNSIGNED NOT NULL DEFAULT 1"),
         ("characters", "special1", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
         ("characters", "special2", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
         ("characters", "special3", "TINYINT UNSIGNED NOT NULL DEFAULT 0"),
@@ -186,6 +187,7 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
                 SpecialBonus = r.GetInt16("special_bonus"),
                 SkillBonus = r.GetInt16("skill_bonus"),
                 LearnedSkill = r.GetUInt32("learned_skill"),
+                SoulCombo = r.GetByte("soul_combo"),
                 SkillBar = Character.ReadSkillBar(r.IsDBNull(r.GetOrdinal("skill_bar")) ? null : (byte[])r["skill_bar"]),
                 Affects = Game.Affects.Deserialize(r.IsDBNull(r.GetOrdinal("affects")) ? null : (byte[])r["affects"], DateTime.UtcNow),
                 Equip = Item.FromBlob(r.IsDBNull(r.GetOrdinal("equip")) ? null : (byte[])r["equip"], GameConstants.MaxEquip),
@@ -327,7 +329,7 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await using var command = new MySqlCommand("""
             UPDATE characters SET exp = @exp, level = @level, coin = @coin, max_hp = @maxhp, max_mp = @maxmp,
                 hp = @hp, mp = @mp, score_bonus = @sb, special_bonus = @spb, skill_bonus = @skb, learned_skill = @ls,
-                skill_bar = @bar, affects = @aff, str = @str, `int` = @int, dex = @dex, con = @con,
+                soul_combo = @soul, skill_bar = @bar, affects = @aff, str = @str, `int` = @int, dex = @dex, con = @con,
                 special1 = @s1, special2 = @s2, special3 = @s3, special4 = @s4
             WHERE id = @id
             """, connection);
@@ -343,6 +345,7 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         command.Parameters.AddWithValue("@spb", c.SpecialBonus);
         command.Parameters.AddWithValue("@skb", c.SkillBonus);
         command.Parameters.AddWithValue("@ls", c.LearnedSkill);
+        command.Parameters.AddWithValue("@soul", c.SoulCombo);
         command.Parameters.AddWithValue("@bar", c.SkillBar);
         command.Parameters.AddWithValue("@aff", Game.Affects.Serialize(c, DateTime.UtcNow));
         command.Parameters.AddWithValue("@str", s.Str);

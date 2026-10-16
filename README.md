@@ -191,6 +191,8 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm aviso texto` | mensagem para todos os jogadores |
 | `/gm kick Fulano` | desconecta o jogador |
 | `/gm limpar` | esvazia o seu inventário (os 64 slots) e redesenha todos os slots no client |
+| `/gm soul` | dá a Soul (Limite da Alma) ao seu personagem Mortal |
+| `/gm soul <1-10>` | escolhe a combinação da Soul |
 | `/gm inventario` | lista os itens que o servidor tem no seu inventário, com linha e coluna |
 | `/gm npc` | lista os NPCs e monstros perto de você (id, nome, posição) |
 | `/gm npc remover <id\|nome>` | tira o NPC do mapa até reiniciar o servidor (para achar NPC que derruba o client) |

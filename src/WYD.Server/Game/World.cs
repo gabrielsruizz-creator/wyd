@@ -379,6 +379,11 @@ public sealed partial class World(
             if (auraDamage is null && skill >= 0 && !SkillUse.IsRangedNormal(skill))
             {
                 if (!SkillUse.CanUse(me, skill)) return;
+                if (skill == Skills.SoulOfLimits)
+                {
+                    if (now < me.SoulReadyAt) return;            // espera de 15 minutos entre um uso e outro
+                    me.SoulReadyAt = now + Soul.Cooldown;
+                }
                 spell = skillCatalog.Data?[skill];
                 int mana = spell is null ? 0 : SkillUse.ManaCost(spell, me.ItemBonus.SaveMana);
                 if (me.BaseScore.Mp < mana) return;

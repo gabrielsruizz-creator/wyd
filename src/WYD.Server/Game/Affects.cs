@@ -88,6 +88,7 @@ public static class Affects
         int units = Math.Clamp(Math.Max(1, spell.AffectTime) + special / 10, 1, 255);
         int baseValue = spell.AffectType != 0 ? spell.AffectValue : spell.TickValue;
         int amount = baseValue + baseValue * special / 50;
+        if (skill == Skills.SoulOfLimits) return new Affect((AffectType)type, amount, skill, now + Soul.Duration);
         return new Affect((AffectType)type, amount, skill, now.AddSeconds(units * SecondsPerUnit));
     }
 
@@ -164,6 +165,8 @@ public static class Affects
         {
             switch (a.Type)
             {
+                case AffectType.WeaponMastery when a.Skill == Skills.SoulOfLimits:
+                    break;                                   // Soul: o bônus vem da combinação (ver Soul)
                 case AffectType.PowerUp or AffectType.MagicWeapon or AffectType.Assault or AffectType.Growth
                     or AffectType.WeaponMastery:
                     damage += a.Amount * 5;

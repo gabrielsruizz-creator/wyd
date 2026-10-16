@@ -152,6 +152,22 @@ public sealed class ItemHandler(
                 return;
             }
         }
+        else if (Game.Skills.SephiraOfUsable(usable) is { } sephira)
+        {
+            // Livro de Sephira (667 a 671): ensina a skill, que aparece na aba Sephira.
+            if (Game.Skills.Knows(c, sephira))
+            {
+                await session.SendMessageAsync($"Você já sabe {Name(def)}.");
+                return;
+            }
+            Game.Skills.Teach(c, sephira);
+            Consume(place, srcPos);
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)srcType, srcPos, place[srcPos]));
+            await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));   // LearnedSkill novo
+            await session.SendMessageAsync($"Aprendeu {Name(def)}.");
+            try { await characters.SaveProgressAsync(c); }
+            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", c.Name); }
+        }
         else if (usable == UsablePotion)
         {
             c.BaseScore.Hp = Math.Min(c.MaxHp, c.BaseScore.Hp + Effect(def, EfHp));

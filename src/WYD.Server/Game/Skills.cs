@@ -17,7 +17,27 @@ public static class Skills
 
     public static int SkillOf(short item) => item - FirstSkillItem;
 
-    public static bool Knows(Character c, int skill) => (c.LearnedSkill & (1u << (skill % PerClass))) != 0;
+    /// <summary>
+    /// Skills de Sephira: 96 a 103 da SkillData, iguais para todas as classes, nos bits 24 a 31 do LearnedSkill
+    /// (97 Conjure Cannon, 98 Thorn Wall, 99 Resurrect, 100 Concentration, 101 Spectral Force, 102 Soul).
+    /// </summary>
+    public const int FirstSephira = 96, LastSephira = 103;
+
+    /// <summary>Soul (Limite da Alma): bit 30. O client trata rosto evoluído + esse bit como Celestial.</summary>
+    public const int SoulOfLimits = 102;
+
+    /// <summary>Uso (efeito 38) dos livros de Sephira no ItemList: 32 a 36 ensinam as skills 97 a 101 (itens 667 a 671).</summary>
+    public const short FirstSephiraUsable = 32, LastSephiraUsable = 36;
+
+    public static int? SephiraOfUsable(short usable) =>
+        usable is >= FirstSephiraUsable and <= LastSephiraUsable ? usable - FirstSephiraUsable + 97 : null;
+
+    /// <summary>Bit do LearnedSkill da skill: n % 24 nas da classe, 24 a 31 nas de Sephira.</summary>
+    public static int Bit(int skill) => skill >= FirstSephira ? skill - FirstSephira + 24 : skill % PerClass;
+
+    public static bool Knows(Character c, int skill) => (c.LearnedSkill & (1u << Bit(skill))) != 0;
+
+    public static void Teach(Character c, int skill) => c.LearnedSkill |= 1u << Bit(skill);
 
     /// <summary>Aprende a skill do item. Retorna a recusa, ou null se aprendeu.</summary>
     public static string? Learn(Character c, short item, ItemList? items, SkillData? skills)
@@ -48,7 +68,7 @@ public static class Skills
         if (c.SkillBonus < cost) return $"{name} custa {cost} pontos de skill (você tem {c.SkillBonus}).";
 
         c.SkillBonus -= (short)cost;
-        c.LearnedSkill |= 1u << (skill % PerClass);
+        Teach(c, skill);
         return null;
     }
 }
@@ -70,7 +90,9 @@ public static class SkillUse
     public static bool IsRangedNormal(int skill) => skill is >= 151 and <= 153;
 
     public static bool CanUse(Character c, int skill) =>
-        skill >= 0 && skill < Skills.PerClass * 4 && skill / Skills.PerClass == (int)c.Class && Skills.Knows(c, skill);
+        (skill >= 0 && skill < Skills.PerClass * 4 && skill / Skills.PerClass == (int)c.Class
+         || skill is >= Skills.FirstSephira and <= Skills.LastSephira)
+        && Skills.Knows(c, skill);
 
     /// <summary>Especial da árvore da skill: 1ª árvore = Especial 2, 2ª = Especial 3, 3ª = Especial 4.</summary>
     public static int TreeSpecial(Score s, int skill) => ((skill % Skills.PerClass) / 8) switch

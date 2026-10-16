@@ -473,3 +473,15 @@ máxima parte da mana máxima: mana / 4 se o rosto é evoluído (rosto % 10 > 5,
 (Especial 3 + nível) / 4, com 400 a mais no nível se o bit 30 das skills aprendidas estiver ligado; a vida máxima
 ganha ainda 750. Isso entra antes dos efeitos 45/46 (% de vida e mana). O Controle de Mana (efeito 18), no client,
 só liga uma flag (bit 0 em 0x55BC18).
+
+## Skills de Sephira e Soul
+
+As skills 96 a 103 da SkillData são as de Sephira, iguais para todas as classes, nos bits 24 a 31 do `LearnedSkill`
+(97 Conjure Cannon, 98 Thorn Wall, 99 Resurrect, 100 Concentration, 101 Spectral Force, 102 Soul of Limits). Os
+livros 667 a 671 têm uso (efeito 38) 32 a 36 e ensinam as skills 97 a 101. O client trata rosto evoluído + bit 30
+(Soul) como Celestial (0x5557AC): por isso o Celestial já tem a Soul e a Soul do NPC é só para o Mortal.
+
+A Soul (efeito 29, o mesmo da Maestria em Armas) aumenta os atributos da combinação escolhida em % deles mesmos
+(código oficial em 0x55BEE6, tabelas de salto 0x55CD36 e 0x55CD5E): combinações 1 FOR/CON, 2 INT/CON, 3 DES/CON,
+4 FOR/DES, 5 INT/DES, 6 CON/DES, 7 FOR, 8 INT, 9 CON, 10 DES; Celestial 80% + 60% (simples 120%), Mortal 40% + 30%
+(simples 60%). O servidor dá 400 s de buff e 15 minutos de espera.
