@@ -341,6 +341,14 @@ public sealed partial class World(
     }
 
     /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
+    /// <summary>Se há um monstro/NPC vivo que <paramref name="match"/> aceita a até <paramref name="distance"/> do personagem.</summary>
+    public bool HasMobNear(Character c, Func<Mob, bool> match, int distance)
+    {
+        lock (_lock)
+            return MobsNear(c.PosX, c.PosY).Any(m => m.Alive && match(m) &&
+                Math.Abs(m.X - c.PosX) <= distance && Math.Abs(m.Y - c.PosY) <= distance);
+    }
+
     public Mob? VisibleMob(ClientSession session, ushort mobId)
     {
         lock (_lock)

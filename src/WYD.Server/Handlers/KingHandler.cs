@@ -58,11 +58,6 @@ public sealed class KingHandler(
             await KibitaAsync(session);
             return;
         }
-        if (SoulQuest.IsEhre(npc.Template.Name))
-        {
-            await EhreAsync(session);
-            return;
-        }
 
         if (!npc.IsKing)
         {
@@ -155,25 +150,58 @@ public sealed class KingHandler(
     }
 
     /// <summary>Ehre: as 3 joias do inventário escolhem a combinação da Soul.</summary>
-    private async Task EhreAsync(ClientSession session)
+    /// <summary>
+    /// 0x2D3: OK na janela de combinação da Ehre. Os itens da janela têm de ser os dos slots do inventário que o
+    /// client diz; as 3 joias, na ordem da janela, escolhem a combinação da Soul. A janela fecha (0x3A7) sempre.
+    /// </summary>
+    public async Task HandleEhreCombineAsync(ClientSession session, PacketReader packet)
     {
         var c = session.Character!;
-        var (refusal, combo, changed) = SoulQuest.Configure(c, CommandHandler.BasicInventorySlots);
+        var items = new Item[EhreWindowSize];
+        for (int i = 0; i < items.Length; i++) items[i] = Item.ReadFrom(packet.ReadBytes(Item.Size));
+        var placed = new List<int>();
+        bool valid = true;
+        for (int i = 0; i < items.Length; i++)
+        {
+            int slot = (sbyte)packet.ReadByte();
+            if (slot < 0) continue;
+            if (slot >= CommandHandler.BasicInventorySlots || items[i].IsEmpty || c.Inventory[slot].Index != items[i].Index)
+                valid = false;
+            else placed.Add(slot);
+        }
+
+        string? refusal;
+        int combo = 0;
+        List<int> changed = [];
+        if (!valid) refusal = "Os itens da janela não conferem com o inventário.";
+        else if (!world.HasMobNear(c, m => SoulQuest.IsEhre(m.Template.Name), WorldHandler.ShopDistance))
+            refusal = "Chegue mais perto da Ehre.";
+        else (refusal, combo, changed) = SoulQuest.Configure(c, placed);
+
         if (refusal is not null)
         {
-            logger.LogInformation("[{Id}] Ehre recusou {Name}: {Refusal}", session.Id, c.Name, refusal);
+            logger.LogInformation("[{Id}] Ehre recusou {Name} (slots {Slots}): {Refusal}", session.Id, c.Name,
+                string.Join(", ", placed), refusal);
+            // Reenvia os slots: o client pode ter mexido neles ao montar a janela.
+            foreach (int slot in placed.Distinct())
+                await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+            await session.SendAsync(ServerPackets.CombineDone(session.Id));
             await session.SendMessageAsync(refusal);
             return;
         }
         foreach (int slot in changed)
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
         await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+        await session.SendAsync(ServerPackets.CombineDone(session.Id));
         await characters.SaveItemsAsync(c);
         await characters.SaveProgressAsync(c);
         bool celestial = c.Evolution >= Evolution.Celestial;
         logger.LogInformation("[{Id}] {Name} configurou a Soul na Ehre: {Combo}.", session.Id, c.Name, combo);
         await session.SendMessageAsync($"Soul: {Soul.Describe(combo, celestial)}");
     }
+
+    /// <summary>Itens na janela de combinação da Ehre.</summary>
+    private const int EhreWindowSize = 8;
 
     /// <summary>Mortal 400 com o Sefirot: nasce o Arch num slot livre e o client volta para a seleção de personagens.</summary>
     private async Task CreateArchAsync(ClientSession session)

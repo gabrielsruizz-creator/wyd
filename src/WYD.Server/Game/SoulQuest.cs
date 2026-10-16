@@ -10,8 +10,9 @@ namespace WYD.Server.Game;
 /// <item>Kibita: Mortal nível 371 ou mais, ou Arch de qualquer nível, com a Pedra Secreta da classe ganha a Soul (bit 30
 /// das skills) e o Manto do Herói do reino, e volta para a seleção de personagens. O client pergunta e manda o 0x28B
 /// (tipo 10). O Celestial já nasce com a Soul.</item>
-/// <item>Ehre: as 3 primeiras joias do inventário (Diamante, Esmeralda, Coral, Garnet), na ordem dos slots, escolhem a
-/// combinação da Soul. Ela não tem tipo no arquivo; o client a recebe com o tipo da pergunta (13) e manda o 0x28B.</item>
+/// <item>Ehre: 3 joias (Diamante, Esmeralda, Coral, Garnet) na janela de combinação dela, na ordem da janela,
+/// escolhem a combinação da Soul. Ela não tem tipo no arquivo; o client a recebe com o tipo 13, abre a janela de
+/// combinação e manda o 0x2D3 no OK.</item>
 /// </list>
 /// </summary>
 public static class SoulQuest
@@ -25,7 +26,7 @@ public static class SoulQuest
 
     public const short WaterStone = 5334, LandStone = 5335, SunStone = 5336, WindStone = 5337;
 
-    /// <summary>Tipo de NPC que o client recebe para a Ehre: o da pergunta, que manda o 0x28B.</summary>
+    /// <summary>Tipo de NPC que o client recebe para a Ehre (abre a janela de combinação dela).</summary>
     public const byte EhreClientMerchant = 13;
 
     public static bool IsKibita(Mob npc) => npc.Template.Name.Equals(KibitaName, StringComparison.OrdinalIgnoreCase);
@@ -162,24 +163,23 @@ public static class SoulQuest
     public static readonly string[] Recipes = ["DDD", "EEE", "CCC", "GGG", "DEC", "DCG", "ECG", "EDC", "CDC", "GDC"];
 
     /// <summary>
-    /// Ehre: as 3 primeiras joias do inventário escolhem a combinação. Retorna a recusa, ou null, a combinação e os slots
-    /// gastos.
+    /// Ehre: as joias postas na janela de combinação (os slots do inventário, na ordem da janela) escolhem a
+    /// combinação. Retorna a recusa, ou null, a combinação e os slots gastos. Um slot que aparece mais de uma vez
+    /// (joias empilhadas) gasta uma unidade por vez.
     /// </summary>
-    public static (string? Refusal, int Combo, List<int> Changed) Configure(Character c, int basicSlots)
+    public static (string? Refusal, int Combo, List<int> Changed) Configure(Character c, IReadOnlyList<int> slots)
     {
         if (!Skills.Knows(c, Skills.SoulOfLimits)) return ("Você ainda não tem a Soul (fale com a Kibita).", 0, []);
-        // Cada unidade conta (3 Diamantes empilhados num slot são "DDD").
-        var jewels = Enumerable.Range(0, basicSlots)
-            .Where(s => Jewel(c.Inventory[s].Index) is not null)
-            .SelectMany(s => Enumerable.Repeat((Slot: s, Jewel: Jewel(c.Inventory[s].Index)), Amount(c.Inventory[s])))
-            .Take(3).ToList();
-        string recipe = new(jewels.Select(x => x.Jewel!.Value).ToArray());
-        int combo = Array.IndexOf(Recipes, recipe) + 1;
-        if (jewels.Count < 3 || combo == 0)
-            return ("Coloque 3 joias no inventário, na ordem da combinação (Diamante, Esmeralda, Coral ou Garnet).", 0, []);
+        var jewels = slots.Select(s => Jewel(c.Inventory[s].Index)).ToList();
+        if (slots.Count != 3 || jewels.Any(j => j is null))
+            return ("Coloque 3 joias na ordem da combinação (Diamante, Esmeralda, Coral ou Garnet).", 0, []);
+        if (slots.GroupBy(s => s).Any(g => Amount(c.Inventory[g.Key]) < g.Count()))
+            return ("Faltam joias no inventário.", 0, []);
+        int combo = Array.IndexOf(Recipes, new string(jewels.Select(j => j!.Value).ToArray())) + 1;
+        if (combo == 0) return ("Essa combinação de joias não existe.", 0, []);
 
-        foreach (var (slot, _) in jewels) TakeOne(c, slot);
+        foreach (int slot in slots) TakeOne(c, slot);
         c.SoulCombo = (byte)combo;
-        return (null, combo, jewels.Select(x => x.Slot).Distinct().ToList());
+        return (null, combo, slots.Distinct().ToList());
     }
 }

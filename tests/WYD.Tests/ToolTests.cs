@@ -784,20 +784,28 @@ public class ToolTests
         Leveling.Evolve(cel, Evolution.Celestial);
         Assert.True(Skills.Knows(cel, Skills.SoulOfLimits));
 
-        // Ehre: Esmeralda, Diamante (2 empilhados... o primeiro conta), Coral = INT (combinação 8).
+        // Ehre: Esmeralda, Diamante, Coral na janela = INT (combinação 8).
         c.Inventory[40] = new Item(2442);
         c.Inventory[41] = new Item(2441);
         c.Inventory[42] = new Item(2443);
-        var (set, combo, used) = SoulQuest.Configure(c, 63);
+        var (set, combo, used) = SoulQuest.Configure(c, [40, 41, 42]);
         Assert.Null(set);
         Assert.Equal(8, combo);
         Assert.Equal(8, c.SoulCombo);
         Assert.Equal(3, used.Count);
         Assert.True(c.Inventory[40].IsEmpty && c.Inventory[41].IsEmpty && c.Inventory[42].IsEmpty);
 
-        // Três Diamantes empilhados num slot = Força e Cons (1).
+        // Receita que não existe, ou item que não é joia: nada é gasto.
+        c.Inventory[43] = new Item(2444);
+        c.Inventory[44] = new Item(2444);
+        c.Inventory[45] = new Item(2442);
+        Assert.NotNull(SoulQuest.Configure(c, [43, 44, 45]).Refusal);
+        Assert.NotNull(SoulQuest.Configure(c, [43, 44, 10]).Refusal);
+        Assert.Equal(2444, c.Inventory[43].Index);
+
+        // Três Diamantes empilhados num slot = Força e Cons (1); um slot com 1 só não vale por 3.
         c.Inventory[50] = new Item(2441) { Effect1 = 61, Value1 = 5 };
-        Assert.Equal(1, SoulQuest.Configure(c, 63).Combo);
+        Assert.Equal(1, SoulQuest.Configure(c, [50, 50, 50]).Combo);
         Assert.Equal(2, c.Inventory[50].Value1);
     }
 }

@@ -26,6 +26,7 @@ public static class Opcodes
     public const ushort AttackTwo = 0x39E;         // 2 alvos (52 bytes)
     public const ushort ApplyBonus = 0x277;        // 20 bytes: short Tipo (0 atributo, 1 especial, 2 skill), short Qual, short Extra (conferido no WYD.exe 7.54)
     public const ushort NpcTalk = 0x28E;           // 16 bytes: int IdDoNpc; clique em NPC de tipo 6 a 8 (Odin) (conferido no WYD.exe 7.54)
+    public const ushort EhreCombine = 0x2D3;       // 84 bytes: ITEM Item[8], sbyte SlotNoInventário[8] (-1 vazio); OK na janela de combinação da Ehre (conferido no WYD.exe 7.54)
     public const ushort NpcClick = 0x28B;          // 20 bytes: int IdDoNpc, int Confirma; NPCs que conversam (reis, quests) (conferido no WYD.exe 7.54)
     public const ushort Teleport = 0x290;          // 16 bytes: o client confirmou o teleporte num círculo (célula com a flag 0x10 no mapa) (conferido no WYD.exe 7.54)
     public const ushort Revive = 0x289;            // só o cabeçalho: o personagem morto pede para renascer (botão ou 3 minutos depois; conferido no WYD.exe 7.54)
@@ -54,6 +55,7 @@ public static class Opcodes
     public const ushort MobKill = 0x338;               // 24 bytes: int Hold, ushort Morto, ushort Matador, int ExpDoMatador (conferido no WYD.exe 7.54)
     public const ushort UpdateEtc = 0x337;             // 36 bytes: int Hold, int Exp, uint Skills, short Pontos[3], int Gold (conferido no WYD.exe 7.54)
     public const ushort UpdateScore = 0x336;           // 92 bytes: SCORE em 0x0C, ... (atributos depois de subir de nível)
+    public const ushort CombineDone = 0x3A7;           // só o cabeçalho: fecha as janelas de combinação (Ehre e outras) (conferido no WYD.exe 7.54)
     public const ushort UpdateCoin = 0x3AF;            // 16 bytes: int Gold (conferido no WYD.exe 7.54)
     public const ushort UpdateHpMp = 0x181;            // 20 bytes: int Hp, int Mp
     public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16], byte Refino[16] (para quem está vendo)
@@ -93,6 +95,8 @@ public static class Opcodes
         Revive => "Revive",
         Teleport => "Teleport",
         NpcClick => "NpcClick",
+        EhreCombine => "EhreCombine",
+        CombineDone => "CombineDone",
         NpcTalk => "NpcTalk",
         ApplyBonus => "ApplyBonus",
         RequestShop => "RequestShop",

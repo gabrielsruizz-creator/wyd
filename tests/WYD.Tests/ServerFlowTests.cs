@@ -862,6 +862,20 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.StartsWith("Uso: /gm nivel <1 a 200>", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }
 
+    /// <summary>0x2D3 como o client manda: os itens da janela e, depois, os slots do inventário de onde vieram.</summary>
+    private static byte[] EhreCombinePacket(WYD.Server.Game.Character c, params int[] slots)
+    {
+        var w = new PacketWriter(Opcodes.EhreCombine, 84, 1);
+        var bytes = new byte[Item.Size];
+        for (int i = 0; i < 8; i++)
+        {
+            (i < slots.Length ? c.Inventory[slots[i]] : default).WriteTo(bytes);
+            foreach (var b in bytes) w.WriteByte(b);
+        }
+        for (int i = 0; i < 8; i++) w.WriteByte(i < slots.Length ? (byte)slots[i] : (byte)0xFF);
+        return w.ToArray();
+    }
+
     private static byte[] NpcClickPacket(ushort npc, int confirm = 0) =>
         new PacketWriter(Opcodes.NpcClick, 20, 1).WriteInt32(npc).WriteInt32(confirm).ToArray();
 
@@ -1025,19 +1039,25 @@ public sealed class ServerFlowTests : IAsyncLifetime
             created.Skip(4 + 16 * 2 + 32 + 2 + 6);
             Assert.Equal(SoulQuest.EhreClientMerchant, created.ReadByte() & 0x0F);
 
-            await a.SendAsync(NpcClickPacket(ehre));
-            Assert.Equal("Você ainda não tem a Soul (fale com a Kibita).",
-                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
-
             var me = await CharacterOf("jogadora");
-            Skills.Teach(me, Skills.SoulOfLimits);
             me.Inventory[3] = new Item(2442);                                  // Esmeralda
             me.Inventory[5] = new Item(2441);                                  // Diamante
             me.Inventory[9] = new Item(2443);                                  // Coral: "EDC" = combinação 8
-            await a.SendAsync(NpcClickPacket(ehre));
+
+            // Sem a Soul: recusa, devolve os slots e fecha a janela.
+            await a.SendAsync(EhreCombinePacket(me, 3, 5, 9));
+            for (int i = 0; i < 3; i++) Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
+            Assert.Equal(Opcodes.CombineDone, (await a.ReceiveAsync()).Type);
+            Assert.Equal("Você ainda não tem a Soul (fale com a Kibita).",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            Skills.Teach(me, Skills.SoulOfLimits);
+            await a.SendAsync(EhreCombinePacket(me, 3, 5, 9));
             for (int i = 0; i < 3; i++) Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
             Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
+            Assert.Equal(Opcodes.CombineDone, (await a.ReceiveAsync()).Type);
             Assert.StartsWith("Soul: ", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            Assert.True(me.Inventory[3].IsEmpty && me.Inventory[5].IsEmpty && me.Inventory[9].IsEmpty);
             Assert.Equal(8, me.SoulCombo);
         }
         finally

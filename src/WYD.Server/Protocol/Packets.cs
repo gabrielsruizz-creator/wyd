@@ -411,6 +411,9 @@ public static class ServerPackets
     }
 
     /// <summary>0x3AF: novo total de gold do jogador.</summary>
+    /// <summary>0x3A7: fecha as janelas de combinação do client.</summary>
+    public static byte[] CombineDone(ushort id) => new PacketWriter(Opcodes.CombineDone, PacketHeader.Size, id).ToArray();
+
     public static byte[] UpdateCoin(ushort id, int coin) =>
         new PacketWriter(Opcodes.UpdateCoin, 16, id).WriteInt32(coin).ToArray();
 
