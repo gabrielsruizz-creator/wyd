@@ -419,12 +419,13 @@ public static class ServerPackets
 
     /// <summary>
     /// 0x181: HP e MP atuais do jogador. O client (0x536006) lê short Hp em 0x0C, short Mp em 0x0E e mais dois
-    /// shorts (HP e MP pedidos, que o servidor manda iguais aos atuais). Com int o MP saía 0 no client.
+    /// shorts (HP e MP pedidos, que o servidor manda iguais aos atuais). Com int o MP saía 0 no client. Os quatro são
+    /// sem sinal (até 65535).
     /// </summary>
     public static byte[] UpdateHpMp(ushort id, int hp, int mp)
     {
-        short h = (short)Math.Clamp(hp, 0, short.MaxValue), m = (short)Math.Clamp(mp, 0, short.MaxValue);
-        return new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteInt16(h).WriteInt16(m).WriteInt16(h).WriteInt16(m).ToArray();
+        ushort h = Score.Unsigned(hp), m = Score.Unsigned(mp);
+        return new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteUInt16(h).WriteUInt16(m).WriteUInt16(h).WriteUInt16(m).ToArray();
     }
 
     /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>

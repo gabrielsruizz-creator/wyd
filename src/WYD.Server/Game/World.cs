@@ -480,8 +480,8 @@ public sealed partial class World(
             noExpTable = killed.Count > 0 && expTable.For(me.Evolution) is null && !session.WarnedNoExpTable;
             if (noExpTable) session.WarnedNoExpTable = true;
 
-            System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp),
-                (short)Math.Min(short.MaxValue, me.BaseScore.Mp));
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp),
+                Score.Unsigned(me.BaseScore.Mp));
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), ServerPackets.ClientExp(exp));
 

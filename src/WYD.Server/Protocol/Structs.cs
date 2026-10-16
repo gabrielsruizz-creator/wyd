@@ -74,11 +74,12 @@ public struct Item
 /// <code>
 ///  0 short Level      2 short Ac        4 short Damage
 ///  6 byte  Merchant   7 byte  AttackRun
-///  8 short MaxHp     10 short MaxMp    12 short Hp       14 short Mp
+///  8 ushort MaxHp    10 ushort MaxMp   12 ushort Hp      14 ushort Mp
 /// 16 short Str       18 short Int      20 short Dex      22 short Con
 /// 24 byte  Special[4]
 /// </code>
-/// Na memória os valores são int; ao montar o pacote são limitados ao intervalo de um short.
+/// Na memória os valores são int; ao montar o pacote são limitados ao intervalo de um short. Vida e mana o client
+/// lê sem sinal (até 65535; o máximo dele é 64000, 0x55C8C1), o resto com sinal (até 32767).
 /// </summary>
 public struct Score
 {
@@ -97,11 +98,12 @@ public struct Score
     public byte Special1, Special2, Special3, Special4;
 
     private static short Clamp(int value) => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
+    internal static ushort Unsigned(int value) => (ushort)Math.Clamp(value, 0, ushort.MaxValue);
 
     public readonly void Write(PacketWriter w) =>
         w.WriteInt16(Clamp(Level)).WriteInt16(Clamp(Ac)).WriteInt16(Clamp(Damage))
          .WriteByte(Merchant).WriteByte(AttackRun)
-         .WriteInt16(Clamp(MaxHp)).WriteInt16(Clamp(MaxMp)).WriteInt16(Clamp(Hp)).WriteInt16(Clamp(Mp))
+         .WriteUInt16(Unsigned(MaxHp)).WriteUInt16(Unsigned(MaxMp)).WriteUInt16(Unsigned(Hp)).WriteUInt16(Unsigned(Mp))
          .WriteInt16(Str).WriteInt16(Int).WriteInt16(Dex).WriteInt16(Con)
          .WriteByte(Special1).WriteByte(Special2).WriteByte(Special3).WriteByte(Special4);
 }

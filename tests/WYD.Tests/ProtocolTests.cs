@@ -264,4 +264,23 @@ public class ProtocolTests
         Assert.False(PasswordHasher.Verify("outrasenha", hash));
         Assert.False(PasswordHasher.Verify("minhasenha", "lixo"));
     }
+
+    [Fact]
+    public void Life_and_mana_go_unsigned_up_to_the_client_maximum()
+    {
+        // O client lê vida e mana sem sinal (o máximo dele é 64000); o resto continua com sinal.
+        var score = new Score { Level = 399, Ac = 40000, MaxHp = 64000, MaxMp = 50000, Hp = 33000, Mp = 70000 };
+        var w = new PacketWriter(Opcodes.UpdateScore, PacketHeader.Size + Score.Size, 1);
+        score.Write(w);
+        var p = w.ToArray().AsSpan(PacketHeader.Size);
+        Assert.Equal(short.MaxValue, BinaryPrimitives.ReadInt16LittleEndian(p[2..]));     // defesa: 32767
+        Assert.Equal(64000, BinaryPrimitives.ReadUInt16LittleEndian(p[8..]));
+        Assert.Equal(50000, BinaryPrimitives.ReadUInt16LittleEndian(p[10..]));
+        Assert.Equal(33000, BinaryPrimitives.ReadUInt16LittleEndian(p[12..]));
+        Assert.Equal(ushort.MaxValue, BinaryPrimitives.ReadUInt16LittleEndian(p[14..]));
+
+        var hpMp = ServerPackets.UpdateHpMp(1, 64000, 40000).AsSpan(PacketHeader.Size);
+        Assert.Equal(64000, BinaryPrimitives.ReadUInt16LittleEndian(hpMp));
+        Assert.Equal(40000, BinaryPrimitives.ReadUInt16LittleEndian(hpMp[2..]));
+    }
 }

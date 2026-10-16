@@ -134,7 +134,9 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 
 - **`STRUCT_ITEM`** (8 bytes): `short Index`, depois `{byte Effect, byte Value}` × 3.
 - **`STRUCT_SCORE`** (28 bytes): `short Level, Ac, Damage`, `byte Merchant, AttackRun`,
-  `short MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `byte Special[4]`.
+  `ushort MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `byte Special[4]`. O client lê vida e mana sem sinal
+  (também no `0x181` e na mana do `0x39D`) e limita as máximas em 64000 (0x55C8C1); nível, defesa, dano e atributos
+  têm sinal (até 32767). O dano de cada golpe no `0x39D` também é um short com sinal.
 - **`STRUCT_SELCHAR`** (744 bytes, os 4 slots da conta):
 
   | Offset  | Campo                  |
