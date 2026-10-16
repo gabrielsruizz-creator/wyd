@@ -479,7 +479,8 @@ só liga uma flag (bit 0 em 0x55BC18).
 As skills 96 a 103 da SkillData são as de Sephira, iguais para todas as classes, nos bits 24 a 31 do `LearnedSkill`
 (97 Conjure Cannon, 98 Thorn Wall, 99 Resurrect, 100 Concentration, 101 Spectral Force, 102 Soul of Limits). Os
 livros 667 a 671 têm uso (efeito 38) 32 a 36 e ensinam as skills 97 a 101. O client trata rosto evoluído + bit 30
-(Soul) como Celestial (0x5557AC): por isso o Celestial já tem a Soul e a Soul do NPC é só para o Mortal.
+(Soul) como Celestial só em código oficial que o client nunca chama (0x555776, 0x555987, 0x555F7C); os testes do
+bit nos lugares chamados são constantes. O Arch pode ter a Soul sem virar Celestial; o Celestial já nasce com ela.
 
 A Soul (efeito 29, o mesmo da Maestria em Armas) aumenta os atributos da combinação escolhida em % deles mesmos
 (código oficial em 0x55BEE6, tabelas de salto 0x55CD36 e 0x55CD5E): combinações 1 FOR/CON, 2 INT/CON, 3 DES/CON,
@@ -495,7 +496,7 @@ NPC em 0x0C; 0x45E0A4). A Ehre tem 0 no arquivo; o servidor a manda com o tipo 1
 
 - Odin: as 7 runas do elemento da classe (Vento HT, Água TK, Terra BM, Sol FM; itens 5110 a 5133) e 2.000.000 de
   gold viram a Pedra Secreta (5334 Água, 5335 Terra, 5336 Sol, 5337 Vento).
-- Kibita: Mortal nível 371+ com a Pedra Secreta da classe ganha a Soul (bit 30) e o Manto do Herói do reino (3194
+- Kibita: Mortal nível 371+ ou Arch de qualquer nível com a Pedra Secreta da classe ganha a Soul (bit 30) e o Manto do Herói do reino (3194
   azul, 3195 vermelho, 3196 neutro; a capa antiga vai para o inventário) e volta para a seleção de personagens.
 - Ehre: as 3 primeiras joias do inventário (Diamante 2441/3386, Esmeralda 2442/3387, Coral 2443/3388, Garnet
   2444/3389), na ordem dos slots, escolhem a combinação: DDD 1, EEE 2, CCC 3, GGG 4, DEC 5, DCG 6, ECG 7, EDC 8,

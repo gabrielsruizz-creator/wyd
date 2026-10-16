@@ -7,8 +7,9 @@ namespace WYD.Server.Game;
 /// <list type="bullet">
 /// <item>Odin: as 7 runas do elemento da classe e 2kk de gold viram a Pedra Secreta (TK Água, FM Sol, BM Terra, HT
 /// Vento). O client manda o 0x28E ao clicar nele (NPC de tipo 7).</item>
-/// <item>Kibita: Mortal nível 371 ou mais com a Pedra Secreta da classe ganha a Soul (bit 30 das skills) e o Manto do
-/// Herói do reino, e volta para a seleção de personagens. O client pergunta e manda o 0x28B (tipo 10).</item>
+/// <item>Kibita: Mortal nível 371 ou mais, ou Arch de qualquer nível, com a Pedra Secreta da classe ganha a Soul (bit 30
+/// das skills) e o Manto do Herói do reino, e volta para a seleção de personagens. O client pergunta e manda o 0x28B
+/// (tipo 10). O Celestial já nasce com a Soul.</item>
 /// <item>Ehre: as 3 primeiras joias do inventário (Diamante, Esmeralda, Coral, Garnet), na ordem dos slots, escolhem a
 /// combinação da Soul. Ela não tem tipo no arquivo; o client a recebe com o tipo da pergunta (13) e manda o 0x28B.</item>
 /// </list>
@@ -17,7 +18,7 @@ public static class SoulQuest
 {
     public const string KibitaName = "Kibita", EhreName = "Ehre", OdinName = "Odin";
 
-    /// <summary>Nível (o que aparece na tela) para a Kibita dar a Soul.</summary>
+    /// <summary>Nível (o que aparece na tela) para a Kibita dar a Soul ao Mortal (o Arch pode em qualquer nível).</summary>
     public const int MinLevel = 371;
 
     public const int OdinPrice = 2_000_000;
@@ -120,9 +121,10 @@ public static class SoulQuest
     /// </summary>
     public static (string? Refusal, List<int> Changed) GiveSoul(Character c, int basicSlots)
     {
-        if (c.Evolution != Evolution.Mortal) return ("A Kibita só dá a Soul ao Mortal (o Celestial já tem).", []);
-        if (Skills.Knows(c, Skills.SoulOfLimits)) return ("Você já tem a Soul. Configure-a com a Ehre.", []);
-        if (c.BaseScore.Level + 1 < MinLevel) return ($"Volte no nível {MinLevel}.", []);
+        if (c.Evolution >= Evolution.Celestial || Skills.Knows(c, Skills.SoulOfLimits))
+            return ("Você já tem a Soul. Configure-a com a Ehre.", []);
+        if (c.Evolution == Evolution.Mortal && c.BaseScore.Level + 1 < MinLevel)
+            return ($"O Mortal recebe a Soul a partir do nível {MinLevel}.", []);
         short stone = SecretStone(c.Class);
         int stoneSlot = Enumerable.Range(0, basicSlots).FirstOrDefault(s => c.Inventory[s].Index == stone, -1);
         if (stoneSlot < 0) return ($"Traga a {StoneName(stone)} (faça com o Odin).", []);

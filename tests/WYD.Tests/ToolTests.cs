@@ -687,10 +687,10 @@ public class ToolTests
     [Fact]
     public void Spirit_change_moves_max_mana_into_max_life_like_the_client()
     {
-        // Mortal: mana / 8 + (Especial 3 + nível) / 4; evoluído: mana / 4 + ...; bit 30 soma 400 ao nível.
-        Assert.Equal(800 / 8 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, 0, evolved: false));
-        Assert.Equal(800 / 4 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, 0, evolved: true));
-        Assert.Equal(800 / 8 + (40 + 500) / 4, Affects.SpiritChangeMoved(800, 40, 100, 1u << 30, evolved: false));
+        // Mortal: mana / 8 + (Especial 3 + nível) / 4; evoluído: mana / 4 + ...; o Celestial soma 400 ao nível.
+        Assert.Equal(800 / 8 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, celestial: false, evolved: false));
+        Assert.Equal(800 / 4 + (40 + 100) / 4, Affects.SpiritChangeMoved(800, 40, 100, celestial: false, evolved: true));
+        Assert.Equal(800 / 4 + (40 + 500) / 4, Affects.SpiritChangeMoved(800, 40, 100, celestial: true, evolved: true));
 
         var c = new WYD.Server.Game.Character { Name = "Teste" };
         c.BaseScore.MaxHp = 1000;
@@ -768,6 +768,21 @@ public class ToolTests
         Assert.Contains(c.Inventory, i => i.Index == 545);
         Assert.DoesNotContain(c.Inventory, i => i.Index == SoulQuest.WindStone);
         Assert.NotNull(SoulQuest.GiveSoul(c, 63).Refusal);              // já tem
+
+        // Arch: qualquer nível, com a pedra.
+        var arch = new WYD.Server.Game.Character { Name = "Arch", Class = CharacterClass.Huntress, Evolution = Evolution.Arch };
+        arch.Inventory[0] = new Item(SoulQuest.WindStone);
+        Assert.Null(SoulQuest.GiveSoul(arch, 63).Refusal);
+        Assert.True(Skills.Knows(arch, Skills.SoulOfLimits));
+        Assert.Equal(3196, arch.Equip[Kingdoms.CapeSlot].Index);       // sem capa: o manto neutro
+
+        // Mortal abaixo do 371 não recebe; Celestial já nasce com ela.
+        var low = new WYD.Server.Game.Character { Name = "Baixo", Class = CharacterClass.Huntress };
+        low.Inventory[0] = new Item(SoulQuest.WindStone);
+        Assert.Contains("371", SoulQuest.GiveSoul(low, 63).Refusal);
+        var cel = new WYD.Server.Game.Character { Name = "Cel" };
+        Leveling.Evolve(cel, Evolution.Celestial);
+        Assert.True(Skills.Knows(cel, Skills.SoulOfLimits));
 
         // Ehre: Esmeralda, Diamante (2 empilhados... o primeiro conta), Coral = INT (combinação 8).
         c.Inventory[40] = new Item(2442);

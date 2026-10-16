@@ -22,6 +22,7 @@ public static class Leveling
     public static void Evolve(Character c, Evolution to)
     {
         c.Evolution = to;
+        if (to >= Evolution.Celestial) Skills.Teach(c, Skills.SoulOfLimits);   // o Celestial já nasce com a Soul
         c.BaseScore.Level = 0;
         c.Exp = 0;
         c.BaseScore.Hp = c.MaxHp;

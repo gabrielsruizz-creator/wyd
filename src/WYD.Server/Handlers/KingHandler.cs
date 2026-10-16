@@ -115,7 +115,7 @@ public sealed class KingHandler(
         await session.SendMessageAsync($"{SoulQuest.StoneName(stone)} criada.");
     }
 
-    /// <summary>Kibita: o Mortal 371+ com a Pedra Secreta ganha a Soul e o Manto do Herói e volta para a seleção.</summary>
+    /// <summary>Kibita: o Mortal 371+ ou o Arch com a Pedra Secreta ganha a Soul e o Manto do Herói e volta para a seleção.</summary>
     private async Task KibitaAsync(ClientSession session)
     {
         var c = session.Character!;
@@ -149,7 +149,7 @@ public sealed class KingHandler(
         await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
         await characters.SaveItemsAsync(c);
         await characters.SaveProgressAsync(c);
-        bool celestial = c.Equip[0].Index % 10 > 5;
+        bool celestial = c.Evolution >= Evolution.Celestial;
         logger.LogInformation("[{Id}] {Name} configurou a Soul na Ehre: {Combo}.", session.Id, c.Name, combo);
         await session.SendMessageAsync($"Soul: {Soul.Describe(combo, celestial)}");
     }

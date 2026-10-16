@@ -67,12 +67,12 @@ public static class Affects
 
     /// <summary>
     /// Quanto da mana máxima a Troca de Espírito (efeito 38) passa para a vida máxima, como o client (0x55C65B):
-    /// mana / 4 (evoluído) ou / 8 (Mortal), mais (Especial 3 + nível) / 4; o bit 30 das skills aprendidas soma 400
-    /// ao nível.
+    /// mana / 4 (evoluído) ou / 8 (Mortal), mais (Especial 3 + nível) / 4; o Celestial soma 400 ao nível (o código
+    /// oficial reconhece o Celestial pelo bit 30 das skills, a Soul).
     /// </summary>
-    public static int SpiritChangeMoved(int maxMp, int special3, int level, uint learnedSkill, bool evolved)
+    public static int SpiritChangeMoved(int maxMp, int special3, int level, bool celestial, bool evolved)
     {
-        if ((learnedSkill & (1u << 30)) != 0) level += 400;
+        if (celestial) level += 400;
         return (evolved ? maxMp / 4 : maxMp / 8) + (special3 + level) / 4;
     }
 

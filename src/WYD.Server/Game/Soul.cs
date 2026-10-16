@@ -2,8 +2,9 @@ namespace WYD.Server.Game;
 
 /// <summary>
 /// Soul (Limite da Alma, skill 102, efeito 29). Enquanto o buff dura, os atributos da combinação escolhida sobem
-/// uma porcentagem deles mesmos, como no código oficial que ficou no WYD.exe (0x55BEE6): o Celestial (rosto evoluído
-/// com a Soul) ganha 80% + 60% nas combinações duplas e 120% nas simples; o Mortal com a Soul, 40% + 30% e 60%.
+/// uma porcentagem deles mesmos, como no código oficial que ficou no WYD.exe (0x55BEE6): o Celestial ganha 80% + 60%
+/// nas combinações duplas e 120% nas simples; o Mortal e o Arch com a Soul, 40% + 30% e 60%. (O código oficial
+/// separa pelo rosto evoluído, porque lá só o Celestial tinha a Soul; aqui o Arch também pode ter, e vale a evolução.)
 /// </summary>
 public static class Soul
 {

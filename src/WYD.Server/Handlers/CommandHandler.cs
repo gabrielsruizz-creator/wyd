@@ -49,7 +49,7 @@ public sealed class CommandHandler(
         ("/gm aviso <texto>", "mensagem para todos os jogadores"),
         ("/gm kick <nome>", "desconecta o jogador"),
         ("/gm limpar", "esvazia o seu inventário (os 64 slots) e redesenha todos os slots no client"),
-        ("/gm soul", "dá a Soul (Limite da Alma) ao seu personagem Mortal"),
+        ("/gm soul", "dá a Soul (Limite da Alma) ao seu personagem"),
         ("/gm soul <1-10>", "escolhe a combinação da Soul (1 FOR/CON, 2 INT/CON, 3 DES/CON, 4 FOR/DES, 5 INT/DES, 6 CON/DES, 7 FOR, 8 INT, 9 CON, 10 DES)"),
         ("/gm inventario", "lista os itens que o servidor tem no seu inventário, com o slot (linha e coluna)"),
         ("/gm npc", "lista os NPCs e monstros perto de você (id, nome, posição)"),
@@ -355,17 +355,9 @@ public sealed class CommandHandler(
     private async Task SoulAsync(ClientSession session, string args)
     {
         var c = session.Character!;
-        bool evolved = c.Equip[0].Index % 10 > 5;
+        bool celestial = c.Evolution >= Game.Evolution.Celestial;
         if (args.Trim().Length == 0)
-        {
-            if (evolved)
-            {
-                // Rosto evoluído com o bit da Soul o client trata como Celestial.
-                await session.SendMessageAsync("A Soul é do Mortal (o Celestial já tem). Use num Mortal.");
-                return;
-            }
             Game.Skills.Teach(c, Game.Skills.SoulOfLimits);
-        }
         else if (int.TryParse(args.Trim(), out int combo) && combo is >= 1 and <= Game.Soul.Combinations)
             c.SoulCombo = (byte)combo;
         else
@@ -376,7 +368,7 @@ public sealed class CommandHandler(
         await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
         await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
         await characters.SaveProgressAsync(c);
-        await session.SendMessageAsync($"Soul: {Game.Soul.Describe(c.SoulCombo, evolved)}");
+        await session.SendMessageAsync($"Soul: {Game.Soul.Describe(c.SoulCombo, celestial)}");
     }
 
     /// <summary>/gm inventario: o que o servidor tem em cada slot do inventário (para achar item que não aparece).</summary>

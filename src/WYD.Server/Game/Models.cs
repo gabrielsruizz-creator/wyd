@@ -109,7 +109,7 @@ public sealed class Character
             s.Special2 = (byte)Math.Clamp(s.Special2 + b.Special2, 0, 255);
             s.Special3 = (byte)Math.Clamp(s.Special3 + b.Special3, 0, 255);
             s.Special4 = (byte)Math.Clamp(s.Special4 + b.Special4, 0, 255);
-            if (Game.Soul.Active(this)) Game.Soul.Apply(ref s, SoulCombo, celestial: Equip[0].Index % 10 > 5);
+            if (Game.Soul.Active(this)) Game.Soul.Apply(ref s, SoulCombo, celestial: Evolution >= Evolution.Celestial);
             s.AttackRun = (byte)((Stats.AttackSpeed(BaseScore.AttackRun, b.AttackSpeed + buff.AttackSpeed, s.Dex) << 4) | speed);
 
             int levelBonus = Equip[0].Index % 10 > 5 ? s.Level * 2 : s.Level;
@@ -119,7 +119,8 @@ public sealed class Character
             if (buff.SpiritChange)
             {
                 // Troca de Espírito, como o client (0x55C65B): parte da mana máxima vira vida máxima, mais 750.
-                int moved = Game.Affects.SpiritChangeMoved(maxMp, s.Special3, s.Level, LearnedSkill, Equip[0].Index % 10 > 5);
+                int moved = Game.Affects.SpiritChangeMoved(maxMp, s.Special3, s.Level, Evolution >= Evolution.Celestial,
+                    Equip[0].Index % 10 > 5);
                 maxHp += moved + Game.Affects.SpiritChangeHp;
                 maxMp -= moved;
             }

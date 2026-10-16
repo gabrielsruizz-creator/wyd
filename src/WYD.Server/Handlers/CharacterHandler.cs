@@ -112,6 +112,7 @@ public sealed partial class CharacterHandler(
             await characters.SaveItemsAsync(character);
         // Vida/mana cheias no máximo base continuam cheias no máximo com CON, INT e equipamento.
         bool fullHp = character.BaseScore.Hp >= character.BaseScore.MaxHp, fullMp = character.BaseScore.Mp >= character.BaseScore.MaxMp;
+        if (character.Evolution >= Evolution.Celestial) Skills.Teach(character, Skills.SoulOfLimits);   // Celestial já tem a Soul
         Stats.Recalculate(character, catalog.List);
         if (fullHp) character.BaseScore.Hp = character.MaxHp;
         if (fullMp) character.BaseScore.Mp = character.MaxMp;
