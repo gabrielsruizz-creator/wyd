@@ -808,4 +808,21 @@ public class ToolTests
         Assert.Equal(1, SoulQuest.Configure(c, [50, 50, 50]).Combo);
         Assert.Equal(2, c.Inventory[50].Value1);
     }
+
+    [Fact]
+    public void Thorn_wall_stands_across_the_caster_direction()
+    {
+        // Para o norte: muro na horizontal; longe demais: no lugar de quem lança.
+        Assert.Equal([(99, 90), (100, 90), (101, 90)], ThornWall.Cells(100, 95, 100, 90).Select(c => ((int)c.X, (int)c.Y)));
+        Assert.Equal([(99, 100), (100, 100), (101, 100)], ThornWall.Cells(100, 100, 100, 120).Select(c => ((int)c.X, (int)c.Y)));
+        // Na diagonal: a outra diagonal.
+        Assert.Equal([(106, 104), (105, 105), (104, 106)], ThornWall.Cells(100, 100, 105, 105).Select(c => ((int)c.X, (int)c.Y)));
+
+        var caster = new WYD.Server.Game.Character { Name = "Alice" };
+        caster.BaseScore.Level = 100;
+        var t = ThornWall.Template(caster);
+        Assert.Equal(2300, t.Score.MaxHp);
+        Assert.Equal(ThornWall.Model, t.Model);
+        Assert.Equal(0, t.Exp);
+    }
 }

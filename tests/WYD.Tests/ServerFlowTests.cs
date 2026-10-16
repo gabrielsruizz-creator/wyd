@@ -48,6 +48,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(27, 0, 2, 15, 2, 6, 6, 100),               // Heal: cura 100, 15 de mana
             new(11, 0, 0, 10, 0, 0, 0, 0, 13, 7, 12),      // Assault: efeito 13 (dano) valor 7 por 12 × 8 s
             new(37, 0, 0, 75, 0, 0, 0, 0, 0, 0, 12, 22, 100), // Tempestade de Raios: aura (TickType 22) de 100
+            new(97, 0, 4, 0, 4, 13, 2, 500),               // Canhão Guardião: dano mágico 500
+            new(98, 36, 6, 42, 6, 5),                      // Muro de Espinhos: 42 de mana
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -807,6 +809,71 @@ public sealed class ServerFlowTests : IAsyncLifetime
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public async Task Thorn_wall_summons_plants_that_are_replaced_and_expire()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var me = await CharacterOf("jogadora");
+        Skills.Teach(me, Skills.ThornWallSkill);
+        me.BaseScore.Mp = 100;
+
+        // Alvo em (2101, 2100), a leste de quem está em (2100, 2100): muro na vertical em x = 2101.
+        await a.SendAsync(SkillPacket(1, Skills.ThornWallSkill, 1));
+        var first = new List<ushort>();
+        var cells = new List<(short, short)>();
+        for (int i = 0; i < ThornWall.Plants; i++)
+        {
+            var p = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            short x = p.ReadInt16(), y = p.ReadInt16();
+            first.Add(p.ReadUInt16());
+            Assert.Equal(ThornWall.Name, p.ReadString(12));
+            cells.Add((x, y));
+        }
+        Assert.Equal("2101,2099 2101,2100 2101,2101", string.Join(' ', cells.Order().Select(c => $"{c.Item1},{c.Item2}")));
+        Assert.Equal(58, me.BaseScore.Mp);
+
+        // Um muro novo tira o anterior.
+        await Task.Delay(World.MinAttackInterval);
+        await a.SendAsync(SkillPacket(1, Skills.ThornWallSkill, 1));
+        var removed = new List<ushort>();
+        for (int i = 0; i < ThornWall.Plants; i++) removed.Add((await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Id);
+        Assert.Equal(first.Order(), removed.Order());
+        for (int i = 0; i < ThornWall.Plants; i++) await ReceiveTypeAsync(a, Opcodes.CreateMob);
+
+        // Somem quando o tempo acaba.
+        await _host.Services.GetRequiredService<World>().ExpireSummonsAsync(DateTime.UtcNow + ThornWall.Duration);
+        for (int i = 0; i < ThornWall.Plants; i++) Assert.Equal(Opcodes.RemoveMob, (await ReceiveTypeAsync(a, Opcodes.RemoveMob)).Type);
+    }
+
+    [Fact]
+    public async Task Guardian_cannon_only_in_castle_war()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var me = await CharacterOf("jogadora");
+        Skills.Teach(me, Skills.ConjureCannon);
+        await a.SendAsync(SkillPacket(1, Skills.ConjureCannon, 1));
+        Assert.Equal("O Canhão Guardião só pode ser usado na guerra de castelos.",
+            (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+    }
+
+    [Fact]
+    public async Task Resurrect_revives_where_the_player_died()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        await a.SendAsync(MovePacket(1, 2100, 2100, 2105, 2100));
+        var me = await CharacterOf("jogadora");
+        for (int i = 0; i < 50 && me.PosX != 2105; i++) await Task.Delay(20);
+        Skills.Teach(me, Skills.Resurrect);
+        me.BaseScore.Hp = 0;
+
+        await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, 1).ToArray());
+        var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
+        teleport.Skip(8);
+        Assert.Equal(ServerPackets.MoveTeleport, teleport.ReadInt32());
+        Assert.Equal(2105, teleport.ReadInt16());
+        Assert.Equal(me.MaxHp, me.BaseScore.Hp);
     }
 
     [Fact]

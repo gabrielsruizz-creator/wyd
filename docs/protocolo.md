@@ -488,6 +488,17 @@ livros 667 a 671 têm uso (efeito 38) 32 a 36 e ensinam as skills 97 a 101. O cl
 (Soul) como Celestial só em código oficial que o client nunca chama (0x555776, 0x555987, 0x555F7C); os testes do
 bit nos lugares chamados são constantes. O Arch pode ter a Soul sem virar Celestial; o Celestial já nasce com ela.
 
+Efeitos das outras (todos no servidor, menos o alcance, que o client também soma):
+
+- 97 Canhão Guardião: usa o canhão do castelo de Noatun, só na guerra de castelos. Sem a guerra, o servidor recusa.
+- 98 Muro de Espinhos (skill ofensiva: o `0x39D` com a skill 98 e o lugar em 0x14/0x16): 3 plantas (modelo Vine,
+  358) em fila na perpendicular a quem lança, por 30 s, com 300 + 20 × nível de vida. Ocupam a célula, podem ser
+  mortas, não dão exp nem drop e não renascem; um muro novo tira o anterior.
+- 99 Ressurreição: o `0x289` (só o cabeçalho, do botão ou automático em 3 minutos) renasce no lugar onde morreu.
+- 100 Concentração (passiva): o ataque não erra pela esquiva do alvo. Hoje os ataques do jogador não erram.
+- 101 Força Espectral (passiva): +1 de alcance em armas e skills. O client soma o bit 29 ao alcance da arma
+  (0x490525); o servidor aceita uma célula a mais.
+
 A Soul (efeito 29, o mesmo da Maestria em Armas) aumenta os atributos da combinação escolhida em % deles mesmos
 (código oficial em 0x55BEE6, tabelas de salto 0x55CD36 e 0x55CD5E): combinações 1 FOR/CON, 2 INT/CON, 3 DES/CON,
 4 FOR/DES, 5 INT/DES, 6 CON/DES, 7 FOR, 8 INT, 9 CON, 10 DES; Celestial 80% + 60% (simples 120%), Mortal 40% + 30%

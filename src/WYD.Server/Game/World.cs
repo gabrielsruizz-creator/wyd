@@ -340,7 +340,6 @@ public sealed partial class World(
         }
     }
 
-    /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
     /// <summary>Se há um monstro/NPC vivo que <paramref name="match"/> aceita a até <paramref name="distance"/> do personagem.</summary>
     public bool HasMobNear(Character c, Func<Mob, bool> match, int distance)
     {
@@ -349,6 +348,7 @@ public sealed partial class World(
                 Math.Abs(m.X - c.PosX) <= distance && Math.Abs(m.Y - c.PosY) <= distance);
     }
 
+    /// <summary>Um monstro/NPC que o jogador está vendo, ou null.</summary>
     public Mob? VisibleMob(ClientSession session, ushort mobId)
     {
         lock (_lock)
@@ -371,6 +371,12 @@ public sealed partial class World(
         long exp;
         int levels;
         bool castSpell = false, noExpTable = false, noSkillData = false;
+        if (auraDamage is null && System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(
+                packet.AsSpan(ServerPackets.AttackLayout.Skill)) == Skills.ConjureCannon)
+        {
+            await session.SendMessageAsync("O Canhão Guardião só pode ser usado na guerra de castelos.");
+            return;
+        }
         lock (_lock)
         {
             if (!_players.ContainsKey(session.Id) || IsDead(session.Character!)) return;
@@ -399,6 +405,13 @@ public sealed partial class World(
                 castSpell = mana > 0;
             }
             if (auraDamage is null) session.LastAttack = now;
+            if (spell is not null && skill == Skills.ThornWallSkill)
+                SummonThornsLocked(session,
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.TargetX)),
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.TargetY)),
+                    now, outgoing);
+            // Força Espectral: +1 de alcance, como o client.
+            int attackRange = AttackRange + (Skills.Knows(me, Skills.SpectralForce) ? 1 : 0);
 
             var mine = _visible[session.Id];
             var response = ServerPackets.Relay(packet, session.Id);
@@ -442,7 +455,7 @@ public sealed partial class World(
                 else if (SkillUse.IsDamage(spell)
                     && targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
-                    && Math.Abs(mob.X - me.PosX) <= AttackRange && Math.Abs(mob.Y - me.PosY) <= AttackRange)
+                    && Math.Abs(mob.X - me.PosX) <= attackRange && Math.Abs(mob.Y - me.PosY) <= attackRange)
                 {
                     damage = (short)(auraDamage is int aura
                         ? Math.Clamp(aura - mob.Template.Score.Ac / 8, 1, short.MaxValue)       // aura (Trovão)
@@ -453,7 +466,7 @@ public sealed partial class World(
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
-                    else if (mob.Target == 0)
+                    else if (mob.Target == 0 && !mob.IsSummon)
                     {
                         mob.Target = session.Id;                 // revida: passa a perseguir quem bateu
                         if (mob.NextAttack < now) mob.NextAttack = now + MobAttackInterval / 2;
@@ -514,6 +527,11 @@ public sealed partial class World(
                     if (!_visible[player.Id].Remove(mob.Id)) continue;
                     outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, unchecked((int)ServerPackets.ClientExp(exp)))));
                     outgoing.Add((player, ServerPackets.RemoveMob(mob.Id, ServerPackets.RemoveDead)));
+                }
+                if (mob.IsSummon)
+                {
+                    _mobs.Remove(mob.Id);                        // invocação: não renasce nem dropa
+                    continue;
                 }
 
                 // Drop: os itens da lista do monstro que saírem no sorteio vão direto para o inventário.
@@ -650,8 +668,8 @@ public sealed partial class World(
     }
 
     /// <summary>
-    /// 0x289: o personagem morto renasce com vida e mana cheias na cidade (StartX/StartY). Quem o via perde o
-    /// corpo e quem estiver perto do novo lugar passa a vê-lo.
+    /// 0x289: o personagem morto renasce com vida e mana cheias na cidade (StartX/StartY), ou onde morreu se tem a
+    /// Ressurreição. Quem o via perde o corpo e quem estiver perto do novo lugar passa a vê-lo.
     /// </summary>
     public async Task ReviveAsync(ClientSession session)
     {
@@ -662,7 +680,8 @@ public sealed partial class World(
             if (!_players.ContainsKey(session.Id) || !IsDead(me)) return;
             me.BaseScore.Hp = me.MaxHp;
             me.BaseScore.Mp = me.MaxMp;
-            TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
+            if (Skills.Knows(me, Skills.Resurrect)) TeleportLocked(session, me.PosX, me.PosY, outgoing);
+            else TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
             outgoing.Add((session, ServerPackets.UpdateScore(session.Id, me)));
             outgoing.Add((session, ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp)));
         }
@@ -807,6 +826,61 @@ public sealed partial class World(
                 outgoing.Add((player, ServerPackets.AffectList(player.Id, c)));
             }
         }
+        return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Muro de Espinhos: tira o muro anterior do jogador e põe as plantas nas células livres (chamar com o lock).</summary>
+    private void SummonThornsLocked(ClientSession session, short targetX, short targetY, DateTime now,
+        List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        var me = session.Character!;
+        foreach (var old in _mobs.Values.Where(m => m.IsSummon && m.Owner == session.Id).ToList())
+            RemoveSummonLocked(old, outgoing);
+
+        var template = ThornWall.Template(me);
+        var rule = new WYD.Server.Data.SpawnRule { Leader = ThornWall.Name, StartX = me.PosX, StartY = me.PosY };
+        foreach (var (x, y) in ThornWall.Cells(me.PosX, me.PosY, targetX, targetY))
+        {
+            if (x is < 0 or >= MapSize || y is < 0 or >= MapSize || OccupiedLocked(x, y, null)) continue;
+            if (FreeSummonIdLocked() is not ushort id) break;
+            var mob = new Mob(id, template, rule, x, y) { Expires = now + ThornWall.Duration, Owner = session.Id };
+            _mobs[id] = mob;
+            GridAdd(mob);
+            foreach (var player in _players.Values)
+            {
+                if (!InRange(player.Character!, mob)) continue;
+                _visible[player.Id].Add(mob.Id);
+                outgoing.Add((player, mob.CreatePacket()));
+            }
+        }
+    }
+
+    /// <summary>Id livre para uma invocação, de cima para baixo (os monstros do mapa usam os de baixo).</summary>
+    private ushort? FreeSummonIdLocked()
+    {
+        for (int id = Mob.LastId; id >= Mob.FirstId; id--)
+            if (!_mobs.ContainsKey((ushort)id)) return (ushort)id;
+        return null;
+    }
+
+    /// <summary>Tira uma invocação do mapa de vez (chamar com o lock).</summary>
+    private void RemoveSummonLocked(Mob mob, List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        if (mob.Alive) GridRemove(mob);
+        mob.Alive = false;
+        _mobs.Remove(mob.Id);
+        foreach (var player in _players.Values)
+            if (_visible[player.Id].Remove(mob.Id))
+                outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
+    }
+
+    /// <summary>Tira as invocações cujo tempo acabou.</summary>
+    public Task ExpireSummonsAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+            foreach (var mob in _mobs.Values.Where(m => m.IsSummon && (m.Expires <= now || !m.Alive)).ToList())
+                RemoveSummonLocked(mob, outgoing);
         return SendAllAsync(outgoing);
     }
 

@@ -282,6 +282,7 @@ public static class ServerPackets
     public static class AttackLayout
     {
         public const int Attacker = 0x0C;
+        public const int TargetX = 0x14, TargetY = 0x16;
         public const int Skill = 0x18;
         public const int CurrentMp = 0x1A;
         public const int Hold = 0x20;

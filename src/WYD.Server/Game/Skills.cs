@@ -23,6 +23,21 @@ public static class Skills
     /// </summary>
     public const int FirstSephira = 96, LastSephira = 103;
 
+    /// <summary>Canhão Guardião: usa o canhão do castelo de Noatun, só na guerra de castelos.</summary>
+    public const int ConjureCannon = 97;
+
+    /// <summary>Muro de Espinhos: convoca plantas com espinhos (ver <see cref="ThornWall"/>).</summary>
+    public const int ThornWallSkill = 98;
+
+    /// <summary>Ressurreição: renasce no lugar onde morreu.</summary>
+    public const int Resurrect = 99;
+
+    /// <summary>Concentração (passiva): o ataque acerta sem se importar com a esquiva do alvo.</summary>
+    public const int Concentration = 100;
+
+    /// <summary>Força Espectral (passiva): +1 de alcance em todas as armas e skills (o client já soma, 0x490525).</summary>
+    public const int SpectralForce = 101;
+
     /// <summary>Soul (Limite da Alma): bit 30. O client trata rosto evoluído + esse bit como Celestial.</summary>
     public const int SoulOfLimits = 102;
 

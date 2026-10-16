@@ -30,6 +30,14 @@ public sealed class Mob
 
     public bool Alive { get; set; } = true;
 
+    /// <summary>Invocação (Muro de Espinhos): some nessa hora, não renasce, não anda e não revida.</summary>
+    public DateTime? Expires { get; set; }
+
+    /// <summary>Jogador que invocou (0 = monstro do mapa).</summary>
+    public ushort Owner { get; set; }
+
+    public bool IsSummon => Expires is not null;
+
     /// <summary>Quando um monstro morto volta ao mapa.</summary>
     public DateTime RespawnAt { get; set; }
 
