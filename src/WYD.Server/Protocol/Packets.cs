@@ -294,21 +294,27 @@ public static class ServerPackets
 
     /// <summary>
     /// 0x39D de um monstro batendo num jogador: atacante e posições em 0x0C..0x16, skill -1 (golpe normal)
-    /// em 0x18 e o alvo com o dano em 0x2C, como no ataque que o client manda.
+    /// em 0x18 e o alvo com o dano em 0x2C, como no ataque que o client manda. O movimento (0x1C) vai direto para a
+    /// animação do atacante (0x485A10 → 0x5265E5): os golpes normais são 4, 5 e 6 (o client usa 4 + contador de 0 a
+    /// 2, 0x523A19); 0xFF não existe e o monstro bate parado.
     /// </summary>
-    public static byte[] MobAttack(ushort attacker, short x, short y, ushort target, short targetX, short targetY, short damage) =>
+    public static byte[] MobAttack(ushort attacker, short x, short y, ushort target, short targetX, short targetY, short damage,
+        byte motion = FirstAttackMotion) =>
         new PacketWriter(Opcodes.AttackOne, AttackOneSize, attacker)
             .WriteUInt16(attacker).WriteInt16(0)
             .WriteInt16(x).WriteInt16(y).WriteInt16(targetX).WriteInt16(targetY)
             .WriteInt16(-1)                              // skill: nenhuma
             .WriteInt16(-1)                              // mana atual (não muda)
-            .WriteByte(0xFF).Skip(3)                     // movimento: o client escolhe
+            .WriteByte(motion).Skip(3)                   // movimento do golpe
             .WriteInt32(0).WriteInt32(0)                 // Hold, Exp: só valem para o atacante jogador
             .Skip(4)
             .WriteUInt16(target).WriteInt16(damage)
             .ToArray();
 
     public const int AttackOneSize = 48;
+
+    /// <summary>Movimentos de golpe normal do client: 4, 5 e 6.</summary>
+    public const byte FirstAttackMotion = 4, AttackMotions = 3;
 
     /// <summary>
     /// 0x36C de uma skill do jogador em vários alvos (até 13), como o client manda; o dano é preenchido pelo

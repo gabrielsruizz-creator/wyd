@@ -645,7 +645,8 @@ public sealed partial class World(
                     : Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
-                var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage);
+                var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage,
+                    (byte)(ServerPackets.FirstAttackMotion + Random.Shared.Next(ServerPackets.AttackMotions)));
                 foreach (var player in _players.Values)
                     if (player == victim || InRange(player.Character!, mob) || InRange(player.Character!, c))
                         outgoing.Add((player, attack));

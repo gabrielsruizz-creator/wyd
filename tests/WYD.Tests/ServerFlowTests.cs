@@ -780,7 +780,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(ogreId, hit.Id);
             Assert.Equal(ServerPackets.AttackOneSize, hit.Length);
             Assert.Equal(ogreId, hit.ReadUInt16());
-            hit.Skip(0x2C - 0x0E);
+            hit.Skip(0x1C - 0x0E);
+            Assert.InRange(hit.ReadByte(), 4, 6);               // movimento de golpe: o monstro anima o ataque
+            hit.Skip(0x2C - 0x1D);
             Assert.Equal(me, hit.ReadUInt16());
             Assert.True(hit.ReadInt16() > 0);
 

@@ -237,7 +237,8 @@ vida e mana cheias. O servidor manda `0x337` (exp, gold e pontos) e, se subiu, `
 ## Monstros revidando, morte e renascer
 
 Um monstro que leva dano passa a perseguir quem bateu: anda até ficar a 2 células e bate a cada 2 segundos com
-o `0x39D` (ele como atacante, skill -1, o jogador como alvo com o dano). Quem apanhou recebe também o `0x181` com
+o `0x39D` (ele como atacante, skill -1, movimento 4, 5 ou 6 em 0x1C, o jogador como alvo com o dano; o movimento vai
+direto para a animação do atacante, 0x485A10, e 0xFF deixa o monstro batendo parado). Quem apanhou recebe também o `0x181` com
 a vida nova. Com a vida em zero, o servidor manda `0x338` com o jogador como morto: o client mostra a morte e,
 quando o jogador clica para renascer (ou 3 minutos depois), manda o `0x289`. O servidor enche vida e mana e
 leva o personagem para `StartX`/`StartY` com um `0x366` de teleporte.
