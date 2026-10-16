@@ -29,7 +29,7 @@ public static class Skills
     /// <summary>Muro de Espinhos: convoca plantas com espinhos (ver <see cref="ThornWall"/>).</summary>
     public const int ThornWallSkill = 98;
 
-    /// <summary>Ressurreição: renasce no lugar onde morreu.</summary>
+    /// <summary>Ressurreição: morto, renasce no lugar onde morreu (ver <see cref="World.ResurrectAsync"/>).</summary>
     public const int Resurrect = 99;
 
     /// <summary>Concentração (passiva): o ataque acerta sem se importar com a esquiva do alvo.</summary>

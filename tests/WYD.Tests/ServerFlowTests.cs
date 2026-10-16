@@ -859,21 +859,33 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Resurrect_revives_where_the_player_died()
+    public async Task Resurrect_revives_where_the_player_died_with_part_of_the_life()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
         await a.SendAsync(MovePacket(1, 2100, 2100, 2105, 2100));
         var me = await CharacterOf("jogadora");
         for (int i = 0; i < 50 && me.PosX != 2105; i++) await Task.Delay(20);
-        Skills.Teach(me, Skills.Resurrect);
         me.BaseScore.Hp = 0;
 
-        await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, 1).ToArray());
+        // Sem a skill o 0x39D da Ressurreição não faz nada.
+        await a.SendAsync(SkillPacket(1, Skills.Resurrect, 1));
+        await Task.Delay(100);
+        Assert.Equal(0, me.BaseScore.Hp);
+
+        Skills.Teach(me, Skills.Resurrect);
+        await a.SendAsync(SkillPacket(1, Skills.Resurrect, 1));
         var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
         teleport.Skip(8);
         Assert.Equal(ServerPackets.MoveTeleport, teleport.ReadInt32());
         Assert.Equal(2105, teleport.ReadInt16());
-        Assert.Equal(me.MaxHp, me.BaseScore.Hp);
+        Assert.Equal(me.MaxHp * World.ResurrectHpPercent / 100, me.BaseScore.Hp);
+
+        // "Voltar para a cidade" (0x289) continua indo para a cidade, mesmo com a skill.
+        me.BaseScore.Hp = 0;
+        await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, 1).ToArray());
+        var town = await ReceiveTypeAsync(a, Opcodes.Move);
+        town.Skip(12);
+        Assert.Equal(2100, town.ReadInt16());
     }
 
     [Fact]

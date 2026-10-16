@@ -494,7 +494,9 @@ Efeitos das outras (todos no servidor, menos o alcance, que o client também som
 - 98 Muro de Espinhos (skill ofensiva: o `0x39D` com a skill 98 e o lugar em 0x14/0x16): 3 plantas (modelo Vine,
   358) em fila na perpendicular a quem lança, por 30 s, com 300 + 20 × nível de vida. Ocupam a célula, podem ser
   mortas, não dão exp nem drop e não renascem; um muro novo tira o anterior.
-- 99 Ressurreição: o `0x289` (só o cabeçalho, do botão ou automático em 3 minutos) renasce no lugar onde morreu.
+- 99 Ressurreição: morto, quem recusa voltar para a cidade (o `0x289` continua levando para a cidade) clica com o
+  botão direito e confirma o diálogo 99; 5 s depois o client faz a animação e manda o `0x39D` com a skill 99 nele
+  mesmo (0x472329). O servidor o traz de volta ali com 30% da vida.
 - 100 Concentração (passiva): o ataque não erra pela esquiva do alvo. Hoje os ataques do jogador não erram.
 - 101 Força Espectral (passiva): +1 de alcance em armas e skills. O client soma o bit 29 ao alcance da arma
   (0x490525); o servidor aceita uma célula a mais.

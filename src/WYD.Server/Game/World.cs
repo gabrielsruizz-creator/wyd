@@ -371,8 +371,13 @@ public sealed partial class World(
         long exp;
         int levels;
         bool castSpell = false, noExpTable = false, noSkillData = false;
-        if (auraDamage is null && System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(
-                packet.AsSpan(ServerPackets.AttackLayout.Skill)) == Skills.ConjureCannon)
+        short requested = System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.Skill));
+        if (auraDamage is null && requested == Skills.Resurrect)
+        {
+            await ResurrectAsync(session);
+            return;
+        }
+        if (auraDamage is null && requested == Skills.ConjureCannon)
         {
             await session.SendMessageAsync("O Canhão Guardião só pode ser usado na guerra de castelos.");
             return;
@@ -668,8 +673,8 @@ public sealed partial class World(
     }
 
     /// <summary>
-    /// 0x289: o personagem morto renasce com vida e mana cheias na cidade (StartX/StartY), ou onde morreu se tem a
-    /// Ressurreição. Quem o via perde o corpo e quem estiver perto do novo lugar passa a vê-lo.
+    /// 0x289: o personagem morto renasce com vida e mana cheias na cidade (StartX/StartY). Quem o via perde o
+    /// corpo e quem estiver perto do novo lugar passa a vê-lo.
     /// </summary>
     public async Task ReviveAsync(ClientSession session)
     {
@@ -680,13 +685,37 @@ public sealed partial class World(
             if (!_players.ContainsKey(session.Id) || !IsDead(me)) return;
             me.BaseScore.Hp = me.MaxHp;
             me.BaseScore.Mp = me.MaxMp;
-            if (Skills.Knows(me, Skills.Resurrect)) TeleportLocked(session, me.PosX, me.PosY, outgoing);
-            else TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
+            TeleportLocked(session, (short)options.Value.StartX, (short)options.Value.StartY, outgoing);
             outgoing.Add((session, ServerPackets.UpdateScore(session.Id, me)));
             outgoing.Add((session, ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp)));
         }
         await SendAllAsync(outgoing);
         logger.LogInformation("[{Id}] {Name} renasceu em ({X}, {Y}).", session.Id, me.Name, me.PosX, me.PosY);
+        await SaveAsync(me);
+    }
+
+    /// <summary>Vida (em % da máxima) com que a Ressurreição traz o personagem de volta.</summary>
+    public const int ResurrectHpPercent = 30;
+
+    /// <summary>
+    /// Ressurreição: morto, o jogador recusa voltar para a cidade, clica com o botão direito e confirma (diálogo 99);
+    /// 5 s depois o client faz a animação e manda o 0x39D com a skill 99 nele mesmo (0x472329). Renasce ali com
+    /// <see cref="ResurrectHpPercent"/>% da vida.
+    /// </summary>
+    public async Task ResurrectAsync(ClientSession session)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        var me = session.Character!;
+        lock (_lock)
+        {
+            if (!_players.ContainsKey(session.Id) || !IsDead(me) || !Skills.Knows(me, Skills.Resurrect)) return;
+            me.BaseScore.Hp = Math.Max(1, me.MaxHp * ResurrectHpPercent / 100);
+            TeleportLocked(session, me.PosX, me.PosY, outgoing);
+            outgoing.Add((session, ServerPackets.UpdateScore(session.Id, me)));
+            outgoing.Add((session, ServerPackets.UpdateHpMp(session.Id, me.BaseScore.Hp, me.BaseScore.Mp)));
+        }
+        await SendAllAsync(outgoing);
+        logger.LogInformation("[{Id}] {Name} ressuscitou em ({X}, {Y}).", session.Id, me.Name, me.PosX, me.PosY);
         await SaveAsync(me);
     }
 
