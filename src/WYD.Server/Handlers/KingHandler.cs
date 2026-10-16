@@ -267,8 +267,36 @@ public sealed class KingHandler(
     public async Task ChangeEvolutionAsync(ClientSession session, Evolution to)
     {
         var c = session.Character!;
+
+        // O Celestial veste a capa própria do reino; a capa comum vai para o inventário.
+        int capeToInventory = -1;
+        var cape = c.Equip[Kingdoms.CapeSlot];
+        if (to >= Evolution.Celestial && !Kingdoms.IsCelestialCape(cape.Index))
+        {
+            if (!cape.IsEmpty)
+            {
+                capeToInventory = Array.FindIndex(c.Inventory, 0, CommandHandler.BasicInventorySlots, i => i.IsEmpty);
+                if (capeToInventory < 0)
+                {
+                    await session.SendMessageAsync("Deixe um espaço livre no inventário para a sua capa antes de evoluir.");
+                    return;
+                }
+                c.Inventory[capeToInventory] = cape;
+            }
+            c.Equip[Kingdoms.CapeSlot] = new Item(Kingdoms.CelestialCape(Kingdoms.OfCape(cape)));
+        }
+
         Leveling.Evolve(c, to);
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, c.Equip[0]));
+        if (capeToInventory >= 0)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, capeToInventory, c.Inventory[capeToInventory]));
+        if (Kingdoms.IsCelestialCape(c.Equip[Kingdoms.CapeSlot].Index))
+        {
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Kingdoms.CapeSlot, c.Equip[Kingdoms.CapeSlot]));
+            var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            foreach (var viewer in world.Viewers(session))
+                await viewer.SendAsync(look);
+        }
         await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
         await session.SendAsync(ServerPackets.UpdateEtc(session.Id, c));
         await session.SendAsync(ServerPackets.UpdateHpMp(session.Id, c.BaseScore.Hp, c.BaseScore.Mp));

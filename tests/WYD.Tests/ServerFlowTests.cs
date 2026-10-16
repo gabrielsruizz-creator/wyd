@@ -851,8 +851,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(2, etc.ReadInt16());                           // sobraram 2 pontos de atributo
 
         await a.SendAsync(CommandPacket("gm", "evoluir sub"));
-        for (int i = 0; i < 5; i++) await a.ReceiveAsync();
+        for (int i = 0; i < 6; i++) await a.ReceiveAsync();           // rosto, capa do Celestial, ficha, etc, vida, mensagem
         Assert.Equal(Evolution.SubCelestial, me.Evolution);
+        Assert.Equal(3199, me.Equip[Kingdoms.CapeSlot].Index);          // sem capa: a Master Of Adventurer
+        Assert.True(Skills.Knows(me, Skills.SoulOfLimits));             // o Celestial já tem a Soul
         await a.SendAsync(CommandPacket("gm", "nivel 201"));
         Assert.StartsWith("Uso: /gm nivel <1 a 200>", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
     }

@@ -98,6 +98,11 @@ public sealed class ItemHandler(
             reason = $"{Name(def)} não pode ser equipado aí.";
             return false;
         }
+        if (Kingdoms.IsCelestialCape(item.Index) && c.Evolution < Evolution.Celestial)
+        {
+            reason = $"{Name(def)} é a capa do Celestial.";
+            return false;
+        }
         if (c.Evolution == Evolution.Mortal && def.ReqLevel > c.BaseScore.Level + 1)
         {
             reason = $"{Name(def)} precisa do nível {def.ReqLevel}.";

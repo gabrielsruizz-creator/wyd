@@ -30,6 +30,19 @@ public static class Kingdoms
 
     public static Kingdom Of(Character c) => OfCape(c.Equip[CapeSlot]);
 
+    /// <summary>
+    /// Capas do Celestial e do Sub Celestial (Master Of Hekalotia, Akeronia e Adventurer), com modelo próprio (2880):
+    /// o Mortal e o Arch usam as capas comuns.
+    /// </summary>
+    public static short CelestialCape(Kingdom k) => k switch
+    {
+        Kingdom.Blue => 3197,
+        Kingdom.Red => 3198,
+        _ => 3199,
+    };
+
+    public static bool IsCelestialCape(short index) => index is >= 3197 and <= 3199;
+
     /// <summary>Sem capa ou com capa branca: pode evoluir com qualquer um dos reis.</summary>
     public static bool IsNeutral(Kingdom k) => k is Kingdom.None or Kingdom.Neutral;
 

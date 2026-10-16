@@ -501,3 +501,10 @@ NPC em 0x0C; 0x45E0A4). A Ehre tem 0 no arquivo; o servidor a manda com o tipo 1
 - Ehre: as 3 primeiras joias do inventário (Diamante 2441/3386, Esmeralda 2442/3387, Coral 2443/3388, Garnet
   2444/3389), na ordem dos slots, escolhem a combinação: DDD 1, EEE 2, CCC 3, GGG 4, DEC 5, DCG 6, ECG 7, EDC 8,
   CDC 9, GDC 10.
+
+### Capas por evolução
+
+Mortal e Arch usam as capas comuns. O Celestial e o Sub Celestial usam as Master Of Hekalotia (3197, azul),
+Akeronia (3198, vermelha) e Adventurer (3199, branca), com modelo próprio (2880). Ao virar Celestial o servidor
+veste a Master do reino da capa atual e põe a capa antiga no inventário; só Celestial e Sub Celestial equipam as
+Master.
