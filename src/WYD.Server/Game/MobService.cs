@@ -21,6 +21,9 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
     /// <summary>Distância máxima de cada passeio (a rota do client tem até 23 passos).</summary>
     private const int MaxStep = 12;
 
+    /// <summary>De quanto em quanto tempo os monstros agem (revidar, andar, renascer).</summary>
+    public static readonly TimeSpan Tick = TimeSpan.FromMilliseconds(200);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         string generPath = PathResolver.Resolve(_options.NpcGenerPath);
@@ -32,7 +35,7 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
 
         // O ciclo roda mesmo sem o NPCGener, para os monstros criados depois (renascer e andar).
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+        using var timer = new PeriodicTimer(Tick);
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             var now = DateTime.UtcNow;

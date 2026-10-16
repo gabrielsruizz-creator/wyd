@@ -37,8 +37,18 @@ public sealed partial class World(
     /// <summary>Distância em que um monstro consegue bater (corpo a corpo).</summary>
     public const int MobAttackRange = 2;
 
-    /// <summary>Intervalo entre dois golpes do mesmo monstro.</summary>
-    public static readonly TimeSpan MobAttackInterval = TimeSpan.FromSeconds(2);
+    /// <summary>Intervalo entre dois golpes de um monstro sem velocidade de ataque (a maioria no NPC tem 0).</summary>
+    public static readonly TimeSpan MobAttackInterval = TimeSpan.FromMilliseconds(1200);
+
+    /// <summary>Quanto o monstro espera para revidar o primeiro golpe que leva.</summary>
+    public static readonly TimeSpan MobFirstAttackDelay = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// Intervalo entre golpes do monstro: o base encurtado pela velocidade de ataque dele (4 bits de cima do AttackRun,
+    /// 0 a 15; com 15 fica em 40%).
+    /// </summary>
+    public static TimeSpan MobAttackIntervalOf(Mob mob) =>
+        TimeSpan.FromMilliseconds(MobAttackInterval.TotalMilliseconds * 10 / (10 + (mob.Template.Score.AttackRun >> 4)));
 
     /// <summary>Quantas células um monstro anda de cada vez quando persegue alguém.</summary>
     public const int ChaseStep = 6;
@@ -474,7 +484,7 @@ public sealed partial class World(
                     else if (mob.Target == 0 && !mob.IsSummon)
                     {
                         mob.Target = session.Id;                 // revida: passa a perseguir quem bateu
-                        if (mob.NextAttack < now) mob.NextAttack = now + MobAttackInterval / 2;
+                        if (mob.NextAttack < now) mob.NextAttack = now + MobFirstAttackDelay;
                     }
                 }
                 System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(o + 2), damage);
@@ -601,7 +611,7 @@ public sealed partial class World(
     }
 
     /// <summary>
-    /// Monstros que estão perseguindo alguém: chegam perto e batem a cada <see cref="MobAttackInterval"/>.
+    /// Monstros que estão perseguindo alguém: chegam perto e batem a cada <see cref="MobAttackIntervalOf"/>.
     /// Desistem se o jogador sair, morrer ou se afastar mais que o campo de visão.
     /// Retorna os monstros que estão ocupados (não devem passear).
     /// </summary>
@@ -638,7 +648,7 @@ public sealed partial class World(
                 }
 
                 if (mob.NextAttack > now) continue;
-                mob.NextAttack = now + MobAttackInterval;
+                mob.NextAttack = now + MobAttackIntervalOf(mob);
                 var buff = Affects.Bonus(c);
                 int damage = Random.Shared.Next(100) < buff.Dodge
                     ? 0                                                       // esquiva (Dodge)
