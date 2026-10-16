@@ -21,6 +21,10 @@ de tamanho fixo terminadas em zero.
 | 6      | `ushort` | `ID`       | id da conexão / do mob                  |
 | 8      | `uint`   | `Tick`     | relógio do client                       |
 
+O `Tick` dos pacotes do servidor é o relógio do servidor em ms (começa em um dia). O client acerta o relógio dele pelo
+`Tick` do `0x114` e do `0x10E` e compara com a hora em que cada skill foi usada pela última vez, que começa em 0 ao
+entrar no mundo; se o `Tick` viesse perto de 0, as skills de Delay longo (a Soul tem 1200 s) nasceriam em recarga.
+
 ## Cifra
 
 ✅ Conferida com o client 7.54: a KeyTable encontrada pelo `find-keytable` decifra os pacotes do client.

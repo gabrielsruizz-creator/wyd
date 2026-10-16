@@ -26,8 +26,18 @@ public sealed class KingHandler(
         bool confirmed = packet.Remaining >= 4 && packet.ReadInt32() != 0;
         var npc = world.VisibleMob(session, npcId);
         var c = session.Character!;
-        if (npc is null || Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
+        if (npc is null)
+        {
+            logger.LogInformation("[{Id}] Clique no NPC {Npc}, que não está na visão do servidor.", session.Id, npcId);
             return;
+        }
+        logger.LogInformation("[{Id}] Clique em {Npc} ({X}, {Y}) de ({PX}, {PY}), confirmação {Confirmed}.",
+            session.Id, npc.Template.Name, npc.X, npc.Y, c.PosX, c.PosY, confirmed);
+        if (Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
+        {
+            await session.SendMessageAsync($"Chegue mais perto de {npc.Template.Name}.");
+            return;
+        }
 
         if (npc.IsSkillMaster)
         {
@@ -91,8 +101,18 @@ public sealed class KingHandler(
         ushort npcId = (ushort)packet.ReadInt32();
         var npc = world.VisibleMob(session, npcId);
         var c = session.Character!;
-        if (npc is null || Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
+        if (npc is null)
+        {
+            logger.LogInformation("[{Id}] Clique no NPC {Npc}, que não está na visão do servidor.", session.Id, npcId);
             return;
+        }
+        logger.LogInformation("[{Id}] Conversa com {Npc} ({X}, {Y}) de ({PX}, {PY}).",
+            session.Id, npc.Template.Name, npc.X, npc.Y, c.PosX, c.PosY);
+        if (Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
+        {
+            await session.SendMessageAsync($"Chegue mais perto de {npc.Template.Name}.");
+            return;
+        }
         if (!SoulQuest.IsOdin(npc))
         {
             logger.LogInformation("[{Id}] Conversa com {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);
@@ -141,6 +161,7 @@ public sealed class KingHandler(
         var (refusal, combo, changed) = SoulQuest.Configure(c, CommandHandler.BasicInventorySlots);
         if (refusal is not null)
         {
+            logger.LogInformation("[{Id}] Ehre recusou {Name}: {Refusal}", session.Id, c.Name, refusal);
             await session.SendMessageAsync(refusal);
             return;
         }

@@ -35,4 +35,15 @@ public static class PacketHeader
     public static ushort ReadType(ReadOnlySpan<byte> packet) => BinaryPrimitives.ReadUInt16LittleEndian(packet[TypeOffset..]);
     public static ushort ReadId(ReadOnlySpan<byte> packet) => BinaryPrimitives.ReadUInt16LittleEndian(packet[IdOffset..]);
     public static uint ReadTick(ReadOnlySpan<byte> packet) => BinaryPrimitives.ReadUInt32LittleEndian(packet[TickOffset..]);
+
+    private static readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>
+    /// Relógio do servidor em ms. O client acerta o relógio dele pelo Tick do 0x114 (entrar no mundo) e do 0x10E e
+    /// compara com a hora em que cada skill foi usada, que começa em 0: um relógio perto de 0 deixa as skills de
+    /// Delay longo (a Soul tem 1200 s) em recarga depois do login. Por isso começa em um dia.
+    /// </summary>
+    public static uint ServerTick => (uint)(Clock.ElapsedMilliseconds + 86_400_000);
+
+    public static void WriteTick(Span<byte> packet, uint tick) => BinaryPrimitives.WriteUInt32LittleEndian(packet[TickOffset..], tick);
 }

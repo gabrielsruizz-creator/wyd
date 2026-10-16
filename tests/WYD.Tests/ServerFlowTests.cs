@@ -282,7 +282,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await client.SendAsync(CreatePacket(0, name));
         Assert.Equal(Opcodes.CreateCharacterOk, (await client.ReceiveAsync()).Type);
         await client.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
-        Assert.Equal(Opcodes.CharacterLoginOk, (await client.ReceiveAsync()).Type);
+        var loginOk = await client.ReceiveAsync();
+        Assert.Equal(Opcodes.CharacterLoginOk, loginOk.Type);
+        // O client acerta o relógio pelo Tick do 0x114: perto de 0, as skills de Delay longo nasceriam em recarga.
+        Assert.True(PacketHeader.ReadTick(loginOk.ToArray()) >= 86_400_000u);
         return client;
     }
 
@@ -994,6 +997,48 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(Sefirot.EternalStone, me.Inventory[15].Index);
             Assert.Single(me.Inventory, i => i.Index == Oracle.Sapphire);
             Assert.DoesNotContain(me.Inventory, i => i.Index is Oracle.UnicornSpirit or Oracle.PhoenixSpirit);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Ehre_configures_the_soul_with_three_jewels()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            // Como no arquivo de dados: a Ehre não tem tipo de NPC (merchant 0) e é do clã 3.
+            var file = NpcDataTests.NpcFile("Ehre", 53, 1, 9000);
+            file[0x10] = 3;
+            File.WriteAllBytes(Path.Combine(npcDir, "Ehre"), file);
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Ehre", MaxNumMob = 1, StartX = 2102, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var created = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            created.Skip(4);
+            ushort ehre = created.ReadUInt16();
+            Assert.Equal("Ehre", created.ReadString(12));
+            created.Skip(4 + 16 * 2 + 32 + 2 + 6);
+            Assert.Equal(SoulQuest.EhreClientMerchant, created.ReadByte() & 0x0F);
+
+            await a.SendAsync(NpcClickPacket(ehre));
+            Assert.Equal("Você ainda não tem a Soul (fale com a Kibita).",
+                (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+
+            var me = await CharacterOf("jogadora");
+            Skills.Teach(me, Skills.SoulOfLimits);
+            me.Inventory[3] = new Item(2442);                                  // Esmeralda
+            me.Inventory[5] = new Item(2441);                                  // Diamante
+            me.Inventory[9] = new Item(2443);                                  // Coral: "EDC" = combinação 8
+            await a.SendAsync(NpcClickPacket(ehre));
+            for (int i = 0; i < 3; i++) Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
+            Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
+            Assert.StartsWith("Soul: ", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+            Assert.Equal(8, me.SoulCombo);
         }
         finally
         {

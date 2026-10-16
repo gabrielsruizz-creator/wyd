@@ -159,11 +159,13 @@ public sealed class ClientSession
     {
         if (IsClosed) return;
 
+        var data = (byte[])packet.Clone();
+        PacketHeader.WriteTick(data, PacketHeader.ServerTick);
+
         if (_options.LogPackets)
             _logger.LogInformation("[{Id}] SEND {Type} ({Size} bytes)\n{Hex}", Id,
-                Opcodes.Name(PacketHeader.ReadType(packet)), packet.Length, HexDump.Format(packet));
+                Opcodes.Name(PacketHeader.ReadType(data)), data.Length, HexDump.Format(data));
 
-        var data = (byte[])packet.Clone();
         PacketCipher.Encrypt(data, _keyTable, (byte)RandomNumberGenerator.GetInt32(256), _checksumMode);
 
         await _sendLock.WaitAsync();
