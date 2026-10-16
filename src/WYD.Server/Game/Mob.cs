@@ -34,10 +34,10 @@ public sealed class Mob
     public DateTime RespawnAt { get; set; }
 
     /// <summary>NPCs (lojas, guardas, mestres...) não podem ser atacados.</summary>
-    public bool Attackable => Template.Merchant == 0;
+    public bool Attackable => Template.Merchant == 0 && !SoulQuest.IsEhre(Template.Name);
 
     /// <summary>NPCs (lojas etc.) e spawns com raio zero ficam parados.</summary>
-    public bool Wanders => Template.Merchant == 0 && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;
+    public bool Wanders => Attackable && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;
 
     /// <summary>O client só pede a lista da loja quando os 4 bits de baixo de Score.Merchant valem 1.</summary>
     public bool IsShop => (Template.Score.Merchant & 0x0F) == 1;
@@ -87,6 +87,7 @@ public sealed class Mob
 
         var score = Score;
         if (OracleKingdom is not null) score.Merchant = (byte)((score.Merchant & 0xF0) | Oracle.ClientMerchant);
+        else if (SoulQuest.IsEhre(Template.Name)) score.Merchant = (byte)((score.Merchant & 0xF0) | SoulQuest.EhreClientMerchant);
         return ServerPackets.CreateMob(Id, Template.Name, X, Y,
             Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
             Template.Guild, score);

@@ -43,6 +43,17 @@ public sealed class KingHandler(
             return;
         }
 
+        if (SoulQuest.IsKibita(npc))
+        {
+            await KibitaAsync(session);
+            return;
+        }
+        if (SoulQuest.IsEhre(npc.Template.Name))
+        {
+            await EhreAsync(session);
+            return;
+        }
+
         if (!npc.IsKing)
         {
             logger.LogInformation("[{Id}] Clique em {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);
@@ -72,6 +83,75 @@ public sealed class KingHandler(
             await CreateArchAsync(session);
         else
             await ChangeEvolutionAsync(session, c.Evolution + 1);
+    }
+
+    /// <summary>0x28E: clique em NPC de tipo 6 a 8. O Odin faz a Pedra Secreta.</summary>
+    public async Task HandleNpcTalkAsync(ClientSession session, PacketReader packet)
+    {
+        ushort npcId = (ushort)packet.ReadInt32();
+        var npc = world.VisibleMob(session, npcId);
+        var c = session.Character!;
+        if (npc is null || Math.Abs(npc.X - c.PosX) > WorldHandler.ShopDistance || Math.Abs(npc.Y - c.PosY) > WorldHandler.ShopDistance)
+            return;
+        if (!SoulQuest.IsOdin(npc))
+        {
+            logger.LogInformation("[{Id}] Conversa com {Npc}: este NPC ainda não tem função.", session.Id, npc.Template.Name);
+            return;
+        }
+
+        var (refusal, changed) = SoulQuest.MakeStone(c, CommandHandler.BasicInventorySlots);
+        if (refusal is not null)
+        {
+            await session.SendMessageAsync(refusal);
+            return;
+        }
+        foreach (int slot in changed)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+        await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+        short stone = SoulQuest.SecretStone(c.Class);
+        logger.LogInformation("[{Id}] {Name} fez a {Stone} com o Odin.", session.Id, c.Name, SoulQuest.StoneName(stone));
+        await session.SendMessageAsync($"{SoulQuest.StoneName(stone)} criada.");
+    }
+
+    /// <summary>Kibita: o Mortal 371+ com a Pedra Secreta ganha a Soul e o Manto do Herói e volta para a seleção.</summary>
+    private async Task KibitaAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        var (refusal, changed) = SoulQuest.GiveSoul(c, CommandHandler.BasicInventorySlots);
+        if (refusal is not null)
+        {
+            await session.SendMessageAsync(refusal);
+            return;
+        }
+        foreach (int slot in changed)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Kingdoms.CapeSlot, c.Equip[Kingdoms.CapeSlot]));
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+        logger.LogInformation("[{Id}] {Name} recebeu a Soul da Kibita.", session.Id, c.Name);
+        await characterHandler.ReturnToSelectionAsync(session, listChanged: true);
+    }
+
+    /// <summary>Ehre: as 3 joias do inventário escolhem a combinação da Soul.</summary>
+    private async Task EhreAsync(ClientSession session)
+    {
+        var c = session.Character!;
+        var (refusal, combo, changed) = SoulQuest.Configure(c, CommandHandler.BasicInventorySlots);
+        if (refusal is not null)
+        {
+            await session.SendMessageAsync(refusal);
+            return;
+        }
+        foreach (int slot in changed)
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, c.Inventory[slot]));
+        await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+        await characters.SaveItemsAsync(c);
+        await characters.SaveProgressAsync(c);
+        bool celestial = c.Equip[0].Index % 10 > 5;
+        logger.LogInformation("[{Id}] {Name} configurou a Soul na Ehre: {Combo}.", session.Id, c.Name, combo);
+        await session.SendMessageAsync($"Soul: {Soul.Describe(combo, celestial)}");
     }
 
     /// <summary>Mortal 400 com o Sefirot: nasce o Arch num slot livre e o client volta para a seleção de personagens.</summary>

@@ -41,6 +41,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.Revive, PacketHeader.Size, SessionState.InGame, world.HandleReviveAsync);
         Register(Opcodes.Teleport, PacketHeader.Size, SessionState.InGame, teleports.HandleAsync);
         Register(Opcodes.NpcClick, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcClickAsync);
+        Register(Opcodes.NpcTalk, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcTalkAsync);
         Register(Opcodes.ApplyBonus, PacketHeader.Size + 4, SessionState.InGame, points.HandleAsync);
         Register(Opcodes.SkillBar, PacketHeader.Size + Game.Character.SkillBarSize, SessionState.InGame, points.HandleSkillBarAsync);
     }

@@ -485,3 +485,18 @@ A Soul (efeito 29, o mesmo da Maestria em Armas) aumenta os atributos da combina
 (código oficial em 0x55BEE6, tabelas de salto 0x55CD36 e 0x55CD5E): combinações 1 FOR/CON, 2 INT/CON, 3 DES/CON,
 4 FOR/DES, 5 INT/DES, 6 CON/DES, 7 FOR, 8 INT, 9 CON, 10 DES; Celestial 80% + 60% (simples 120%), Mortal 40% + 30%
 (simples 60%). O servidor dá 400 s de buff e 15 minutos de espera.
+
+### Kibita, Odin e Ehre
+
+O tipo de NPC que o client usa é `Score.Merchant & 0xF`. A Kibita tem 10 (0x4A): o client pergunta e manda o
+`0x28B`, como no rei (0x45DB35). O Odin tem 7 (0x17): nos tipos 6 a 8 o client manda o `0x28E` (16 bytes, int id do
+NPC em 0x0C; 0x45E0A4). A Ehre tem 0 no arquivo; o servidor a manda com o tipo 13 (a pergunta), que também manda o
+`0x28B`, e ela não pode ser atacada.
+
+- Odin: as 7 runas do elemento da classe (Vento HT, Água TK, Terra BM, Sol FM; itens 5110 a 5133) e 2.000.000 de
+  gold viram a Pedra Secreta (5334 Água, 5335 Terra, 5336 Sol, 5337 Vento).
+- Kibita: Mortal nível 371+ com a Pedra Secreta da classe ganha a Soul (bit 30) e o Manto do Herói do reino (3194
+  azul, 3195 vermelho, 3196 neutro; a capa antiga vai para o inventário) e volta para a seleção de personagens.
+- Ehre: as 3 primeiras joias do inventário (Diamante 2441/3386, Esmeralda 2442/3387, Coral 2443/3388, Garnet
+  2444/3389), na ordem dos slots, escolhem a combinação: DDD 1, EEE 2, CCC 3, GGG 4, DEC 5, DCG 6, ECG 7, EDC 8,
+  CDC 9, GDC 10.

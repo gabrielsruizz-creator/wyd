@@ -739,4 +739,50 @@ public class ToolTests
         Assert.Equal("INT +120%", Soul.Describe(8, celestial: true));
         Assert.Equal("FOR +40% e CON +30%", Soul.Describe(1, celestial: false));
     }
+
+    [Fact]
+    public void Odin_kibita_and_ehre_make_the_soul_of_the_mortal()
+    {
+        var c = new WYD.Server.Game.Character { Name = "Teste", Class = CharacterClass.Huntress, Coin = 3_000_000 };
+        c.Equip[0] = new Item(31);                                     // rosto de HT Mortal
+        c.Equip[Kingdoms.CapeSlot] = new Item(545);                    // capa azul
+        c.BaseScore.Level = 370;                                       // nível 371 na tela
+
+        // Odin: falta runa.
+        foreach (var (rune, slot) in SoulQuest.Runes[SoulQuest.WindStone].Skip(1).Select((r, k) => (r, k)))
+            c.Inventory[slot] = new Item(rune);
+        var (refusal, _) = SoulQuest.MakeStone(c, 63);
+        Assert.Contains("5122", refusal);
+        c.Inventory[10] = new Item(5122);
+        var (ok, changed) = SoulQuest.MakeStone(c, 63);
+        Assert.Null(ok);
+        Assert.Equal(1_000_000, c.Coin);
+        Assert.Contains(c.Inventory, i => i.Index == SoulQuest.WindStone);
+        Assert.DoesNotContain(c.Inventory, i => i.Index == 5122);
+
+        // Kibita: Soul, Manto do Herói azul e a capa antiga no inventário.
+        var (given, _) = SoulQuest.GiveSoul(c, 63);
+        Assert.Null(given);
+        Assert.True(Skills.Knows(c, Skills.SoulOfLimits));
+        Assert.Equal(3194, c.Equip[Kingdoms.CapeSlot].Index);
+        Assert.Contains(c.Inventory, i => i.Index == 545);
+        Assert.DoesNotContain(c.Inventory, i => i.Index == SoulQuest.WindStone);
+        Assert.NotNull(SoulQuest.GiveSoul(c, 63).Refusal);              // já tem
+
+        // Ehre: Esmeralda, Diamante (2 empilhados... o primeiro conta), Coral = INT (combinação 8).
+        c.Inventory[40] = new Item(2442);
+        c.Inventory[41] = new Item(2441);
+        c.Inventory[42] = new Item(2443);
+        var (set, combo, used) = SoulQuest.Configure(c, 63);
+        Assert.Null(set);
+        Assert.Equal(8, combo);
+        Assert.Equal(8, c.SoulCombo);
+        Assert.Equal(3, used.Count);
+        Assert.True(c.Inventory[40].IsEmpty && c.Inventory[41].IsEmpty && c.Inventory[42].IsEmpty);
+
+        // Três Diamantes empilhados num slot = Força e Cons (1).
+        c.Inventory[50] = new Item(2441) { Effect1 = 61, Value1 = 5 };
+        Assert.Equal(1, SoulQuest.Configure(c, 63).Combo);
+        Assert.Equal(2, c.Inventory[50].Value1);
+    }
 }
