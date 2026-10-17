@@ -335,6 +335,53 @@ public static class ToolCommands
             Console.WriteLine("Itemname.bin tirado do client: os nomes dos itens vêm da ItemList nova.");
         }
         if (Directory.Exists(backup)) Console.WriteLine($"O que foi substituído está em {backup}.");
+        return FixCDataCommand(target);
+    }
+
+    /// <summary>
+    /// fix-cdata &lt;pasta do client&gt;: recalcula no cdata.bin o valor esperado de cada mapa da pasta Env (ver
+    /// <see cref="FieldChecksums"/>), para o client aceitar mapas novos ou alterados. O anterior vira cdata.bin.bak.
+    /// </summary>
+    public static int FixCDataCommand(string client)
+    {
+        string? path = Directory.Exists(client) ? Directory.EnumerateFiles(client)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("cdata.bin", StringComparison.OrdinalIgnoreCase)) : null;
+        string? env = Directory.Exists(client) ? Directory.EnumerateDirectories(client)
+            .FirstOrDefault(d => Path.GetFileName(d).Equals("Env", StringComparison.OrdinalIgnoreCase)) : null;
+        if (path is null || env is null)
+        {
+            Console.Error.WriteLine($"{client}: não achei o cdata.bin e a pasta Env do client.");
+            return 1;
+        }
+        var bytes = File.ReadAllBytes(path);
+        if (bytes.Length != FieldChecksums.FileSize)
+        {
+            Console.Error.WriteLine($"{path} tem {bytes.Length} bytes; o do client 7.54 tem {FieldChecksums.FileSize}.");
+            return 1;
+        }
+        var table = FieldChecksums.Read(bytes);
+        if (FieldChecksums.Sum(table) != FieldChecksums.TableSum)
+        {
+            Console.Error.WriteLine($"{path} não é o cdata.bin do client 7.54 (a soma de conferência não bate); nada foi mudado.");
+            return 1;
+        }
+
+        var result = FieldChecksums.Recompute(table, env);
+        Console.WriteLine($"Mapas: {result.Files} arquivos; dos {result.Known} que já estavam no cdata.bin, {result.Matched} batem com a conta.");
+        if (!result.Trusted)
+        {
+            Console.Error.WriteLine("A conta não bate com os mapas originais; o cdata.bin não foi mudado.");
+            return 1;
+        }
+        if (result.ChangedFiles.Count == 0)
+        {
+            Console.WriteLine("O cdata.bin já aceita todos os mapas.");
+            return 0;
+        }
+        File.Copy(path, path + ".bak", overwrite: true);
+        File.WriteAllBytes(path, FieldChecksums.Write(result.Table));
+        Console.WriteLine($"cdata.bin atualizado para {result.ChangedFiles.Count} mapa(s) novos ou alterados: " +
+                          string.Join(", ", result.ChangedFiles) + $". O anterior ficou em {Path.GetFileName(path)}.bak.");
         return 0;
     }
 

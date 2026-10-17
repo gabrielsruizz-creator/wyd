@@ -158,6 +158,13 @@ o que for substituído vai para `backup-import-...` dentro do client. Rode na pa
 dotnet run --project src\WYD.Server -- import-client "C:\outro\client" "C:\caminho\do\jogo"
 ```
 
+Os mapas novos ou alterados (Env\FieldXXYY) só abrem se o `cdata.bin` do client tiver o valor de cada um; o
+`import-client` já acerta isso no fim. Para refazer sozinho (por exemplo depois de copiar mapas à mão):
+
+```powershell
+dotnet run --project src\WYD.Server -- fix-cdata "C:\caminho\do\jogo"
+```
+
 **Só a ItemList de outro client 7.54** (por exemplo a do Star Destiny, cifrada com uma chave própria): converte
 para o formato do 7.54, com o checksum que o client exige. A saída vai para o client **e** para `data/ItemList.bin`
 do servidor (o que já existir vira `.bak`). Os modelos e texturas dos itens novos precisam estar na pasta do client.

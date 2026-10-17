@@ -908,4 +908,68 @@ public class ToolTests
             Directory.Delete(root, true);
         }
     }
+
+    [Fact]
+    public void Fix_cdata_recomputes_new_maps_and_keeps_the_table_sum()
+    {
+        var env = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            static byte[] Trn(int x, int y, byte fill)
+            {
+                var b = new byte[1 + 5 + 2 + 0xC000];
+                b[0] = 5; "field"u8.CopyTo(b.AsSpan(1)); b[6] = (byte)x; b[7] = (byte)y;
+                b.AsSpan(8).Fill(fill);
+                return b;
+            }
+            static byte[] Dat(params (int Type, float X)[] objects)
+            {
+                var list = new List<byte>();
+                foreach (var (type, x) in objects)
+                {
+                    var r = new byte[WYD.Server.Tools.FieldChecksums.HasExtra(type) ? 36 : 28];
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(r, type);
+                    System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(r.AsSpan(4), x);
+                    System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(r.AsSpan(8), -x);
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(r.AsSpan(24), 7);
+                    list.AddRange(r);
+                }
+                return list.ToArray();
+            }
+            // Valores conferidos à mão: terreno 0xC000 bytes de 1 + 8 × 13; objetos 2 + 57 - 57 + 7 e 503 + 35 - 35 + 7.
+            File.WriteAllBytes(Path.Combine(env, "Field0813.trn"), Trn(8, 13, 1));
+            File.WriteAllBytes(Path.Combine(env, "Field0813.dat"), Dat((2, 57.9f), (503, 35.4f)));
+            Assert.Equal(0xC000 + 104, WYD.Server.Tools.FieldChecksums.Terrain(Trn(8, 13, 1))!.Value.Value);
+            Assert.Equal(2 + 7 + 503 + 7 + 104, WYD.Server.Tools.FieldChecksums.Objects(Dat((2, 57.9f), (503, 35.4f)), 8, 13));
+
+            // cdata.bin do client que já aceita esses dois (com a soma de conferência certa).
+            var table = new int[64 * 32];
+            table[13 * 32 + 8] = 0xC000 + 104;
+            table[(13 + 32) * 32 + 8] = 2 + 7 + 503 + 7 + 104;
+            table[63 * 32 + 31] = 0;
+            table[63 * 32 + 31] = unchecked((int)((WYD.Server.Tools.FieldChecksums.TableSum - WYD.Server.Tools.FieldChecksums.Sum(table)) / 4));
+            Assert.Equal(WYD.Server.Tools.FieldChecksums.TableSum, WYD.Server.Tools.FieldChecksums.Sum(table));
+
+            // Um mapa novo de outro client.
+            File.WriteAllBytes(Path.Combine(env, "Field0123.trn"), Trn(1, 23, 2));
+            File.WriteAllBytes(Path.Combine(env, "Field0123.dat"), Dat((12, 3f)));
+            var result = WYD.Server.Tools.FieldChecksums.Recompute(table, env);
+
+            Assert.True(result.Trusted);
+            Assert.Equal(4, result.Files);
+            Assert.Equal(2, result.Matched);
+            Assert.Equal(2 * 0xC000 + 23, result.Table[23 * 32 + 1]);
+            Assert.Equal(12 + 3 - 3 + 7 + 23, result.Table[(23 + 32) * 32 + 1]);
+            Assert.Equal(WYD.Server.Tools.FieldChecksums.TableSum, WYD.Server.Tools.FieldChecksums.Sum(result.Table));
+
+            // Conta que não bate com os originais: não é confiável.
+            table[13 * 32 + 8] = 1;
+            table[(13 + 32) * 32 + 8] = 1;
+            Assert.False(WYD.Server.Tools.FieldChecksums.Recompute(table, env).Trusted);
+        }
+        finally
+        {
+            Directory.Delete(env, true);
+        }
+    }
 }
