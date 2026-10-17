@@ -33,6 +33,9 @@ public static partial class FieldChecksums
         /// <summary>Pedaços que já tinham valor e não bateram, com o valor da tabela e o calculado.</summary>
         public List<(string File, int Expected, int Computed)> Mismatches { get; } = [];
 
+        /// <summary>Terrenos do Star para regravar decodificados (caminho, conteúdo).</summary>
+        public Dictionary<string, byte[]> Decoded { get; } = [];
+
         /// <summary>A conta é a do client: a maior parte dos mapas que ele já aceitava bate.</summary>
         public bool Trusted => Known > 0 && Matched * 2 >= Known;
     }
@@ -90,16 +93,27 @@ public static partial class FieldChecksums
         float.IsNaN(f) || f >= 2147483648f || f < -2147483648f ? int.MinValue : (int)f;
 
     /// <summary>
+    /// Terreno do Star Destiny: os bytes do terreno diferentes de zero vêm em XOR 0x5A, que a DLL dele desfaz ao ler
+    /// (0x53DDCF). Volta ao formato do nosso client.
+    /// </summary>
+    public static byte[] DecodeTerrain(byte[] file)
+    {
+        var copy = (byte[])file.Clone();
+        int start = 1 + file[0] + 2;
+        for (int i = start; i < Math.Min(copy.Length, start + TerrainBytes); i++)
+            if (copy[i] != 0) copy[i] ^= 0x5A;
+        return copy;
+    }
+
+    /// <summary>
     /// Recalcula a tabela para os mapas da pasta Env. Os pedaços cujo valor já bate contam como conferidos (o client
-    /// original aceita esses arquivos, então a conta está certa); os outros recebem o valor novo.
+    /// original aceita esses arquivos, então a conta está certa); os outros recebem o valor novo. Um terreno que só bate
+    /// depois de decodificado (<see cref="DecodeTerrain"/>) é uma cópia do Star do mapa original: volta decodificado.
+    /// Comprovada a codificação assim, os terrenos novos também são decodificados.
     /// </summary>
     public static Result Recompute(int[] table, string envFolder)
     {
-        var result = (int[])table.Clone();
-        var used = new bool[Rows * Columns];
-        int files = 0, known = 0, matched = 0;
-        var changed = new List<string>();
-        var mismatches = new List<(string, int, int)>();
+        var entries = new List<(string Path, bool Terrain, int X, int Y, byte[] Bytes)>();
         foreach (var path in Directory.EnumerateFiles(envFolder))
         {
             var m = FieldName().Match(Path.GetFileName(path));
@@ -108,17 +122,36 @@ public static partial class FieldChecksums
             if (x >= Columns || y >= Columns) continue;
             var bytes = File.ReadAllBytes(path);
             bool terrain = m.Groups[3].Value.Equals("trn", StringComparison.OrdinalIgnoreCase);
-            int value;
-            if (terrain)
-            {
-                if (Terrain(bytes) is not { } t || t.X != x || t.Y != y) continue;
-                value = t.Value;
-            }
-            else value = Objects(bytes, x, y);
+            if (terrain && (Terrain(bytes) is not { } t || t.X != x || t.Y != y)) continue;
+            entries.Add((path, terrain, x, y, bytes));
+        }
 
-            int cell = (terrain ? y : y + Columns) * Columns + x;
+        int Cell(bool terrain, int x, int y) => (terrain ? y : y + Columns) * Columns + x;
+
+        // Primeiro: a codificação do Star se comprova nos terrenos que só batem decodificados.
+        var decoded = new Dictionary<string, byte[]>();
+        foreach (var e in entries.Where(e => e.Terrain && table[Cell(true, e.X, e.Y)] != 0))
+        {
+            int expected = table[Cell(true, e.X, e.Y)];
+            if (Terrain(e.Bytes)!.Value.Value == expected) continue;
+            var plain = DecodeTerrain(e.Bytes);
+            if (Terrain(plain)!.Value.Value == expected) decoded[e.Path] = plain;
+        }
+        if (decoded.Count > 0)
+            foreach (var e in entries.Where(e => e.Terrain && table[Cell(true, e.X, e.Y)] == 0))
+                decoded[e.Path] = DecodeTerrain(e.Bytes);
+
+        var result = (int[])table.Clone();
+        var used = new bool[Rows * Columns];
+        int known = 0, matched = 0;
+        var changed = new List<string>();
+        var mismatches = new List<(string, int, int)>();
+        foreach (var (path, terrain, x, y, raw) in entries)
+        {
+            var bytes = decoded.TryGetValue(path, out var plain) ? plain : raw;
+            int value = terrain ? Terrain(bytes)!.Value.Value : Objects(bytes, x, y);
+            int cell = Cell(terrain, x, y);
             used[cell] = true;
-            files++;
             if (result[cell] != 0) known++;
             if (result[cell] == value) matched++;
             else
@@ -135,8 +168,9 @@ public static partial class FieldChecksums
         result[spare] = 0;
         uint missing = unchecked(target - Sum(result));
         result[spare] = unchecked((int)(missing / 4));
-        var r = new Result(files, known, matched, result, changed);
+        var r = new Result(entries.Count, known, matched, result, changed);
         r.Mismatches.AddRange(mismatches);
+        foreach (var (path, bytes) in decoded) r.Decoded[path] = bytes;
         return r;
     }
 

@@ -375,6 +375,11 @@ public static class ToolCommands
             Console.Error.WriteLine("A conta não bate com os mapas originais; o cdata.bin não foi mudado.");
             return 1;
         }
+        if (result.Decoded.Count > 0)
+        {
+            foreach (var (file, content) in result.Decoded) File.WriteAllBytes(file, content);
+            Console.WriteLine($"{result.Decoded.Count} terreno(s) do Star (codificados) regravados no formato do client.");
+        }
         if (result.ChangedFiles.Count == 0)
         {
             Console.WriteLine("O cdata.bin já aceita todos os mapas.");

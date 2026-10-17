@@ -962,6 +962,20 @@ public class ToolTests
             Assert.Equal(12 + 3 - 3 + 7 + 23, result.Table[(23 + 32) * 32 + 1]);
             Assert.Equal(WYD.Server.Tools.FieldChecksums.Sum(table), WYD.Server.Tools.FieldChecksums.Sum(result.Table));   // soma mantida
 
+            // Terrenos do Star: bytes diferentes de zero em XOR 0x5A. A cópia codificada do original volta decodificada
+            // e confere; comprovada a codificação, o terreno novo também é decodificado antes da conta.
+            static byte[] Star(byte[] trn) { var b = (byte[])trn.Clone(); for (int i = 8; i < b.Length; i++) if (b[i] != 0) b[i] ^= 0x5A; return b; }
+            File.WriteAllBytes(Path.Combine(env, "Field0813.trn"), Star(Trn(8, 13, 1)));
+            File.WriteAllBytes(Path.Combine(env, "Field0123.trn"), Star(Trn(1, 23, 2)));
+            var star = WYD.Server.Tools.FieldChecksums.Recompute(table, env);
+            Assert.True(star.Trusted);
+            Assert.Equal(2, star.Matched);
+            Assert.Equal(2, star.Decoded.Count);
+            Assert.Equal(Trn(8, 13, 1), star.Decoded[Path.Combine(env, "Field0813.trn")]);
+            Assert.Equal(2 * 0xC000 + 23, star.Table[23 * 32 + 1]);
+            File.WriteAllBytes(Path.Combine(env, "Field0813.trn"), Trn(8, 13, 1));
+            File.WriteAllBytes(Path.Combine(env, "Field0123.trn"), Trn(1, 23, 2));
+
             // Conta que não bate com os originais: não é confiável.
             table[13 * 32 + 8] = 1;
             table[(13 + 32) * 32 + 8] = 1;
