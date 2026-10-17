@@ -212,7 +212,7 @@ public sealed class ItemHandler(
             return false;
 
         var target = dest[destPos];
-        var ancient = Game.Ancient.EffectOf(catalog.List![target.Index]);
+        var ancient = Game.Ancient.EffectOf(catalog.List, target.Index);
         bool refined = Game.Stats.Refine(target) >= Game.Ancient.MinRefine;
         if (ancient is null && !refined)
             return false;

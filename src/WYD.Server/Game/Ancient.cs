@@ -52,11 +52,19 @@ public static class Ancient
         _ => "Drop",
     };
 
-    /// <summary>O efeito do item, se ele for ancient.</summary>
-    public static AncientEffect? EffectOf(ItemDefinition? def) =>
-        def is not null && def.Name.Contains("(Ancient)", StringComparison.OrdinalIgnoreCase) && def.Grade is >= 5 and <= 8
-            ? (AncientEffect)def.Grade
-            : null;
+    /// <summary>
+    /// O efeito do item, se ele for ancient: um grupo de 4 itens seguidos com o mesmo nome e o mesmo modelo e Grade 5
+    /// a 8 (no ItemList original o nome traz "(Ancient)", no do Star Destiny "(Anct)" ou nada).
+    /// </summary>
+    public static AncientEffect? EffectOf(ItemList? items, int index)
+    {
+        if (items?[index] is not { Grade: >= 5 and <= 8 } def) return null;
+        int first = index - (def.Grade - (int)AncientEffect.Exp);
+        for (int i = 0; i < 4; i++)
+            if (items[first + i] is not { } copy || copy.Grade != (int)AncientEffect.Exp + i || copy.Name != def.Name || copy.Mesh != def.Mesh)
+                return null;
+        return (AncientEffect)def.Grade;
+    }
 
     /// <summary>Gema guardada num item +10 ou mais (sem gema os bits valem 0: Experiência, como no client).</summary>
     public static AncientEffect? GemOf(Item item)
@@ -80,14 +88,12 @@ public static class Ancient
 
     /// <summary>O efeito que o item equipado dá: o do ancient, ou a gema de um item +10 ou mais.</summary>
     public static AncientEffect? EquippedEffect(Item item, ItemList? items) =>
-        item.IsEmpty ? null : EffectOf(items?[item.Index]) ?? GemOf(item);
+        item.IsEmpty ? null : EffectOf(items, item.Index) ?? GemOf(item);
 
     /// <summary>O índice da cópia do grupo com o efeito pedido (null se o grupo não estiver completo no ItemList).</summary>
     public static short? Variant(short index, ItemList items, AncientEffect wanted)
     {
-        if (EffectOf(items[index]) is not { } current) return null;
-        int target = index - (int)current + (int)wanted;
-        var def = items[target];
-        return def is not null && EffectOf(def) == wanted && def.Mesh == items[index]!.Mesh ? (short)target : null;
+        if (EffectOf(items, index) is not { } current) return null;
+        return (short)(index - (int)current + (int)wanted);
     }
 }

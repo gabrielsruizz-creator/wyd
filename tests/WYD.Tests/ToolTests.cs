@@ -998,4 +998,15 @@ public class ToolTests
         Assert.Equal("1 mesh\\\\a.msa\r\n2791\tmesh\\\\unibow01.msa\r\n2914 mesh\\\\nuispear01.msa\r\n", merged);
         Assert.Same(theirs, WYD.Server.Tools.ClientImport.MergeList(theirs, theirs));
     }
+
+    [Fact]
+    public void Ancient_groups_are_found_by_structure_not_name()
+    {
+        var items = ItemListTests.TestItems();
+        Assert.Equal(AncientEffect.Absorption, Ancient.EffectOf(items, 2452));               // "(Ancient)" original
+        Assert.Equal(AncientEffect.Exp, Ancient.EffectOf(items, 3625));                      // "(Anct)" do Star
+        Assert.Equal((short)3628, Ancient.Variant(3625, items, AncientEffect.Drop));         // gema de Garnet: a cópia vermelha
+        Assert.Null(Ancient.EffectOf(items, 3701));                                          // grupo sem a 4ª cópia
+        Assert.Null(Ancient.EffectOf(items, 905));                                           // item comum
+    }
 }
