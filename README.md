@@ -149,8 +149,8 @@ http://127.0.0.1/
 WYD.EXE uma vez e o `[VERSION]` do `config.txt` sobe para a versão publicada. Cada `publish-client` cria uma versão
 nova, então rode de novo quando trocar o arquivo.
 
-**Visual de outro client 7.54** (opcional; por exemplo o do Star Destiny): copia os modelos, texturas, mapas,
-interface, efeitos e música novos ou diferentes, converte a ItemList (para o client e para `data/ItemList.bin`) e
+**Visual de outro client 7.54** (opcional; por exemplo o do Star Destiny): copia os modelos, texturas, cenário,
+interface, efeitos e música novos ou diferentes (os mapas ficam os seus), converte a ItemList (para o client e para `data/ItemList.bin`) e
 tira o `Itemname.bin` (os nomes passam a vir da ItemList). Exe, DLL, launcher e as logos do servidor ficam como estão;
 o que for substituído vai para `backup-import-...` dentro do client. Rode na pasta do servidor, com o jogo fechado:
 
@@ -158,8 +158,9 @@ o que for substituído vai para `backup-import-...` dentro do client. Rode na pa
 dotnet run --project src\WYD.Server -- import-client "C:\outro\client" "C:\caminho\do\jogo"
 ```
 
-Os mapas novos ou alterados (Env\FieldXXYY) só abrem se o `cdata.bin` do client tiver o valor de cada um; o
-`import-client` já acerta isso no fim. Para refazer sozinho (por exemplo depois de copiar mapas à mão):
+Os mapas (Env\FieldXXYY) não são copiados: os do Star têm o terreno codificado e só abrem se o `cdata.bin` tiver o
+valor de cada um. Para usar mapas novos ou alterados, copie-os à mão e rode (decodifica o terreno do Star e acerta o
+`cdata.bin`, guardando o anterior em `cdata.bin.bak`):
 
 ```powershell
 dotnet run --project src\WYD.Server -- fix-cdata "C:\caminho\do\jogo"

@@ -335,7 +335,8 @@ public static class ToolCommands
             Console.WriteLine("Itemname.bin tirado do client: os nomes dos itens vêm da ItemList nova.");
         }
         if (Directory.Exists(backup)) Console.WriteLine($"O que foi substituído está em {backup}.");
-        return FixCDataCommand(target);
+        Console.WriteLine("Os mapas (Env\\Field) não foram copiados; para usar os do outro client, copie-os e rode o fix-cdata.");
+        return 0;
     }
 
     /// <summary>

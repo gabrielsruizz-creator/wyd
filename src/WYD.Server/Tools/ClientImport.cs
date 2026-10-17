@@ -2,7 +2,7 @@ namespace WYD.Server.Tools;
 
 /// <summary>
 /// Traz o visual de outro client 7.54 (o Star Destiny) para o nosso: os arquivos novos ou diferentes das pastas de
-/// modelos, mapas, interface, efeitos e música, mais o itemhelp.dat. O que é só daquele client (exe, DLL, launcher,
+/// modelos, cenário, interface, efeitos e música, mais o itemhelp.dat. Os mapas (Env\Field) ficam os nossos. O que é só daquele client (exe, DLL, launcher,
 /// shaders, configuração) e as logos da tela de login ficam de fora. O arquivo substituído vai antes para a pasta de
 /// backup, no mesmo caminho.
 /// <list type="bullet">
@@ -46,7 +46,7 @@ public static class ClientImport
         foreach (var file in SourceFiles(source))
         {
             string rel = Relative(source, file);
-            if (Kept.Contains(rel)) continue;
+            if (Kept.Contains(rel) || IsMap(rel)) continue;
             var bytes = File.ReadAllBytes(file);
             if (Normalize(rel, bytes)) fixedCount++;
 
@@ -83,6 +83,14 @@ public static class ClientImport
         foreach (var f in Directory.EnumerateFiles(source))
             if (RootFiles.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)) yield return f;
     }
+
+    /// <summary>
+    /// Os mapas (Env\FieldXXYY.trn/.dat) ficam os do nosso client: os do Star têm o terreno codificado e o cdata.bin
+    /// precisaria ser refeito (ver <see cref="FieldChecksums"/>, comando fix-cdata).
+    /// </summary>
+    private static bool IsMap(string rel) =>
+        rel.StartsWith("Env/Field", StringComparison.OrdinalIgnoreCase) &&
+        (rel.EndsWith(".trn", StringComparison.OrdinalIgnoreCase) || rel.EndsWith(".dat", StringComparison.OrdinalIgnoreCase));
 
     private static string Relative(string root, string file) => Path.GetRelativePath(root, file).Replace('\\', '/');
 

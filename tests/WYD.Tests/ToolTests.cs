@@ -888,6 +888,7 @@ public class ToolTests
             Put(star, "UI/logo1.wyt", [5]); Put(ours, "UI/logo1.wyt", [6]);                 // logo do servidor fica
             Put(star, "itemhelp.dat", [4]);
             Put(star, "Star.exe", [0]); Put(star, "Shader/skinmesh1.bin", [0]);           // só do Star: não vem
+            Put(star, "Env/Field0123.trn", [1]); Put(star, "Env/Field0813.dat", [2]);     // mapas: ficam os nossos
 
             var report = WYD.Server.Tools.ClientImport.Run(star, ours, backup);
 
@@ -902,6 +903,7 @@ public class ToolTests
             Assert.True(File.Exists(Path.Combine(ours, "itemhelp.dat")));
             Assert.False(File.Exists(Path.Combine(ours, "Star.exe")));
             Assert.False(Directory.Exists(Path.Combine(ours, "Shader")));
+            Assert.False(File.Exists(Path.Combine(ours, "Env/Field0123.trn")));
         }
         finally
         {
