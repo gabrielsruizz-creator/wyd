@@ -56,6 +56,7 @@ public class ItemListTests
         Put(2370, "Parade_Horse", 16384, 0, 0, (18, 255));
         Put(508, "Medal_Of_Guild", 4096, 0, 0);
         Put(4159, "Traje", 8192, 0, 0);
+        Put(3197, "Master_Of_Hekalotia", unchecked((short)0x8000), 0, 0);   // capa: slot 15
         Put(5076, "Immunity", 0, 60, 0, (18, 8));
         BinaryPrimitives.WriteInt16LittleEndian(plain.AsSpan(5076 * ItemDefinition.Size + 74), 90);   // "INT" 90 = Especial 2
         Put(2443, "Coral", 0, 0, 600, (38, 9), (33, 0));            // pedra de composição (não é gema)

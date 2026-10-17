@@ -32,6 +32,7 @@ public sealed class CommandHandler(
     public static readonly (string Usage, string Description)[] GmCommands =
     [
         ("/gm item <índice> [efeito valor]...", "cria um item no inventário (até 3 efeitos)"),
+        ("/gm capa <índice>", "troca a capa equipada (0 tira a capa)"),
         ("/gm nivel <número>", "muda o seu nível"),
         ("/gm evoluir <mortal|arch|celestial|sub>", "muda a sua evolução (nível 1)"),
         ("/gm pontos <quantia>", "dá pontos de atributo, especiais e de skill"),
@@ -111,6 +112,7 @@ public sealed class CommandHandler(
         switch (sub)
         {
             case "item": await GiveItemAsync(session, args); break;
+            case "capa": await SetCapeAsync(session, args); break;
             case "nivel" or "nível" or "level": await SetLevelAsync(session, args); break;
             case "gold": await SetGoldAsync(session, args); break;
             case "evoluir": await SetEvolutionAsync(session, args); break;
@@ -440,6 +442,47 @@ public sealed class CommandHandler(
         logger.LogInformation("[{Id}] GM '{Account}' criou {Item} ({Index}) no slot {Slot} de {Name}.",
             session.Id, account.Username, name, index, slot, character.Name);
         await session.SendMessageAsync($"{name} criado no inventário.");
+    }
+
+    /// <summary>
+    /// /gm capa 3197: põe a capa direto no slot dela (as capas não se equipam arrastando). A capa diz o reino do
+    /// personagem; 0 tira a capa.
+    /// </summary>
+    private async Task SetCapeAsync(ClientSession session, string args)
+    {
+        var c = session.Character!;
+        if (!int.TryParse(args.Trim(), out int index) || index is < 0 or >= ItemList.MaxItems)
+        {
+            await session.SendMessageAsync("Uso: /gm capa <índice da capa> (0 tira a capa)");
+            return;
+        }
+        var definition = index == 0 ? null : catalog.List?[index];
+        if (index > 0 && catalog.List is not null)
+        {
+            if (definition is null)
+            {
+                await session.SendMessageAsync($"O item {index} não existe no ItemList.bin.");
+                return;
+            }
+            if ((definition.Pos & (1 << Game.Kingdoms.CapeSlot)) == 0)
+            {
+                await session.SendMessageAsync($"{definition.Name.Replace('_', ' ')} ({index}) não é capa.");
+                return;
+            }
+        }
+
+        c.Equip[Game.Kingdoms.CapeSlot] = index == 0 ? default : new Item((short)index);
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Game.Kingdoms.CapeSlot, c.Equip[Game.Kingdoms.CapeSlot]));
+        await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
+        var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+        foreach (var viewer in world.Viewers(session))
+            await viewer.SendAsync(look);
+        await characters.SaveItemsAsync(c);
+
+        string name = index == 0 ? "sem capa" : definition?.Name.Replace('_', ' ') ?? $"capa {index}";
+        logger.LogInformation("[{Id}] GM '{Account}' trocou a capa de {Name}: {Cape} ({Index}).",
+            session.Id, session.Account!.Username, c.Name, name, index);
+        await session.SendMessageAsync(index == 0 ? "Capa tirada." : $"Capa: {name}.");
     }
 
     /// <summary>/gm nivel 100: leva o personagem ao nível 100 (como aparece na tela).</summary>

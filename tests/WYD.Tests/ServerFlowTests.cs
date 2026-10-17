@@ -891,6 +891,29 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Gm_cape_puts_the_cape_straight_in_its_slot()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+
+        await a.SendAsync(CommandPacket("gm", "capa 400"));                     // poção: não é capa
+        Assert.Equal("Healing Potion(S) (400) não é capa.", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "capa 3197"));
+        var update = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
+        Assert.Equal((short)ServerPackets.ItemPlace.Equip, update.ReadInt16());
+        Assert.Equal(15, update.ReadInt16());
+        Assert.Equal(3197, update.ReadInt16());
+        Assert.Equal(3197, me.Equip[15].Index);
+        Assert.Equal("Capa: Master Of Hekalotia.", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "capa 0"));
+        Assert.Equal("Capa tirada.", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+        Assert.True(me.Equip[15].IsEmpty);
+    }
+
+    [Fact]
     public async Task Help_lists_commands_in_chat()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
