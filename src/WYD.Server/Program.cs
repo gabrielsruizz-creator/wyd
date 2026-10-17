@@ -91,6 +91,8 @@ public static class Program
                 return await SetAccessAsync(host.Services, args[1], level);
             case "unstuck" when args.Length == 2:
                 return await UnstuckAsync(host.Services, args[1]);
+            case "unequip" when args.Length >= 3:
+                return await UnequipAsync(host.Services, args[1], args[2], args[3..]);
             default:
                 Console.Error.WriteLine("""
                     Uso:
@@ -99,6 +101,7 @@ public static class Program
                       WYD.Server reset-second-password <conta>      apaga a segunda senha (o próximo login define outra)
                       WYD.Server set-access <conta> <nivel>         0 = jogador, 1 = GM (libera /item no jogo)
                       WYD.Server unstuck <conta>                    leva os personagens da conta para a cidade inicial
+                      WYD.Server unequip <conta> <personagem> [slot...]  apaga peças equipadas (sem slot: as armas, 6 e 7)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
@@ -200,6 +203,42 @@ public static class Program
             await characters.SavePositionAsync(c.Id, (short)options.StartX, (short)options.StartY);
             Console.WriteLine($"{c.Name}: de ({c.PosX}, {c.PosY}) para ({options.StartX}, {options.StartY}).");
         }
+        Console.WriteLine("Pronto. Se o servidor estiver aberto, o jogador precisa estar fora do jogo.");
+        return 0;
+    }
+
+    /// <summary>
+    /// unequip &lt;conta&gt; &lt;personagem&gt; [slot...]: apaga peças equipadas de um personagem que não consegue entrar
+    /// (por exemplo uma arma sem modelo no client, que o fecha ao desenhar o personagem). Sem slot, as duas armas.
+    /// </summary>
+    private static async Task<int> UnequipAsync(IServiceProvider services, string username, string name, string[] slotArgs)
+    {
+        var slots = slotArgs.Length == 0 ? [6, 7] : slotArgs.Select(s => int.TryParse(s, out int n) ? n : -1).ToArray();
+        if (slots.Any(s => s is < 0 or >= Protocol.GameConstants.MaxEquip))
+        {
+            Console.Error.WriteLine($"Slots vão de 0 a {Protocol.GameConstants.MaxEquip - 1} (6 = mão direita, 7 = mão esquerda, 15 = capa).");
+            return 1;
+        }
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+        var characters = services.GetRequiredService<ICharacterRepository>();
+        var list = await characters.ListByAccountAsync(account.Id);
+        var c = list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (c is null)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não tem o personagem '{name}' (tem: {string.Join(", ", list.Select(x => x.Name))}).");
+            return 1;
+        }
+        foreach (int slot in slots)
+        {
+            Console.WriteLine(c.Equip[slot].IsEmpty ? $"Slot {slot}: já estava vazio." : $"Slot {slot}: item {c.Equip[slot].Index} apagado.");
+            c.Equip[slot] = default;
+        }
+        await characters.SaveItemsAsync(c);
         Console.WriteLine("Pronto. Se o servidor estiver aberto, o jogador precisa estar fora do jogo.");
         return 0;
     }
