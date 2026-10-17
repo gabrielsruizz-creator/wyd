@@ -363,6 +363,13 @@ public static class ToolCommands
 
         var result = FieldChecksums.Recompute(table, env);
         Console.WriteLine($"Mapas: {result.Files} arquivos; dos {result.Known} que já estavam no cdata.bin, {result.Matched} batem com a conta.");
+        foreach (var ext in new[] { ".trn", ".dat" })
+        {
+            int wrong = result.Mismatches.Count(m => m.File.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine($"  {ext}: {wrong} não batem" + (wrong > 0 ? " (ex.: " + string.Join("; ",
+                result.Mismatches.Where(m => m.File.EndsWith(ext, StringComparison.OrdinalIgnoreCase)).Take(3)
+                    .Select(m => $"{m.File} tabela {m.Expected} conta {m.Computed}")) + ")" : ""));
+        }
         if (!result.Trusted)
         {
             Console.Error.WriteLine("A conta não bate com os mapas originais; o cdata.bin não foi mudado.");

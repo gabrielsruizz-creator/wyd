@@ -30,6 +30,9 @@ public static partial class FieldChecksums
     /// <summary>Known: pedaços que já tinham valor na tabela; Matched: desses, os que bateram com a conta.</summary>
     public sealed record Result(int Files, int Known, int Matched, int[] Table, List<string> ChangedFiles)
     {
+        /// <summary>Pedaços que já tinham valor e não bateram, com o valor da tabela e o calculado.</summary>
+        public List<(string File, int Expected, int Computed)> Mismatches { get; } = [];
+
         /// <summary>A conta é a do client: a maior parte dos mapas que ele já aceitava bate.</summary>
         public bool Trusted => Known > 0 && Matched * 2 >= Known;
     }
@@ -96,6 +99,7 @@ public static partial class FieldChecksums
         var used = new bool[Rows * Columns];
         int files = 0, known = 0, matched = 0;
         var changed = new List<string>();
+        var mismatches = new List<(string, int, int)>();
         foreach (var path in Directory.EnumerateFiles(envFolder))
         {
             var m = FieldName().Match(Path.GetFileName(path));
@@ -119,6 +123,7 @@ public static partial class FieldChecksums
             if (result[cell] == value) matched++;
             else
             {
+                if (result[cell] != 0) mismatches.Add((Path.GetFileName(path), result[cell], value));
                 result[cell] = value;
                 changed.Add(Path.GetFileName(path));
             }
@@ -130,7 +135,9 @@ public static partial class FieldChecksums
         result[spare] = 0;
         uint missing = unchecked(target - Sum(result));
         result[spare] = unchecked((int)(missing / 4));
-        return new Result(files, known, matched, result, changed);
+        var r = new Result(files, known, matched, result, changed);
+        r.Mismatches.AddRange(mismatches);
+        return r;
     }
 
     public static int[] Read(byte[] file)
