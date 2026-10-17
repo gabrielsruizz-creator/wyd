@@ -13,6 +13,11 @@ namespace WYD.Server.Game;
 /// um (o Black Oracle e o Red Oracle dos castelos têm o item 13 no elmo, o Argus de Noatun tem o rosto 348, e os
 /// dois estão vazios no ItemList).
 /// </para>
+/// <para>
+/// O slot 12 é o da medalha de guilda: o client desenha ali só itens que vão nesse slot. Os arquivos de NPC mais novos
+/// põem trajes e baús nele (a Curandeira tem o 4159, um traje no ItemList do Star Destiny), que o client 7.54 não
+/// desenha; esses ficam escondidos.
+/// </para>
 /// data/npc-visual.txt ("Nome slot item", uma por linha; item 0 tira a peça) troca peças à vontade.
 /// </summary>
 public sealed class NpcVisuals
@@ -52,10 +57,16 @@ public sealed class NpcVisuals
         return list;
     }
 
+    /// <summary>Slot da medalha de guilda.</summary>
+    public const int MedalSlot = 12;
+
     /// <summary>O item que aparece na tela no slot do NPC (0 se ele não existir no ItemList do client).</summary>
     public short Visible(string npc, int slot, short item)
     {
         if (_rules.TryGetValue(npc, out var slots) && slots.TryGetValue(slot, out var replaced)) item = replaced;
-        return item > 0 && _items is not null && _items[item] is null ? (short)0 : item;
+        if (item <= 0 || _items is null) return item;
+        var def = _items[item];
+        if (def is null) return 0;
+        return slot == MedalSlot && (def.Pos & (1 << MedalSlot)) == 0 ? (short)0 : item;
     }
 }

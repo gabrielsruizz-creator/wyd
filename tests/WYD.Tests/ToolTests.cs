@@ -423,6 +423,9 @@ public class ToolTests
         Assert.Equal(905, visuals.Visible("Lobo", 6, 905));                // existe: vai igual
         Assert.Equal(905, visuals.Visible("Rei_Glantuar", 6, 999));        // regra do arquivo
         Assert.Equal(0, visuals.Visible("Lobo", 0, 0));
+        Assert.Equal(508, visuals.Visible("Guarda", 12, 508));            // medalha no slot da medalha
+        Assert.Equal(0, visuals.Visible("Curandeira", 12, 4159));         // traje no slot da medalha: escondido
+        Assert.Equal(4159, visuals.Visible("Curandeira", 13, 4159));      // no slot dele vai
         Assert.Equal(13, WYD.Server.Game.NpcVisuals.With([]).Visible("X", 1, 13));   // sem ItemList não dá para saber
     }
 
