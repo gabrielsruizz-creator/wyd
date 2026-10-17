@@ -49,6 +49,8 @@ public static class ClientImport
             if (Kept.Contains(rel) || IsMap(rel)) continue;
             var bytes = File.ReadAllBytes(file);
             if (Normalize(rel, bytes)) fixedCount++;
+            if (rel.Equals(MeshList, StringComparison.OrdinalIgnoreCase) && existing.TryGetValue(rel, out var ours))
+                bytes = MergeList(bytes, File.ReadAllBytes(ours));
 
             if (existing.TryGetValue(rel, out var current))
             {
@@ -91,6 +93,26 @@ public static class ClientImport
     private static bool IsMap(string rel) =>
         rel.StartsWith("Env/Field", StringComparison.OrdinalIgnoreCase) &&
         (rel.EndsWith(".trn", StringComparison.OrdinalIgnoreCase) || rel.EndsWith(".dat", StringComparison.OrdinalIgnoreCase));
+
+    private const string MeshList = "Mesh/MeshList.txt";
+
+    /// <summary>
+    /// Lista "número arquivo" do outro client mais as linhas do nosso com números que ela não tem: o Star tirou 17
+    /// modelos (como o 2914) que outros itens ainda usam, e os dois nunca dão arquivos diferentes ao mesmo número.
+    /// </summary>
+    public static byte[] MergeList(byte[] theirs, byte[] ours)
+    {
+        var newline = theirs.AsSpan().IndexOf("\r\n"u8) >= 0 ? "\r\n" : "\n";
+        static IEnumerable<(int Index, string Line)> Lines(byte[] b) =>
+            System.Text.Encoding.Latin1.GetString(b).Split('\n').Select(l => l.TrimEnd('\r'))
+                .Select(l => (Ok: int.TryParse(l.Split(' ', '\t')[0], out int i), Index: i, Line: l))
+                .Where(x => x.Ok).Select(x => (x.Index, x.Line));
+        var have = Lines(theirs).Select(x => x.Index).ToHashSet();
+        var extra = Lines(ours).Where(x => have.Add(x.Index)).Select(x => x.Line).ToList();
+        if (extra.Count == 0) return theirs;
+        string text = System.Text.Encoding.Latin1.GetString(theirs).TrimEnd('\r', '\n') + newline + string.Join(newline, extra) + newline;
+        return System.Text.Encoding.Latin1.GetBytes(text);
+    }
 
     private static string Relative(string root, string file) => Path.GetRelativePath(root, file).Replace('\\', '/');
 

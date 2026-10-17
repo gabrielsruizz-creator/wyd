@@ -215,6 +215,7 @@ No jogo, digite no chat (todos os comandos de GM começam com `/gm`):
 | `/gm online` | lista quem está no jogo, com nível e posição |
 | `/gm aviso texto` | mensagem para todos os jogadores |
 | `/gm kick Fulano` | desconecta o jogador |
+| `/gm face <índice>` | troca o rosto, o modelo do personagem (1 TK, 11 FM, 21 BM, 31 HT ou o modelo de um monstro) |
 | `/gm capa <índice>` | troca a capa equipada direto no slot dela (0 tira a capa; as capas não se equipam arrastando) |
 | `/gm limpar` | esvazia o seu inventário (os 64 slots) e redesenha todos os slots no client |
 | `/gm soul` | dá a Soul (Limite da Alma) ao seu personagem Mortal |

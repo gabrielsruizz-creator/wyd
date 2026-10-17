@@ -988,4 +988,14 @@ public class ToolTests
             Directory.Delete(env, true);
         }
     }
+
+    [Fact]
+    public void Mesh_list_merge_keeps_their_lines_and_adds_ours_missing()
+    {
+        var theirs = System.Text.Encoding.Latin1.GetBytes("1 mesh\\\\a.msa\r\n2791\tmesh\\\\unibow01.msa\r\n");
+        var ours = System.Text.Encoding.Latin1.GetBytes("1 mesh\\\\a.msa\r\n2914 mesh\\\\nuispear01.msa\r\n");
+        var merged = System.Text.Encoding.Latin1.GetString(WYD.Server.Tools.ClientImport.MergeList(theirs, ours));
+        Assert.Equal("1 mesh\\\\a.msa\r\n2791\tmesh\\\\unibow01.msa\r\n2914 mesh\\\\nuispear01.msa\r\n", merged);
+        Assert.Same(theirs, WYD.Server.Tools.ClientImport.MergeList(theirs, theirs));
+    }
 }

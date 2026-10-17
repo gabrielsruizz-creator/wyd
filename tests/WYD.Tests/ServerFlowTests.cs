@@ -914,6 +914,24 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Gm_face_changes_the_character_model()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+
+        await a.SendAsync(CommandPacket("gm", "face 905"));                     // espada: não é rosto
+        Assert.Equal("Espada Longa (905) não é um rosto.", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+
+        await a.SendAsync(CommandPacket("gm", "face 299"));                     // modelo de monstro (Lobo)
+        var update = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
+        Assert.Equal((short)ServerPackets.ItemPlace.Equip, update.ReadInt16());
+        Assert.Equal(0, update.ReadInt16());
+        Assert.Equal(299, update.ReadInt16());
+        Assert.Equal(299, me.Equip[0].Index);
+    }
+
+    [Fact]
     public async Task Help_lists_commands_in_chat()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");

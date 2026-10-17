@@ -33,6 +33,7 @@ public sealed class CommandHandler(
     [
         ("/gm item <índice> [efeito valor]...", "cria um item no inventário (até 3 efeitos)"),
         ("/gm capa <índice>", "troca a capa equipada (0 tira a capa)"),
+        ("/gm face <índice>", "troca o rosto (o modelo do personagem): TK, FM, BM, HT ou o de um monstro"),
         ("/gm nivel <número>", "muda o seu nível"),
         ("/gm evoluir <mortal|arch|celestial|sub>", "muda a sua evolução (nível 1)"),
         ("/gm pontos <quantia>", "dá pontos de atributo, especiais e de skill"),
@@ -113,6 +114,7 @@ public sealed class CommandHandler(
         {
             case "item": await GiveItemAsync(session, args); break;
             case "capa": await SetCapeAsync(session, args); break;
+            case "face" or "rosto": await SetFaceAsync(session, args); break;
             case "nivel" or "nível" or "level": await SetLevelAsync(session, args); break;
             case "gold": await SetGoldAsync(session, args); break;
             case "evoluir": await SetEvolutionAsync(session, args); break;
@@ -442,6 +444,33 @@ public sealed class CommandHandler(
         logger.LogInformation("[{Id}] GM '{Account}' criou {Item} ({Index}) no slot {Slot} de {Name}.",
             session.Id, account.Username, name, index, slot, character.Name);
         await session.SendMessageAsync($"{name} criado no inventário.");
+    }
+
+    /// <summary>/gm face 11: troca o rosto (Equip[0], o modelo do personagem), de classe ou de monstro.</summary>
+    private async Task SetFaceAsync(ClientSession session, string args)
+    {
+        var c = session.Character!;
+        if (!int.TryParse(args.Trim(), out int index) || index is <= 0 or >= ItemList.MaxItems)
+        {
+            await session.SendMessageAsync("Uso: /gm face <índice> (1 TK, 11 FM, 21 BM, 31 HT, ou o modelo de um monstro)");
+            return;
+        }
+        var definition = catalog.List?[index];
+        if (catalog.List is not null && (definition is null || (definition.Pos & 1) == 0))
+        {
+            await session.SendMessageAsync(definition is null ? $"O item {index} não existe no ItemList.bin." : $"{definition.Name.Replace('_', ' ')} ({index}) não é um rosto.");
+            return;
+        }
+
+        c.Equip[0] = new Item((short)index) { Effect1 = c.Equip[0].Effect1, Value1 = c.Equip[0].Value1 };
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, c.Equip[0]));
+        var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+        foreach (var viewer in world.Viewers(session))
+            await viewer.SendAsync(look);
+        await characters.SaveItemsAsync(c);
+        string name = definition?.Name.Replace('_', ' ') ?? $"rosto {index}";
+        logger.LogInformation("[{Id}] GM '{Account}' trocou o rosto de {Name}: {Face} ({Index}).", session.Id, session.Account!.Username, c.Name, name, index);
+        await session.SendMessageAsync($"Rosto: {name}. Se não aparecer, troque de canal ou relogue.");
     }
 
     /// <summary>
