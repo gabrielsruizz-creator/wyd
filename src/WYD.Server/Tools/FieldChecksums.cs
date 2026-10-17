@@ -7,7 +7,9 @@ namespace WYD.Server.Tools;
 /// O cdata.bin do client guarda o valor esperado de cada pedaço de mapa (Env\FieldXXYY): int[64][32], as linhas
 /// 0-31 para o terreno (.trn, linha YY) e as 32-63 para os objetos (.dat, linha YY + 32), na coluna XX. Ao entrar
 /// num pedaço, o client soma o arquivo e, se não der o valor da tabela, trata o mapa como adulterado
-/// (.trn em 0x53DDFC, .dat em 0x54F4FC). O próprio cdata.bin tem uma soma de conferência (0x53C462).
+/// (.trn em 0x53DDFC, .dat em 0x54F4FC). O próprio cdata.bin tem uma soma de conferência (0x53C462), comparada com
+/// <see cref="TableSum"/>; o cdata.bin original não dá esse valor (a conferência só roda com o client já no mapa, e
+/// o arquivo é lido antes), então a soma é só mantida igual à do arquivo original.
 /// <list type="bullet">
 /// <item>.trn: 1 byte de tamanho, o nome, 1 byte XX, 1 byte YY e 0xC000 bytes de terreno; vale a soma dos bytes
 /// (com sinal) + XX × YY.</item>
@@ -122,10 +124,11 @@ public static partial class FieldChecksums
             }
         }
 
-        // A soma de conferência volta ao valor exigido acertando o último pedaço sem arquivo.
+        // A soma de conferência fica igual à do arquivo original acertando o último pedaço sem arquivo.
+        uint target = Sum(table);
         int spare = Array.FindLastIndex(used, u => !u);
         result[spare] = 0;
-        uint missing = unchecked(TableSum - Sum(result));
+        uint missing = unchecked(target - Sum(result));
         result[spare] = unchecked((int)(missing / 4));
         return new Result(files, known, matched, result, changed);
     }

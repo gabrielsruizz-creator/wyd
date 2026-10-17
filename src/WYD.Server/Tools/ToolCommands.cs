@@ -360,11 +360,6 @@ public static class ToolCommands
             return 1;
         }
         var table = FieldChecksums.Read(bytes);
-        if (FieldChecksums.Sum(table) != FieldChecksums.TableSum)
-        {
-            Console.Error.WriteLine($"{path} não é o cdata.bin do client 7.54 (a soma de conferência não bate); nada foi mudado.");
-            return 1;
-        }
 
         var result = FieldChecksums.Recompute(table, env);
         Console.WriteLine($"Mapas: {result.Files} arquivos; dos {result.Known} que já estavam no cdata.bin, {result.Matched} batem com a conta.");

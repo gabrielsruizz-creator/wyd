@@ -960,7 +960,7 @@ public class ToolTests
             Assert.Equal(2, result.Matched);
             Assert.Equal(2 * 0xC000 + 23, result.Table[23 * 32 + 1]);
             Assert.Equal(12 + 3 - 3 + 7 + 23, result.Table[(23 + 32) * 32 + 1]);
-            Assert.Equal(WYD.Server.Tools.FieldChecksums.TableSum, WYD.Server.Tools.FieldChecksums.Sum(result.Table));
+            Assert.Equal(WYD.Server.Tools.FieldChecksums.Sum(table), WYD.Server.Tools.FieldChecksums.Sum(result.Table));   // soma mantida
 
             // Conta que não bate com os originais: não é confiável.
             table[13 * 32 + 8] = 1;
