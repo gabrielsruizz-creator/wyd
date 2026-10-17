@@ -279,6 +279,65 @@ public static class ToolCommands
         return list.MatchesClient ? 0 : 1;
     }
 
+    /// <summary>
+    /// import-client &lt;pasta do outro client&gt; &lt;pasta do client&gt;: copia o visual (ver <see cref="ClientImport"/>),
+    /// converte a ItemList para o client e para data/ItemList.bin do servidor e tira o Itemname.bin (os nomes passam a
+    /// vir da ItemList). Tudo o que for substituído vai para a pasta backup-import-... dentro do client.
+    /// </summary>
+    public static int ImportClientCommand(string source, string target)
+    {
+        foreach (var dir in new[] { source, target })
+            if (!Directory.Exists(dir))
+            {
+                Console.Error.WriteLine($"Pasta não encontrada: {dir}");
+                return 1;
+            }
+        if (Path.GetFullPath(source).TrimEnd('\\', '/').Equals(Path.GetFullPath(target).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("As duas pastas são a mesma.");
+            return 1;
+        }
+
+        string backup = Path.Combine(target, $"backup-import-{DateTime.Now:yyyyMMdd-HHmmss}");
+        var report = ClientImport.Run(source, target, backup);
+        Console.WriteLine($"Arquivos: {report.Added} novos, {report.Replaced} substituídos, {report.Unchanged} já iguais; " +
+                          $"{report.Fixed} assinaturas de textura/imagem corrigidas.");
+
+        string? itemList = Directory.EnumerateFiles(source)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("ItemList.bin", StringComparison.OrdinalIgnoreCase));
+        if (itemList is not null)
+        {
+            var result = ItemListImport.Convert(File.ReadAllBytes(itemList));
+            if (result is null)
+                Console.Error.WriteLine($"{itemList}: não consegui decifrar a ItemList; ela não foi trocada.");
+            else
+            {
+                string clientList = Path.Combine(target, "ItemList.bin");
+                if (File.Exists(clientList))
+                {
+                    Directory.CreateDirectory(backup);
+                    File.Copy(clientList, Path.Combine(backup, "ItemList.bin"), overwrite: true);
+                }
+                File.WriteAllBytes(clientList, result.File);
+                Directory.CreateDirectory("data");
+                if (File.Exists("data/ItemList.bin")) File.Copy("data/ItemList.bin", "data/ItemList.bin.bak", overwrite: true);
+                File.WriteAllBytes("data/ItemList.bin", result.File);
+                Console.WriteLine($"ItemList: {result.Items} itens, gravada no client e em data/ItemList.bin (a antiga do servidor ficou em data/ItemList.bin.bak).");
+            }
+        }
+
+        string? itemName = Directory.EnumerateFiles(target)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("Itemname.bin", StringComparison.OrdinalIgnoreCase));
+        if (itemName is not null && itemList is not null)
+        {
+            Directory.CreateDirectory(backup);
+            File.Move(itemName, Path.Combine(backup, Path.GetFileName(itemName)), overwrite: true);
+            Console.WriteLine("Itemname.bin tirado do client: os nomes dos itens vêm da ItemList nova.");
+        }
+        if (Directory.Exists(backup)) Console.WriteLine($"O que foi substituído está em {backup}.");
+        return 0;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {

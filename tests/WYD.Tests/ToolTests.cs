@@ -861,4 +861,48 @@ public class ToolTests
         // Uma lista já no formato do 7.54 passa direto (chave de 1 byte).
         Assert.Equal(1, WYD.Server.Tools.ItemListImport.Convert(WYD.Server.Data.ItemList.Encode(plain))!.KeyLength);
     }
+
+    [Fact]
+    public void Import_client_copies_new_and_changed_assets_and_fixes_signatures()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            string star = Path.Combine(root, "star"), ours = Path.Combine(root, "ours"), backup = Path.Combine(root, "bak");
+            void Put(string dir, string rel, byte[] data)
+            {
+                var path = Path.Combine(dir, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, data);
+            }
+            byte[] tga = [0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0, 0x80, 0, 24, 0];
+            byte[] Sig(string sig, byte[] rest) => System.Text.Encoding.ASCII.GetBytes(sig).Concat(rest).ToArray();
+
+            Put(star, "Mesh/novo.msh", [1, 2, 3]);                                         // novo
+            Put(star, "mesh/igual.msh", [9]); Put(ours, "Mesh/igual.msh", [9]);            // igual (sem diferença de maiúsculas)
+            Put(star, "Mesh/mudou.wys", Sig("Star ", [7, 7])); Put(ours, "Mesh/mudou.wys", Sig("WS10 ", [1]));
+            Put(star, "UI/m0123.wyt", Sig("star", tga[4..]));                               // imagem nova com outra assinatura
+            Put(star, "UI/logo1.wyt", [5]); Put(ours, "UI/logo1.wyt", [6]);                 // logo do servidor fica
+            Put(star, "itemhelp.dat", [4]);
+            Put(star, "Star.exe", [0]); Put(star, "Shader/skinmesh1.bin", [0]);           // só do Star: não vem
+
+            var report = WYD.Server.Tools.ClientImport.Run(star, ours, backup);
+
+            Assert.Equal(3, report.Added);
+            Assert.Equal(1, report.Replaced);
+            Assert.Equal(1, report.Unchanged);
+            Assert.Equal(2, report.Fixed);
+            Assert.Equal(Sig("WS10 ", [7, 7]), File.ReadAllBytes(Path.Combine(ours, "Mesh/mudou.wys")));
+            Assert.Equal(Sig("WS10 ", [1]), File.ReadAllBytes(Path.Combine(backup, "Mesh/mudou.wys")));
+            Assert.Equal("WT10"u8.ToArray(), File.ReadAllBytes(Path.Combine(ours, "UI/m0123.wyt"))[..4]);
+            Assert.Equal([6], File.ReadAllBytes(Path.Combine(ours, "UI/logo1.wyt")));
+            Assert.True(File.Exists(Path.Combine(ours, "itemhelp.dat")));
+            Assert.False(File.Exists(Path.Combine(ours, "Star.exe")));
+            Assert.False(Directory.Exists(Path.Combine(ours, "Shader")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 }

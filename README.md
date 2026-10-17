@@ -149,7 +149,16 @@ http://127.0.0.1/
 WYD.EXE uma vez e o `[VERSION]` do `config.txt` sobe para a versão publicada. Cada `publish-client` cria uma versão
 nova, então rode de novo quando trocar o arquivo.
 
-**ItemList de outro client 7.54** (opcional; por exemplo a do Star Destiny, cifrada com uma chave própria): converte
+**Visual de outro client 7.54** (opcional; por exemplo o do Star Destiny): copia os modelos, texturas, mapas,
+interface, efeitos e música novos ou diferentes, converte a ItemList (para o client e para `data/ItemList.bin`) e
+tira o `Itemname.bin` (os nomes passam a vir da ItemList). Exe, DLL, launcher e as logos do servidor ficam como estão;
+o que for substituído vai para `backup-import-...` dentro do client. Rode na pasta do servidor, com o jogo fechado:
+
+```powershell
+dotnet run --project src\WYD.Server -- import-client "C:\outro\client" "C:\caminho\do\jogo"
+```
+
+**Só a ItemList de outro client 7.54** (por exemplo a do Star Destiny, cifrada com uma chave própria): converte
 para o formato do 7.54, com o checksum que o client exige. A saída vai para o client **e** para `data/ItemList.bin`
 do servidor (o que já existir vira `.bak`). Os modelos e texturas dos itens novos precisam estar na pasta do client.
 
