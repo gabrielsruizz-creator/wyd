@@ -825,4 +825,40 @@ public class ToolTests
         Assert.Equal(ThornWall.Model, t.Model);
         Assert.Equal(0, t.Exp);
     }
+
+    [Fact]
+    public void Import_itemlist_finds_a_repeating_key_and_writes_a_list_the_client_accepts()
+    {
+        // 1000 itens com nome e efeitos, cifrados como no Star Destiny: XOR com um texto de 512 bytes que se repete.
+        var plain = new byte[WYD.Server.Data.ItemList.DataSize];
+        for (int i = 1; i <= 1000; i++)
+        {
+            System.Text.Encoding.Latin1.GetBytes($"Item_{i}").CopyTo(plain, i * 140);
+            plain[i * 140 + 80] = 2;                                   // efeito 2 (dano)
+            plain[i * 140 + 82] = (byte)(i % 100);
+        }
+        var key = new byte[512];
+        new Random(7).NextBytes(key);
+        var star = plain.Select((b, i) => (byte)(b ^ key[i % 512])).ToArray();
+
+        var result = WYD.Server.Tools.ItemListImport.Convert(star)!;
+        Assert.Equal(512, result.KeyLength);
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, result.File);
+            var list = WYD.Server.Data.ItemList.Load(path);
+            Assert.True(list.MatchesClient);                           // o client 7.54 aceita
+            Assert.Equal(1000, list.All.Count());                      // os itens vazios ajustados continuam vazios
+            Assert.Equal("Item_777", list[777]!.Name);
+            Assert.Equal(77, list[777]!.Effects[0].Value);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+
+        // Uma lista já no formato do 7.54 passa direto (chave de 1 byte).
+        Assert.Equal(1, WYD.Server.Tools.ItemListImport.Convert(WYD.Server.Data.ItemList.Encode(plain))!.KeyLength);
+    }
 }

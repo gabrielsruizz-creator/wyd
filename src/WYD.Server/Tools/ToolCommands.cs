@@ -253,6 +253,32 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>
+    /// import-itemlist &lt;ItemList de outro client&gt; &lt;saída&gt;: decifra (chave descoberta sozinha) e grava no
+    /// formato do client 7.54, com o checksum que ele exige. A saída que já existir vira .bak.
+    /// </summary>
+    public static int ImportItemListCommand(string source, string destination)
+    {
+        if (!File.Exists(source))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {source}");
+            return 1;
+        }
+        var result = ItemListImport.Convert(File.ReadAllBytes(source));
+        if (result is null)
+        {
+            Console.Error.WriteLine($"{source}: não consegui decifrar (não parece uma ItemList de 6500 itens de 140 bytes).");
+            return 1;
+        }
+        if (File.Exists(destination)) File.Copy(destination, destination + ".bak", overwrite: true);
+        File.WriteAllBytes(destination, result.File);
+        var list = Data.ItemList.Load(destination);
+        Console.WriteLine($"{destination}: {list.All.Count()} itens (chave de {result.KeyLength} byte(s)); " +
+                          $"checksum 0x{list.Checksum:X} {(list.MatchesClient ? "aceito pelo client 7.54" : "DIFERENTE do client")}, " +
+                          $"{result.AdjustedBytes} bytes acertados em itens vazios.");
+        return list.MatchesClient ? 0 : 1;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {
