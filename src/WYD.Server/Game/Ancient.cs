@@ -54,7 +54,7 @@ public static class Ancient
 
     /// <summary>
     /// O efeito do item, se ele for ancient: um grupo de 4 itens seguidos com o mesmo nome e o mesmo modelo e Grade 5
-    /// a 8 (no ItemList original o nome traz "(Ancient)", no do Star Destiny "(Anct)" ou nada).
+    /// a 8 (o nome nem sempre traz "(Ancient)").
     /// </summary>
     public static AncientEffect? EffectOf(ItemList? items, int index)
     {

@@ -68,14 +68,14 @@ public class ItemListTests
             BinaryPrimitives.WriteInt16LittleEndian(d[64..], 801);   // Mesh
             BinaryPrimitives.WriteInt16LittleEndian(d[138..], g);    // Grade: o efeito ancient
         }
-        for (short g = 5; g <= 8; g++)                               // ancient do Star: "(Anct)"; e um grupo sem a 4ª cópia
+        for (short g = 5; g <= 8; g++)                               // ancient com outro nome; e um grupo sem a 4ª cópia
         {
             foreach (int first in new[] { 3625, 3700 })
             {
                 if (first == 3700 && g == 8) continue;
-                Put(first + g - 5, "Eithna(Anct)", 192, 0, 350, (2, 90));
+                Put(first + g - 5, "Arco_Antigo", 192, 0, 350, (2, 90));
                 var d = plain.AsSpan((first + g - 5) * ItemDefinition.Size, ItemDefinition.Size);
-                BinaryPrimitives.WriteInt16LittleEndian(d[64..], 2798);
+                BinaryPrimitives.WriteInt16LittleEndian(d[64..], 2892);
                 BinaryPrimitives.WriteInt16LittleEndian(d[138..], g);
             }
         }

@@ -15,7 +15,7 @@ namespace WYD.Server.Game;
 /// </para>
 /// <para>
 /// O slot 12 é o da medalha de guilda: o client desenha ali só itens que vão nesse slot. Os arquivos de NPC mais novos
-/// põem trajes e baús nele (a Curandeira tem o 4159, um traje no ItemList do Star Destiny), que o client 7.54 não
+/// põem trajes e baús nele (a Curandeira tem o 4159, um traje), que o client 7.54 não
 /// desenha; esses ficam escondidos.
 /// </para>
 /// data/npc-visual.txt ("Nome slot item", uma por linha; item 0 tira a peça) troca peças à vontade.

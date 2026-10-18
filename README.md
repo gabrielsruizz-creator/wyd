@@ -149,33 +149,6 @@ http://127.0.0.1/
 WYD.EXE uma vez e o `[VERSION]` do `config.txt` sobe para a versão publicada. Cada `publish-client` cria uma versão
 nova, então rode de novo quando trocar o arquivo.
 
-**Visual de outro client 7.54** (opcional; por exemplo o do Star Destiny): copia os modelos, texturas, cenário,
-interface, efeitos e música novos ou diferentes (os mapas ficam os seus), converte a ItemList (para o client e para `data/ItemList.bin`) e
-tira o `Itemname.bin` (os nomes passam a vir da ItemList). Os modelos que o Star renumerou (17, como o arco ancient
-`aawbow`, 2892 no original e 2798 no Star) voltam ao número original nos itens: o client trata alguns modelos pelo
-número, e com o número do Star o arco aparecia montado de trás para frente. Exe, DLL, launcher e as logos do servidor ficam como estão;
-o que for substituído vai para `backup-import-...` dentro do client. Rode na pasta do servidor, com o jogo fechado:
-
-```powershell
-dotnet run --project src\WYD.Server -- import-client "C:\outro\client" "C:\caminho\do\jogo"
-```
-
-Os mapas (Env\FieldXXYY) não são copiados: os do Star têm o terreno codificado e só abrem se o `cdata.bin` tiver o
-valor de cada um. Para usar mapas novos ou alterados, copie-os à mão e rode (decodifica o terreno do Star e acerta o
-`cdata.bin`, guardando o anterior em `cdata.bin.bak`):
-
-```powershell
-dotnet run --project src\WYD.Server -- fix-cdata "C:\caminho\do\jogo"
-```
-
-**Só a ItemList de outro client 7.54** (por exemplo a do Star Destiny, cifrada com uma chave própria): converte
-para o formato do 7.54, com o checksum que o client exige. A saída vai para o client **e** para `data/ItemList.bin`
-do servidor (o que já existir vira `.bak`). Os modelos e texturas dos itens novos precisam estar na pasta do client.
-
-```powershell
-dotnet run --project src\WYD.Server -- import-itemlist "C:\outro\client\ItemList.bin" "C:\caminho\do\jogo\ItemList.bin"
-```
-
 **5. Inicie o servidor e entre no jogo:**
 
 ```powershell

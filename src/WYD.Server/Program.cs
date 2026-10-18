@@ -32,12 +32,6 @@ public static class Program
                 return ToolCommands.ItemsCommand(itemList, null);
             case ["items", var itemList, var filter]:
                 return ToolCommands.ItemsCommand(itemList, filter);
-            case ["fix-cdata", var client]:
-                return ToolCommands.FixCDataCommand(client);
-            case ["import-client", var source, var destination]:
-                return ToolCommands.ImportClientCommand(source, destination);
-            case ["import-itemlist", var source, var destination]:
-                return ToolCommands.ImportItemListCommand(source, destination);
             case ["extract-exptable", var exe]:
                 return ToolCommands.ExtractExpTableCommand(exe);
             case ["patch-client", var exe]:
@@ -107,9 +101,6 @@ public static class Program
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
                       WYD.Server patch-client <WYD.exe>             corrige o client: efeito das armas +13 a +15, item em 1 slot
                       WYD.Server publish-client <WYD.exe>           põe o WYD.exe corrigido em data/patch para o launcher baixar
-                      WYD.Server fix-cdata <pasta do client>  recalcula o cdata.bin para mapas novos ou alterados
-                      WYD.Server import-client <pasta do outro client> <pasta do client>  traz modelos, mapas, interface e a ItemList
-                      WYD.Server import-itemlist <ItemList de outro client> <saída>  converte para a ItemList do 7.54
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client
                     """);
                 return 2;
