@@ -11,8 +11,8 @@ public sealed class WorldHandler(World world)
     public async Task HandleMoveAsync(ClientSession session, PacketReader packet)
     {
         var raw = packet.ToArray();
-        short destX = BitConverter.ToInt16(raw, 0x18);
-        short destY = BitConverter.ToInt16(raw, 0x1A);
+        short destX = BitConverter.ToInt16(raw, ServerPackets.MoveLayout.DestX);
+        short destY = BitConverter.ToInt16(raw, ServerPackets.MoveLayout.DestY);
         await world.MoveAsync(session, raw, destX, destY);
     }
 

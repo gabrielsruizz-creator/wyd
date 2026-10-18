@@ -193,14 +193,15 @@ public static class ServerPackets
     public static byte[] SelCharEffect(ushort id, int slot) => new PacketWriter(Opcodes.SelCharEffect, 16, id).WriteInt32(slot).ToArray();
 
     /// <summary>
-    /// 0x364: põe um jogador na tela de quem recebe. Layout do 7.57 (alinhado com o do 7.54, a validar):
+    /// 0x364: põe um jogador na tela de quem recebe. Layout do 7.57 (0x482E0E):
     /// <code>
     /// 0x0C short X, Y          0x10 ushort Id          0x12 char Name[12]
     /// 0x1E byte ChaosPoint     0x1F byte CurrentKill   0x20 ushort TotalKill
     /// 0x22 ushort Equip[16]    0x42 short Affect[32]   0x82 ushort Guild
-    /// 0x84 SCORE Score         0xB4 (4 bytes)          0xB8 ushort CreateType
+    /// 0x84 (4 bytes)           0x88 SCORE Score        0xB8 ushort CreateType
     /// 0xBA byte Refino[16]     0xCA char Tab[26]       0xE4 (4 bytes)
     /// </code>
+    /// Com a SCORE em 0x84 o client lia a vida errada (0) e mostrava os NPCs mortos.
     /// </summary>
     public static byte[] CreateMob(ushort mobId, Character c) =>
         CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.CurrentScore,
@@ -218,13 +219,26 @@ public static class ServerPackets
         for (int i = 0; i < MaxEquip; i++) w.WriteInt16(i < slots.Length ? slots[i] : (short)0);
         WriteAffects(w, affects);                     // 0x42 Affect
         w.WriteUInt16(guild);
-        score.Write(w);
-        w.Skip(4);
+        w.Skip(4);                                    // 0x84
+        score.Write(w);                               // 0x88 (vida lida em 0xA0 e vida máxima em 0x98, 0x483A18)
         w.WriteUInt16(0);                             // CreateType: aparece normalmente
         w.Skip(16);                                   // refino de cada equipamento
         w.WriteString("", 26);                        // Tab
         w.Skip(4);
         return w.ToArray();
+    }
+
+    /// <summary>
+    /// Movimento (0x366 andando, 0x36C parando), 52 bytes. No 7.57 (montado em 0x505B27, lido em 0x515A0A) o tipo
+    /// e a velocidade trocaram de lugar e o destino foi para depois da rota:
+    /// <code>
+    /// 0x0C short X, Y       0x10 int Tipo       0x14 int Velocidade
+    /// 0x18 char Rota[24]    0x30 short DestX, DestY
+    /// </code>
+    /// </summary>
+    public static class MoveLayout
+    {
+        public const int Type = 0x10, Speed = 0x14, Route = 0x18, DestX = 0x30, DestY = 0x32;
     }
 
     /// <summary>
@@ -236,24 +250,24 @@ public static class ServerPackets
     {
         return new PacketWriter(Opcodes.Move, MoveSize, id)
             .WriteInt16(x).WriteInt16(y)
-            .WriteInt32(speed)
             .WriteInt32(MoveWalk)
-            .WriteInt16(destX).WriteInt16(destY)
+            .WriteInt32(speed)
             .WriteString(Route(x, y, destX, destY), MaxRoute)
+            .WriteInt16(destX).WriteInt16(destY)
             .ToArray();
     }
 
-    /// <summary>Tipo do 0x366 em 0x14: 0 (ou 2) anda pela rota; 1 aparece direto no destino com o efeito de teleporte.</summary>
+    /// <summary>Tipo do 0x366: 0 (ou 2) anda pela rota; 1 aparece direto no destino com o efeito de teleporte.</summary>
     public const int MoveWalk = 0, MoveTeleport = 1;
 
     /// <summary>0x366 de teleporte: o client põe o personagem direto em (x, y).</summary>
     public static byte[] Teleport(ushort id, short x, short y) =>
         new PacketWriter(Opcodes.Move, MoveSize, id)
             .WriteInt16(x).WriteInt16(y)
-            .WriteInt32(0)
             .WriteInt32(MoveTeleport)
-            .WriteInt16(x).WriteInt16(y)
+            .WriteInt32(0)
             .Skip(MaxRoute)
+            .WriteInt16(x).WriteInt16(y)
             .ToArray();
 
     public const int MaxRoute = 24;

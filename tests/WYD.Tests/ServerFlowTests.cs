@@ -293,8 +293,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
     private static byte[] MovePacket(ushort id, short x, short y, short destX, short destY) =>
         new PacketWriter(Opcodes.Move, ServerPackets.MoveSize, id)
-            .WriteInt16(x).WriteInt16(y).WriteInt32(2).WriteInt32(0)
-            .WriteInt16(destX).WriteInt16(destY).WriteString("1111", 24).ToArray();
+            .WriteInt16(x).WriteInt16(y).WriteInt32(0).WriteInt32(2)
+            .WriteString("1111", 24).WriteInt16(destX).WriteInt16(destY).ToArray();
 
     [Fact]
     public async Task Players_see_each_other_move_chat_and_leave()
@@ -319,7 +319,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var move = await a.ReceiveAsync();
         Assert.Equal(Opcodes.Move, move.Type);
         Assert.Equal(bId, move.Id);
-        move.Skip(12);
+        move.Skip(0x30 - 12);                                 // destino
         Assert.Equal(2105, move.ReadInt16());
 
         // Chat de A chega a B com o id de A.
@@ -366,7 +366,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await b.SendAsync(MovePacket(0, 2100, 2100, 2101, 2100));
         var move = await a.ReceiveAsync();
         Assert.Equal(Opcodes.Move, move.Type);
-        move.Skip(12);
+        move.Skip(0x30 - 12);                                 // destino
         Assert.Equal(2101, move.ReadInt16());
     }
 
@@ -802,8 +802,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, me).ToArray());
             var teleport = await a.ReceiveAsync();
             Assert.Equal(Opcodes.Move, teleport.Type);
-            teleport.Skip(8);
+            teleport.Skip(4);
             Assert.Equal(ServerPackets.MoveTeleport, teleport.ReadInt32());
+            teleport.Skip(0x30 - 0x14);
             Assert.Equal(2100, teleport.ReadInt16());
             Assert.Equal(Opcodes.UpdateScore, (await a.ReceiveAsync()).Type);
             var full = await a.ReceiveAsync();
@@ -880,8 +881,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Skills.Teach(me, Skills.Resurrect);
         await a.SendAsync(SkillPacket(1, Skills.Resurrect, 1));
         var teleport = await ReceiveTypeAsync(a, Opcodes.Move);
-        teleport.Skip(8);
+        teleport.Skip(4);
         Assert.Equal(ServerPackets.MoveTeleport, teleport.ReadInt32());
+        teleport.Skip(0x30 - 0x14);
         Assert.Equal(2105, teleport.ReadInt16());
         Assert.Equal(me.MaxHp * World.ResurrectHpPercent / 100, me.BaseScore.Hp);
 
@@ -889,7 +891,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         me.BaseScore.Hp = 0;
         await a.SendAsync(new PacketWriter(Opcodes.Revive, PacketHeader.Size, 1).ToArray());
         var town = await ReceiveTypeAsync(a, Opcodes.Move);
-        town.Skip(12);
+        town.Skip(0x30 - 12);
         Assert.Equal(2100, town.ReadInt16());
     }
 
@@ -1024,7 +1026,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // O client recebe o rei com o visual e a ficha do Guarda_Real (os originais o derrubam), mas com o tipo do rei.
             created.Skip(12 + 4);
             Assert.Equal(60, created.ReadInt16());                          // rosto do Guarda_Real, não o 304 do rei
-            created.Skip(15 * 2 + 64 + 2 + 12);
+            created.Skip(15 * 2 + 64 + 2 + 4 + 12);
             Assert.Equal(0x6F, created.ReadByte());                         // Merchant do rei: o clique abre a evolução
             (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
             var me = await CharacterOf("jogadora");
@@ -1110,7 +1112,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             created.Skip(4);
             ushort oracle = created.ReadUInt16();
             Assert.Equal("BlueOracle", created.ReadString(12));
-            created.Skip(4 + 16 * 2 + 64 + 2 + 12);
+            created.Skip(4 + 16 * 2 + 64 + 2 + 4 + 12);
             Assert.Equal(13, created.ReadByte() & 0x0F);                     // tipo que sempre abre a pergunta
 
             await a.SendAsync(NpcClickPacket(oracle));
@@ -1161,7 +1163,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             created.Skip(4);
             ushort ehre = created.ReadUInt16();
             Assert.Equal("Ehre", created.ReadString(12));
-            created.Skip(4 + 16 * 2 + 64 + 2 + 12);
+            created.Skip(4 + 16 * 2 + 64 + 2 + 4 + 12);
             Assert.Equal(SoulQuest.EhreClientMerchant, created.ReadByte() & 0x0F);
 
             var me = await CharacterOf("jogadora");
@@ -1278,8 +1280,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(Opcodes.UpdateCoin, coin.Type);
         Assert.Equal(500, coin.ReadInt32());
         var move = await ReceiveTypeAsync(a, Opcodes.Move);
-        move.Skip(8);
+        move.Skip(4);
         Assert.Equal(ServerPackets.MoveTeleport, move.ReadInt32());
+        move.Skip(0x30 - 0x14);
         Assert.Equal((2480, 1700), (move.ReadInt16(), move.ReadInt16()));
         Assert.Equal((2480, 1700), (me.PosX, me.PosY));
     }
@@ -1297,7 +1300,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await a.SendAsync(new PacketWriter(Opcodes.Teleport, 16, 1).WriteInt32(0).ToArray());
         Assert.Equal(300, (await ReceiveTypeAsync(a, Opcodes.UpdateCoin)).ReadInt32());
         var move = await ReceiveTypeAsync(a, Opcodes.Move);
-        move.Skip(12);
+        move.Skip(0x30 - 12);                                 // destino
         Assert.Equal((1045, 1725), (move.ReadInt16(), move.ReadInt16()));
     }
 

@@ -66,7 +66,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
 | `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ |
 | `0xFDE` | SecondPassword     | 32      | `Password[16]`, `int Change` (0 = conferir, 1 = gravar nova)             | ✅ |
-| `0x366` / `0x36C` | Movimento | 52      | `short X, Y`, `int Velocidade`, `int Tipo`, `short DestX, DestY` (0x18), `char Rota[24]` | ✅ |
+| `0x366` / `0x36C` | Movimento | 52      | `short X, Y`, `int Tipo` (0x10), `int Velocidade` (0x14), `char Rota[24]` (0x18), `short DestX, DestY` (0x30) | ✅ exe 7.57 |
 | `0x369` | RequestMob         | 16      | `ushort Id` (0x0C): o client pede o 0x364 de um id que não conhece       | ✅ |
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
@@ -89,7 +89,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 |---------|---------------------|--------:|----------------------------------------------------------------------------|----------|
 | `0x101` | MessagePanel        | 108     | `char Text[96]`; id do cabeçalho tem de ser 0 (com outro id o client ignora, 0x499438); faixa no alto por 4 s | ✅ |
 | `0x10A` | AccountLoginOk      | 1928    | `Keys[16]` (0x0C), `SELCHAR` (0x020), `ITEM Cargo[128]` (0x368), `int Coin` (0x768), `Account[16]` (0x76C) | ✅ exe 7.57 |
-| `0x364` | CreateMob           | 232     | põe um jogador na tela (layout abaixo)                                     | ⚠️ alinhado com o 7.54 |
+| `0x364` | CreateMob           | 232     | põe um jogador na tela (layout abaixo)                                     | ✅ exe 7.57 |
 | `0x39D` / `0x39E` / `0x367` | Ataque | 72 / 80 / 168 | o mesmo pacote com o dano de cada alvo; `int Hold` (0x0C) e `long ExpDoAtacante` (0x18) atualizam a barra de experiência | ✅ exe 7.57 |
 | `0x338` | MobKill             | 32      | `int Hold`, `ushort Morto` (0x10), `ushort Matador` (0x12), `long ExpDoMatador` (0x18) | ✅ exe 7.57 |
 | `0x379` | BuyOk               | 24      | o pedido com o slot final e `int GoldTotal` (0x14), que o client copia para o gold | ✅ layout |
@@ -103,7 +103,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
 | `0x165` | RemoveMob           | 16      | id no cabeçalho, `int Tipo` (0x0C)                                         | ✅ |
-| `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho; `int Tipo` (0x14) = 1 teleporta direto para (DestX, DestY) | ✅ |
+| `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho; `int Tipo` (0x10) = 1 teleporta direto para (DestX, DestY) | ✅ exe 7.57 |
 | `0x333` | Chat                | 108     | o mesmo pacote do client, com o id de quem falou (não volta para ele)      | ✅ |
 | `0x110` | CreateCharacterOk   | 856     | `int` (0x0C, não lido), `SELCHAR` (0x10)                                   | ✅ exe 7.57 |
 | `0x112` | DeleteCharacterOk   | 856     | `int` (0x0C, não lido), `SELCHAR` (0x10)                                   | ✅ exe 7.57 |
@@ -129,7 +129,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 |-------:|-------|-------:|-------|
 | `0x0C` | `short X, Y` | `0x42` | `short Affect[32]` |
 | `0x10` | `ushort Id` | `0x82` | `ushort Guild` |
-| `0x12` | `char Name[12]` | `0x84` | `SCORE Score` |
+| `0x12` | `char Name[12]` | `0x88` | `SCORE Score` (vida em 0xA0, 0x483A18) |
 | `0x1E` | `byte ChaosPoint, CurrentKill` | `0xB8` | `ushort CreateType` |
 | `0x20` | `ushort TotalKill` | `0xBA` | `byte Refino[16]` |
 | `0x22` | `ushort Equip[16]` | `0xCA` | `char Tab[26]` |
