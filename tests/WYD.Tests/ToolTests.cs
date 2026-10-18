@@ -607,6 +607,39 @@ public class ToolTests
     }
 
     [Fact]
+    public void Patches_the_757_client_weapon_effect_without_touching_the_inventory()
+    {
+        // .text e .data com o tamanho do WYD.exe 7.57 (patch 7580) e as quatro somas no lugar.
+        var exe = new byte[0x1F6000 + 0x20000];
+        exe[0] = (byte)'M';
+        exe[1] = (byte)'Z';
+        BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(0x3C), 0x80);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80), 0x4550);
+        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 6), 2);
+        BinaryPrimitives.WriteUInt16LittleEndian(exe.AsSpan(0x80 + 20), 0xE0);
+        BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(0x80 + 24 + 28), 0x400000);
+        int h = 0x80 + 24 + 0xE0;
+        foreach (var (name, header, vsize, va, raw, ptr) in new[] { (".text", h, 0x1DB581, 0x1000, 0x1DC000, 0x1000), (".data", h + 40, 0x1978111, 0x1F6000, 0x20000, 0x1F6000) })
+        {
+            System.Text.Encoding.ASCII.GetBytes(name).CopyTo(exe, header);
+            BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(header + 8), (uint)vsize);
+            BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(header + 12), (uint)va);
+            BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(header + 16), (uint)raw);
+            BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(header + 20), (uint)ptr);
+        }
+        foreach (var (va, field) in new[] { (0x4FFFE6, 0x8C), (0x500085, 0x8D), (0x50010D, 0x8C), (0x500190, 0x8D) })
+            new byte[] { 0x02, 0x82, (byte)field, 0x01, 0x00, 0x00 }.CopyTo(exe, va - 0x400000);
+        var data = exe.AsSpan(0x1F6000).ToArray();
+
+        Assert.Equal(ClientPatcher.Result.Patched, ClientPatcher.Patch(exe, out var version));
+        Assert.Equal("7.57", version);
+        Assert.Equal(0x5DC590 - (0x4FFFE6 + 5), BinaryPrimitives.ReadInt32LittleEndian(exe.AsSpan(0x4FFFE6 - 0x400000 + 1)));
+        Assert.Equal(0x8D, exe[0x5DC5B0 - 0x400000 + 4]);
+        Assert.Equal(data, exe.AsSpan(0x1F6000).ToArray());                     // a .data (inventário) não muda
+        Assert.Equal(ClientPatcher.Result.AlreadyPatched, ClientPatcher.Patch(exe));
+    }
+
+    [Fact]
     public void Does_not_patch_an_unknown_client()
     {
         var exe = FakeClient();
@@ -628,14 +661,14 @@ public class ToolTests
     public void Launcher_list_gets_a_new_version_for_each_publish()
     {
         var (first, v1) = LauncherPatch.Publish(null, "WYD.EXE");
-        Assert.Equal(7542, v1);
-        Assert.Equal("[WYD]\n7000 notice.txt\n7542 WYD.EXE\n", first);
+        Assert.Equal(7581, v1);
+        Assert.Equal("[WYD]\n7000 notice.txt\n7581 WYD.EXE\n", first);
 
         // Publicar de novo troca a linha antiga; as outras entradas e o NOTICE ficam.
         var (second, v2) = LauncherPatch.Publish(
             "[WYD]\r\n7000 notice.txt\r\n7542 WYD.EXE serverlist.bin\r\n\r\nNOTICE 598 368 http://x/n.htm\r\n", "wyd.exe");
-        Assert.Equal(7543, v2);
-        Assert.Equal("[WYD]\n7000 notice.txt\n7542 serverlist.bin\n7543 wyd.exe\nNOTICE 598 368 http://x/n.htm\n", second);
+        Assert.Equal(7581, v2);
+        Assert.Equal("[WYD]\n7000 notice.txt\n7542 serverlist.bin\n7581 wyd.exe\nNOTICE 598 368 http://x/n.htm\n", second);
     }
 
     [Fact]

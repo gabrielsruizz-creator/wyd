@@ -145,7 +145,8 @@ jogo pararia com "Initialize Data Failed"). O comando acerta as duas no client e
 dotnet run --project src\WYD.Server -- fix-lists "C:\caminho\do\jogo"
 ```
 
-**5. Corrija o client** (opcional; por enquanto só funciona com o WYD.exe 7.54, os endereços do 7.57 são outros): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
+**5. Corrija o client** (opcional; funciona no WYD.exe 7.57 e no 7.54; no 7.57 só a correção das armas, porque a
+ItemList dele já põe cada item em 1 slot): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
 Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12) e o inventário
 com cada item ocupando 1 slot (no original as botas ocupam 2×2, as armas até 2×4).
 

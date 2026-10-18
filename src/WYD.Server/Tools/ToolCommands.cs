@@ -436,13 +436,13 @@ public static class ToolCommands
         }
 
         var exe = File.ReadAllBytes(exePath);
-        switch (ClientPatcher.Patch(exe))
+        switch (ClientPatcher.Patch(exe, out string? version))
         {
             case ClientPatcher.Result.AlreadyPatched:
-                Console.WriteLine("Este WYD.exe já está corrigido.");
+                Console.WriteLine($"Este WYD.exe {version} já está corrigido.");
                 return 0;
             case ClientPatcher.Result.Unknown:
-                Console.Error.WriteLine("Este não é o WYD.exe 7.54 conhecido (ou já foi modificado de outro jeito); nada foi alterado.");
+                Console.Error.WriteLine("Este não é um WYD.exe conhecido (7.57 ou 7.54), ou já foi modificado de outro jeito; nada foi alterado.");
                 return 1;
         }
 
@@ -450,7 +450,8 @@ public static class ToolCommands
         if (!File.Exists(backup))
             File.Copy(exePath, backup);
         File.WriteAllBytes(exePath, exe);
-        Console.WriteLine($"WYD.exe corrigido: armas +13 a +15 usam o efeito do +12 e cada item ocupa 1 slot no inventário. Original guardado em {backup}.");
+        Console.WriteLine($"WYD.exe {version} corrigido: armas +13 a +15 usam o efeito do +12" +
+                          (version == "7.54" ? " e cada item ocupa 1 slot no inventário" : "") + $". Original guardado em {backup}.");
         return 0;
     }
 
@@ -469,7 +470,7 @@ public static class ToolCommands
         var exe = File.ReadAllBytes(exePath);
         if (ClientPatcher.Patch(exe) == ClientPatcher.Result.Unknown)
         {
-            Console.Error.WriteLine("Este não é o WYD.exe 7.54 conhecido (ou já foi modificado de outro jeito); nada foi publicado.");
+            Console.Error.WriteLine("Este não é um WYD.exe conhecido (7.57 ou 7.54), ou já foi modificado de outro jeito; nada foi publicado.");
             return 1;
         }
 

@@ -3,18 +3,19 @@ using System.Buffers.Binary;
 namespace WYD.Server.Tools;
 
 /// <summary>
-/// Correções do WYD.exe 7.54:
+/// Correções do WYD.exe (7.57 e 7.54; endereços do 7.54 entre parênteses):
 /// <list type="bullet">
-/// <item>Efeito das armas +13 a +15. O client escolhe o efeito da arma como Grade * 13 + refinação (0x52482A);
+/// <item>Efeito das armas +13 a +15. O client escolhe o efeito da arma como Grade * 13 + refinação (0x4FFFAB; 0x52482A);
 /// acima de +12 a conta cai no efeito do Grade seguinte, por isso as armas +13 a +15 (ancient ou não) soltam o
 /// efeito errado. A correção troca as quatro somas (mão direita e esquerda, nos dois caminhos) por uma chamada que
 /// soma no máximo 12. O nome e a refinação do item continuam os de verdade.</item>
-/// <item>Cada item ocupa 1 slot no inventário. O tamanho vem do efeito 33 do item (0 a 7), que escolhe um dos 8
+/// <item>Só no 7.54: cada item ocupa 1 slot no inventário (no 7.57 a ItemList já traz o efeito 33 zerado em todos os
+/// itens). O tamanho vem do efeito 33 do item (0 a 7), que escolhe um dos 8
 /// pares largura × altura da tabela em 0x5C88F4 (1×1 a 2×4; ícone, busca de slot livre e encaixe) e uma das 8
 /// máscaras de 2 colunas × 4 linhas em 0x5C8934 (quais slots ficam ocupados, no inventário e no baú, 0x55D797).
 /// A correção põe 1×1 nos 8 pares e só o primeiro quadrado nas 8 máscaras.</item>
 /// </list>
-/// Cada correção só é aplicada se os bytes forem os do client 7.54 conhecido; as que já estão aplicadas ficam.
+/// Cada correção só é aplicada se os bytes forem os de um client conhecido; as que já estão aplicadas ficam.
 /// </summary>
 public static class ClientPatcher
 {
@@ -22,18 +23,19 @@ public static class ClientPatcher
 
     private enum State { Original, Patched, Unknown }
 
-    /// <summary>Onde o client soma a refinação ao efeito: "add al, byte ptr [edx + 0x18c|0x18d]" (6 bytes).</summary>
-    private static readonly (uint Va, byte Field)[] Sites =
+    /// <summary>
+    /// Endereços de uma versão: onde o client soma a refinação ao efeito ("add al, byte ptr [edx + 0x18c|0x18d]", 6
+    /// bytes), o código novo no fim da .text (sobra de alinhamento, só zeros), um para cada campo, e se a versão leva
+    /// a correção do tamanho dos itens.
+    /// </summary>
+    private sealed record Profile(string Name, (uint Va, byte Field)[] Sites, uint CaveRight, uint CaveLeft, bool OneSlot);
+
+    private static readonly Profile[] Profiles =
     [
-        (0x524865, 0x8C),
-        (0x524904, 0x8D),
-        (0x52498C, 0x8C),
-        (0x524A0F, 0x8D),
+        new("7.57", [(0x4FFFE6, 0x8C), (0x500085, 0x8D), (0x50010D, 0x8C), (0x500190, 0x8D)], 0x5DC590, 0x5DC5B0, OneSlot: false),
+        new("7.54", [(0x524865, 0x8C), (0x524904, 0x8D), (0x52498C, 0x8C), (0x524A0F, 0x8D)], 0x5AC840, 0x5AC860, OneSlot: true),
     ];
 
-    /// <summary>Código novo no fim da .text (sobra de alinhamento, só zeros): um para cada campo.</summary>
-    private const uint CaveRight = 0x5AC840;
-    private const uint CaveLeft = 0x5AC860;
     private const int MaxRefine = 12;
 
     /// <summary>Tabela {int largura, int altura}[8] do tamanho dos itens no inventário (na .data).</summary>
@@ -70,7 +72,7 @@ public static class ClientPatcher
         0xC3,                                     // ret
     ];
 
-    private static uint CaveOf(byte field) => field == 0x8C ? CaveRight : CaveLeft;
+    private static uint CaveOf(Profile p, byte field) => field == 0x8C ? p.CaveRight : p.CaveLeft;
 
     private static byte[] Grid((int W, int H)[] sizes)
     {
@@ -85,55 +87,64 @@ public static class ClientPatcher
 
     private static byte[] OneSlotGrid => Grid(Enumerable.Repeat((1, 1), OriginalGrid.Length).ToArray());
 
-    /// <summary>Aplica as correções no conteúdo do WYD.exe.</summary>
-    public static Result Patch(byte[] exe)
+    /// <summary>Aplica as correções no conteúdo do WYD.exe (da primeira versão conhecida que bater).</summary>
+    public static Result Patch(byte[] exe) => Patch(exe, out _);
+
+    public static Result Patch(byte[] exe, out string? version)
     {
+        version = null;
         if (!TrySection(exe, ".text", out var text) || !TrySection(exe, ".data", out var data)) return Result.Unknown;
 
-        var weapon = WeaponState(exe, text);
-        var tables = DataPatches.Select(p =>
-            (p.Va, p.Patched, State: data.Matches(exe, p.Va, p.Patched) ? State.Patched
-                : data.Matches(exe, p.Va, p.Original) ? State.Original
-                : State.Unknown)).ToList();
-        if (weapon == State.Unknown || tables.Any(t => t.State == State.Unknown)) return Result.Unknown;
-        if (weapon == State.Patched && tables.All(t => t.State == State.Patched)) return Result.AlreadyPatched;
+        foreach (var profile in Profiles)
+        {
+            var weapon = WeaponState(exe, text, profile);
+            if (weapon == State.Unknown) continue;
+            var tables = (profile.OneSlot ? DataPatches : []).Select(p =>
+                (p.Va, p.Patched, State: data.Matches(exe, p.Va, p.Patched) ? State.Patched
+                    : data.Matches(exe, p.Va, p.Original) ? State.Original
+                    : State.Unknown)).ToList();
+            if (tables.Any(t => t.State == State.Unknown)) return Result.Unknown;
+            version = profile.Name;
+            if (weapon == State.Patched && tables.All(t => t.State == State.Patched)) return Result.AlreadyPatched;
 
-        if (weapon == State.Original) PatchWeapon(exe, text);
-        foreach (var t in tables.Where(t => t.State == State.Original))
-            t.Patched.CopyTo(exe, data.Offset(t.Va));
-        return Result.Patched;
+            if (weapon == State.Original) PatchWeapon(exe, text, profile);
+            foreach (var t in tables.Where(t => t.State == State.Original))
+                t.Patched.CopyTo(exe, data.Offset(t.Va));
+            return Result.Patched;
+        }
+        return Result.Unknown;
     }
 
-    private static State WeaponState(byte[] exe, Section text)
+    private static State WeaponState(byte[] exe, Section text, Profile p)
     {
-        if (Sites.All(s => IsCall(exe, text, s.Va, CaveOf(s.Field))) &&
-            text.Matches(exe, CaveRight, Cave(0x8C)) && text.Matches(exe, CaveLeft, Cave(0x8D)))
+        if (p.Sites.All(s => IsCall(exe, text, s.Va, CaveOf(p, s.Field))) &&
+            text.Matches(exe, p.CaveRight, Cave(0x8C)) && text.Matches(exe, p.CaveLeft, Cave(0x8D)))
             return State.Patched;
-        if (!Sites.All(s => text.Matches(exe, s.Va, Original(s.Field)))) return State.Unknown;
+        if (!p.Sites.All(s => text.Matches(exe, s.Va, Original(s.Field)))) return State.Unknown;
 
         // O espaço do código novo precisa existir e estar livre.
-        uint caveEnd = CaveLeft + (uint)Cave(0x8D).Length;
+        uint caveEnd = p.CaveLeft + (uint)Cave(0x8D).Length;
         if (caveEnd > text.Va + text.RawSize) return State.Unknown;
-        foreach (var va in new[] { CaveRight, CaveLeft })
+        foreach (var va in new[] { p.CaveRight, p.CaveLeft })
             if (exe.AsSpan(text.Offset(va), Cave(0x8C).Length).ContainsAnyExcept((byte)0))
                 return State.Unknown;
         return State.Original;
     }
 
-    private static void PatchWeapon(byte[] exe, Section text)
+    private static void PatchWeapon(byte[] exe, Section text, Profile p)
     {
-        Cave(0x8C).CopyTo(exe, text.Offset(CaveRight));
-        Cave(0x8D).CopyTo(exe, text.Offset(CaveLeft));
-        foreach (var (va, field) in Sites)
+        Cave(0x8C).CopyTo(exe, text.Offset(p.CaveRight));
+        Cave(0x8D).CopyTo(exe, text.Offset(p.CaveLeft));
+        foreach (var (va, field) in p.Sites)
         {
             int o = text.Offset(va);
             exe[o] = 0xE8; // call rel32
-            BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(o + 1), (int)(CaveOf(field) - (va + 5)));
+            BinaryPrimitives.WriteInt32LittleEndian(exe.AsSpan(o + 1), (int)(CaveOf(p, field) - (va + 5)));
             exe[o + 5] = 0x90; // nop
         }
 
         // O código novo fica além do VirtualSize da .text; aumenta para o loader mapear como código.
-        uint needed = CaveLeft + (uint)Cave(0x8D).Length - text.Va;
+        uint needed = p.CaveLeft + (uint)Cave(0x8D).Length - text.Va;
         if (text.VirtualSize < needed)
             BinaryPrimitives.WriteUInt32LittleEndian(exe.AsSpan(text.HeaderOffset + 8), needed);
     }

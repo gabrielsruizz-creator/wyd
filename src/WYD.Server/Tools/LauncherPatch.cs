@@ -11,8 +11,11 @@ public static class LauncherPatch
 {
     public const string ListName = "update1.htm";
 
-    /// <summary>A versão que vem no config.txt do client 7.54.</summary>
-    public const int ClientVersion = 7541;
+    /// <summary>
+    /// A versão do client 7.57 depois do último patch oficial (7580): o que for publicado fica acima dela, para o
+    /// launcher baixar (o 7.54 tinha 7541 no config.txt).
+    /// </summary>
+    public const int ClientVersion = 7580;
 
     /// <summary>A primeira linha da lista original: só a versão mínima (ninguém tem client abaixo de 7000).</summary>
     private const string MinimumLine = "7000 notice.txt";

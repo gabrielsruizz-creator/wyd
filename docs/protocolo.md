@@ -429,11 +429,15 @@ Argus de Noatun (rosto 348). Por isso o servidor troca por 0, no `0x364`, todo i
 
 ## Efeito da arma acima de +12
 
-O client escolhe o efeito da arma como `Grade (offset 138 da ItemList) * 13 + refinação` (0x52482A). Acima de +12 a
-conta passa para o efeito do Grade seguinte, por isso armas +13 a +15 (ancient ou não) soltam o efeito errado. O
-comando `patch-client` troca as quatro somas (`add al, [edx+0x18C|0x18D]` em 0x524865, 0x524904, 0x52498C e
-0x524A0F) por uma chamada a um trecho novo no fim da `.text` (0x5AC840 e 0x5AC860) que soma no máximo 12. O nome e
-a refinação do item não mudam.
+O client escolhe o efeito da arma como `Grade (offset 138 da ItemList) * 13 + refinação`. Acima de +12 a conta passa
+para o efeito do Grade seguinte, por isso armas +13 a +15 (ancient ou não) soltam o efeito errado. O comando
+`patch-client` troca as quatro somas (`add al, [edx+0x18C|0x18D]`) por uma chamada a um trecho novo no fim da `.text`
+que soma no máximo 12. O nome e a refinação do item não mudam.
+
+| Versão | Somas | Trecho novo |
+|--------|-------|-------------|
+| 7.57 | 0x4FFFE6, 0x500085, 0x50010D, 0x500190 | 0x5DC590, 0x5DC5B0 |
+| 7.54 | 0x524865, 0x524904, 0x52498C, 0x524A0F | 0x5AC840, 0x5AC860 |
 
 ## WYDLauncher
 
