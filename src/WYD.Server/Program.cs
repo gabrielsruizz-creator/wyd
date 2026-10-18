@@ -95,6 +95,8 @@ public static class Program
                 return await UnequipAsync(host.Services, args[1], args[2], args[3..]);
             case "show" when args.Length == 3:
                 return await ShowAsync(host.Services, args[1], args[2]);
+            case "clear-buffs" when args.Length == 3:
+                return await ClearBuffsAsync(host.Services, args[1], args[2]);
             default:
                 Console.Error.WriteLine("""
                     Uso:
@@ -105,6 +107,7 @@ public static class Program
                       WYD.Server unstuck <conta>                    leva os personagens da conta para a cidade inicial
                       WYD.Server unequip <conta> <personagem> [slot...]  apaga peças equipadas (sem slot: as armas, 6 e 7)
                       WYD.Server show <conta> <personagem>          mostra a ficha, o equipamento e o inventário
+                      WYD.Server clear-buffs <conta> <personagem>   tira os efeitos de skill ativos (buffs, Soul)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
                       WYD.Server launcher <pasta do client> <ip>     aponta o launcher (Settings.txt) para o servidor
@@ -267,11 +270,36 @@ public static class Program
         var s = c.BaseScore;
         Console.WriteLine($"{c.Name} (slot {c.Slot}): {c.Class}, {c.Evolution}, nível {s.Level + 1}, exp {c.Exp}, gold {c.Coin}, em ({c.PosX}, {c.PosY})");
         Console.WriteLine($"  FOR {s.Str} INT {s.Int} DES {s.Dex} CON {s.Con}, vida {s.Hp}/{s.MaxHp}, mana {s.Mp}/{s.MaxMp}, especiais {s.Special1}/{s.Special2}/{s.Special3}/{s.Special4}");
+        var now = DateTime.UtcNow;
+        Console.WriteLine($"  Skills aprendidas: 0x{c.LearnedSkill:X8}; efeitos ativos: " + (c.Affects.Count == 0 ? "nenhum" :
+            string.Join(", ", c.Affects.Select(a => $"{a.Type} ({(int)a.Type}) da skill {a.Skill}, valor {a.Amount}, mais {(a.Expires - now).TotalMinutes:0} min"))));
         Console.WriteLine("  Equipamento:");
         for (int i = 0; i < c.Equip.Length; i++) Console.WriteLine($"    {i,2}: {Describe(c.Equip[i])}");
         Console.WriteLine("  Inventário:");
         for (int i = 0; i < c.Inventory.Length; i++)
             if (!c.Inventory[i].IsEmpty) Console.WriteLine($"    {i,2}: {Describe(c.Inventory[i])}");
+        return 0;
+    }
+
+    private static async Task<int> ClearBuffsAsync(IServiceProvider services, string username, string name)
+    {
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+        var characters = services.GetRequiredService<ICharacterRepository>();
+        var c = (await characters.ListByAccountAsync(account.Id)).FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (c is null)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não tem o personagem '{name}'.");
+            return 1;
+        }
+        Console.WriteLine($"{c.Affects.Count} efeito(s) tirado(s) de {c.Name}.");
+        c.Affects.Clear();
+        await characters.SaveProgressAsync(c);
+        Console.WriteLine("Pronto. Se o servidor estiver aberto, o jogador precisa estar fora do jogo.");
         return 0;
     }
 
