@@ -91,7 +91,7 @@ public static class Ancient
         item.IsEmpty ? null : EffectOf(items, item.Index) ?? GemOf(item);
 
     /// <summary>O índice da cópia do grupo com o efeito pedido (null se o grupo não estiver completo no ItemList).</summary>
-    public static short? Variant(short index, ItemList items, AncientEffect wanted)
+    public static short? Variant(short index, ItemList? items, AncientEffect wanted)
     {
         if (EffectOf(items, index) is not { } current) return null;
         return (short)(index - (int)current + (int)wanted);
