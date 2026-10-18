@@ -1,7 +1,8 @@
-# Servidor WYD (With Your Destiny) 7.54 / 7.56
+# Servidor WYD (With Your Destiny) 7.57
 
 Emulador de servidor de **With Your Destiny** escrito do zero em **C# / .NET 8** com **MySQL/MariaDB**,
-compatível com o protocolo do client das versões 7.54 e 7.56.
+compatível com o protocolo do client 7.57 (o 7.55 com as atualizações oficiais até a 7580). O suporte ao 7.54
+ficou no histórico do git.
 
 > Este projeto não contém nem usa código ou arquivos do jogo original. Os arquivos do client
 > (como a `KeyTable.bin`) você precisa fornecer a partir da sua própria cópia; veja [`data/README.md`](data/README.md).
@@ -91,7 +92,8 @@ As tabelas são criadas sozinhas na primeira execução (o script fica em [`sql/
 
 ## Conectar o client
 
-Use um client da versão **7.54 ou 7.56**. Feche o jogo antes de começar.
+Use o client **7.57**: o 7.55 com as atualizações aplicadas em ordem, de `75507551.zip` até `75747580.zip`
+(cada uma extraída por cima, substituindo os arquivos). Feche o jogo antes de começar.
 
 **1. Aponte o client para o seu PC** (troca os IPs do `serverlist.bin` e guarda um backup `.bak`):
 
@@ -121,7 +123,14 @@ O jogo vai dar erro de conexão; isso é normal nesta etapa. Se o comando pedir,
 dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\jogo\WYD.exe"
 ```
 
-**4. Corrija o client** (opcional): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
+**4. Acerte a ItemList e a SkillData** (as do patch 7580 não batem com o checksum que o WYD.exe dele espera, e o
+jogo pararia com "Initialize Data Failed"). O comando acerta as duas no client e copia para `data/`:
+
+```powershell
+dotnet run --project src\WYD.Server -- fix-lists "C:\caminho\do\jogo"
+```
+
+**5. Corrija o client** (opcional; por enquanto só funciona com o WYD.exe 7.54, os endereços do 7.57 são outros): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
 Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12) e o inventário
 com cada item ocupando 1 slot (no original as botas ocupam 2×2, as armas até 2×4).
 
@@ -149,7 +158,7 @@ http://127.0.0.1/
 WYD.EXE uma vez e o `[VERSION]` do `config.txt` sobe para a versão publicada. Cada `publish-client` cria uma versão
 nova, então rode de novo quando trocar o arquivo.
 
-**5. Inicie o servidor e entre no jogo:**
+**6. Inicie o servidor e entre no jogo:**
 
 ```powershell
 dotnet run --project src\WYD.Server -- --Server:LogPackets=true
@@ -230,7 +239,7 @@ sobrescrever qualquer opção pela linha de comando, por exemplo `--Server:LogPa
 | Opção                          | Padrão              | Para que serve                                              |
 |--------------------------------|---------------------|-------------------------------------------------------------|
 | `Server:Port`                  | `8281`              | Porta em que o client conecta                               |
-| `Server:AllowedClientVersions` | `[754, 756]`        | Versões de client aceitas                                   |
+| `Server:AllowedClientVersions` | `[758]`             | Versões de client aceitas                                   |
 | `Server:KeyTablePath`          | `data/KeyTable.bin` | Tabela de cifra do client                                   |
 | `Server:AutoRegister`          | `false`             | Cria a conta no primeiro login (bom para testes)            |
 | `Server:LogPackets`            | `false`             | Mostra todos os pacotes em hex no console                   |

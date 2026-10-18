@@ -11,11 +11,11 @@ public sealed class ServerOptions
     /// <summary>Porta do TMSrv. O client 7.54/7.56 conecta por padrão na 8281.</summary>
     public int Port { get; set; } = 8281;
 
-    /// <summary>Versões de client aceitas no login (campo ClientVersion do pacote 0x20D). Vazio = 754 e 756.</summary>
+    /// <summary>Versões de client aceitas no login (campo ClientVersion do pacote 0x20D). Vazio = 758 (o WYD.exe 7.57 manda 758 fixo).</summary>
     /// <remarks>Sem valor padrão no array: o binder de configuração acrescentaria os itens do appsettings a ele.</remarks>
     public int[] AllowedClientVersions { get; set; } = [];
 
-    public IReadOnlyList<int> ClientVersions => AllowedClientVersions.Length > 0 ? AllowedClientVersions : [754, 756];
+    public IReadOnlyList<int> ClientVersions => AllowedClientVersions.Length > 0 ? AllowedClientVersions : [758];
 
     /// <summary>Número máximo de jogadores conectados ao mesmo tempo.</summary>
     public int MaxUsers { get; set; } = 1000;

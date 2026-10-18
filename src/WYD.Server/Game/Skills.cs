@@ -139,12 +139,11 @@ public static class SkillUse
         int special = TreeSpecial(s, skill);
         var b = caster.ItemBonus;
         if (spell.InstanceType == Physical)
-            return Math.Min(short.MaxValue,
-                Combat.Damage(s, target, random, perforation: b.Perforation) + spell.InstanceValue + special);
+            return Combat.Damage(s, target, random, perforation: b.Perforation) + spell.InstanceValue + special;
 
         int power = (spell.InstanceValue + special + s.Int / 4) * (100 + b.Magic + Affects.Bonus(caster).MagicPercent) / 100;
         int rolled = power * random.Next(90, 111) / 100;
-        return Math.Clamp(rolled - target.Ac / 8, 1, short.MaxValue);
+        return Math.Max(rolled - target.Ac / 8, 1);
     }
 
     /// <summary>Quanto a skill de cura recupera.</summary>

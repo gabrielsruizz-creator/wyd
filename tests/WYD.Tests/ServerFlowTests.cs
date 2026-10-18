@@ -71,7 +71,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
 
-        await client.SendAsync(LoginPacket("jogador", "senha123", 756));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         var loginOk = await client.ReceiveAsync();
         Assert.Equal(Opcodes.AccountLoginOk, loginOk.Type);
         Assert.Equal(ServerPackets.AccountLoginOkSize, loginOk.Length);
@@ -82,7 +82,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             .WriteInt32(1).WriteString("Arqueira", 16).WriteInt32((int)CharacterClass.Huntress).ToArray());
         var created = await client.ReceiveAsync();
         Assert.Equal(Opcodes.CreateCharacterOk, created.Type);
-        created.Skip(16);
+        created.Skip(4 + 16);                                   // int em 0x0C, SPX[4], SPY[4]
         Assert.Equal("", created.ReadString(16));
         Assert.Equal("Arqueira", created.ReadString(16));
 
@@ -131,7 +131,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     public async Task Wrong_password_is_refused()
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket("jogador", "errada", 756));
+        await client.SendAsync(LoginPacket("jogador", "errada", 758));
         Assert.Equal(Opcodes.AccountLoginFail, (await client.ReceiveAsync()).Type);   // destrava a tela de login
         var reply = await client.ReceiveAsync();
         Assert.Equal(Opcodes.MessagePanel, reply.Type);
@@ -152,11 +152,11 @@ public sealed class ServerFlowTests : IAsyncLifetime
     public async Task Second_login_kicks_first_session()
     {
         using var first = await FakeClient.ConnectAsync(_endPoint, _table);
-        await first.SendAsync(LoginPacket("jogador", "senha123", 756));
+        await first.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await first.ReceiveAsync()).Type);
 
         using var second = await FakeClient.ConnectAsync(_endPoint, _table);
-        await second.SendAsync(LoginPacket("jogador", "senha123", 756));
+        await second.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await second.ReceiveAsync()).Type);
 
         Assert.Equal("Sua conta foi conectada em outro lugar.", (await first.ReceiveAsync()).ReadString(GameConstants.MessageLength));
@@ -170,7 +170,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
         client.Mode = mode;
-        await client.SendAsync(LoginPacket("jogador", "senha123", 756));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
         await client.SendAsync(new SecondPasswordRequest("1234", false).Write());
         Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
@@ -195,7 +195,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     /// <summary>Loga e passa pela segunda senha, chegando à tela de personagens liberada.</summary>
     private static async Task LoginAndUnlockAsync(FakeClient client, string secondPassword = "1234")
     {
-        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
         await client.SendAsync(new SecondPasswordRequest(secondPassword, false).Write());
         Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
@@ -215,7 +215,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.NotNull((await _store.FindByUsernameAsync("jogador"))!.SecondPasswordHash);
 
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
 
         // Sem a segunda senha, nada é liberado.
@@ -236,7 +236,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     public async Task Second_password_can_be_changed_after_confirming_the_current_one()
     {
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
 
         // Trocar sem ter confirmado a atual é recusado.
@@ -257,7 +257,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
     {
         await _store.SetSecondPasswordAsync(1, PasswordHasher.Hash("1234"));
         using var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket("jogador", "senha123", 754));
+        await client.SendAsync(LoginPacket("jogador", "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
 
         for (int i = 1; i < LoginHandler.MaxSecondPasswordFailures; i++)
@@ -277,7 +277,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await _store.CreateAsync(account, PasswordHasher.Hash("senha123"));
 
         var client = await FakeClient.ConnectAsync(_endPoint, _table);
-        await client.SendAsync(LoginPacket(account, "senha123", 754));
+        await client.SendAsync(LoginPacket(account, "senha123", 758));
         Assert.Equal(Opcodes.AccountLoginOk, (await client.ReceiveAsync()).Type);
         await client.SendAsync(new SecondPasswordRequest("1234", false).Write());
         Assert.Equal(Opcodes.SecondPassword, (await client.ReceiveAsync()).Type);
@@ -628,15 +628,17 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
     private static byte[] SkillPacket(ushort attacker, short skill, params ushort[] targets)
     {
+        // Como o client 7.57 monta (0x41DCFA): 1 alvo 0x39D, 2 alvos 0x39E, mais 0x367 com 13 posições.
         ushort type = targets.Length switch { 1 => Opcodes.AttackOne, 2 => Opcodes.AttackTwo, _ => Opcodes.Attack };
-        int size = targets.Length switch { 1 => 48, 2 => 52, _ => 96 };
+        int size = ServerPackets.AttackLayout.SizeFor(targets.Length switch { 1 => 1, 2 => 2, _ => ServerPackets.AttackLayout.MaxTargets });
         var w = new PacketWriter(type, size, attacker);
-        w.WriteUInt16(attacker).Skip(2)
+        w.Skip(0x22 - 12)                                  // Hold, mana gasta, Exp
          .WriteInt16(2100).WriteInt16(2100).WriteInt16(2101).WriteInt16(2100)
-         .WriteInt16(skill).WriteInt16(-1)                 // skill (-1 = ataque normal), mana
-         .WriteByte(0xFF).WriteByte(0).WriteByte(0).WriteByte(0)
-         .Skip(12);                                        // Hold, Exp, ?
-        foreach (var t in targets) w.WriteUInt16(t).WriteInt16(-1);
+         .WriteUInt16(attacker).Skip(2)
+         .WriteByte(0xFF).Skip(5)                          // movimento
+         .WriteInt32(-1)                                   // mana atual
+         .WriteInt16(skill).Skip(2);                       // skill (-1 = ataque normal)
+        foreach (var t in targets) w.WriteInt32(t).WriteInt32(-1);
         w.Skip(size - w.Position);
         return w.ToArray();
     }
@@ -675,28 +677,28 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await a.SendAsync(AttackPacket(me, ids["Ferreiro"]));
             var onNpc = await a.ReceiveAsync();
             Assert.Equal(Opcodes.AttackOne, onNpc.Type);
-            onNpc.Skip(0x2C - 12 + 2);
-            Assert.Equal(0, onNpc.ReadInt16());
+            onNpc.Skip(0x40 - 12);
+            Assert.Equal(0, onNpc.ReadInt32());
 
             // Golpe de arco: o client manda o ataque comum com a "skill" 151 (arma de tipo 101).
             await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
             await a.SendAsync(SkillPacket(me, 151, ids["Gremlin"]));
             var hit = await a.ReceiveAsync();
             Assert.Equal(Opcodes.AttackOne, hit.Type);
-            Assert.Equal(48, hit.Length);
-            hit.Skip(0x24 - 12);
-            Assert.Equal(280, hit.ReadInt32());          // experiência nova de quem atacou
-            hit.Skip(4);
-            Assert.Equal(ids["Gremlin"], hit.ReadUInt16());
-            Assert.True(hit.ReadInt16() >= 1);           // dano calculado pelo servidor
+            Assert.Equal(72, hit.Length);
+            hit.Skip(0x18 - 12);
+            Assert.Equal(280, hit.ReadInt64());          // experiência nova de quem atacou
+            hit.Skip(0x3C - 0x20);
+            Assert.Equal(ids["Gremlin"], hit.ReadInt32());
+            Assert.True(hit.ReadInt32() >= 1);           // dano calculado pelo servidor
 
             var kill = await a.ReceiveAsync();
             Assert.Equal(Opcodes.MobKill, kill.Type);
             Assert.Equal(ServerPackets.MobKillSize, kill.Length);
             kill.Skip(4);
             Assert.Equal(ids["Gremlin"], kill.ReadUInt16());
-            kill.Skip(2);
-            Assert.Equal(280, kill.ReadInt32());
+            kill.Skip(2 + 4);
+            Assert.Equal(280, kill.ReadInt64());
 
             var removed = await a.ReceiveAsync();
             Assert.Equal(Opcodes.RemoveMob, removed.Type);
@@ -706,10 +708,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // Exp, gold e pontos novos; com 280 de exp e a tabela 100/200/300 sobe dois níveis.
             var etc = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateEtc, etc.Type);
-            Assert.Equal(36, etc.Length);
+            Assert.Equal(48, etc.Length);
             etc.Skip(4);
-            Assert.Equal(280, etc.ReadInt32());
-            etc.Skip(4);
+            Assert.Equal(280, etc.ReadInt64());
+            etc.Skip(8);
             Assert.Equal(2 * Leveling.ScorePointsPerLevel, etc.ReadInt16());
             etc.Skip(6);
             Assert.Equal(50, etc.ReadInt32());
@@ -721,8 +723,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
             var score = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateScore, score.Type);
-            Assert.Equal(92, score.Length);
-            Assert.Equal(2, score.ReadInt16());          // nível (0 = nível 1 na tela)
+            Assert.Equal(ServerPackets.UpdateScoreSize, score.Length);
+            Assert.Equal(2, score.ReadInt32());          // nível (0 = nível 1 na tela)
             var hpMp = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateHpMp, hpMp.Type);
             Assert.Equal(ServerPackets.LevelUpText, (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
@@ -779,16 +781,17 @@ public sealed class ServerFlowTests : IAsyncLifetime
             var hit = await ReceiveTypeAsync(a, Opcodes.AttackOne);
             Assert.Equal(ogreId, hit.Id);
             Assert.Equal(ServerPackets.AttackOneSize, hit.Length);
+            hit.Skip(0x2A - 12);
             Assert.Equal(ogreId, hit.ReadUInt16());
-            hit.Skip(0x1C - 0x0E);
+            hit.Skip(2);
             Assert.InRange(hit.ReadByte(), 4, 6);               // movimento de golpe: o monstro anima o ataque
-            hit.Skip(0x2C - 0x1D);
-            Assert.Equal(me, hit.ReadUInt16());
-            Assert.True(hit.ReadInt16() > 0);
+            hit.Skip(0x3C - 0x2F);
+            Assert.Equal(me, hit.ReadInt32());
+            Assert.True(hit.ReadInt32() > 0);
 
             var hp = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateHpMp, hp.Type);
-            Assert.Equal(0, hp.ReadInt16());                    // short Hp, short Mp (como o client lê)
+            Assert.Equal(0, hp.ReadInt32());                    // int Hp, int Mp
             var death = await a.ReceiveAsync();
             Assert.Equal(Opcodes.MobKill, death.Type);
             death.Skip(4);
@@ -969,10 +972,10 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(0).WriteInt16(0).Skip(4).ToArray());
         var score = await a.ReceiveAsync();
         Assert.Equal(Opcodes.UpdateScore, score.Type);
-        score.Skip(0x10);                                           // Level, Ac, Damage, Merchant, AttackRun, MaxHp, MaxMp, Hp, Mp
+        score.Skip(0x20);                                           // Level, Ac, Damage, Merchant, AttackRun, MaxHp, MaxMp, Hp, Mp
         Assert.Equal(str + 1, score.ReadInt16());                   // FOR na ficha
         var etc = await a.ReceiveAsync();
-        etc.Skip(12);
+        etc.Skip(0x20 - 12);
         Assert.Equal(2, etc.ReadInt16());                           // sobraram 2 pontos de atributo
 
         await a.SendAsync(CommandPacket("gm", "evoluir sub"));
@@ -1021,7 +1024,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             // O client recebe o rei com o visual e a ficha do Guarda_Real (os originais o derrubam), mas com o tipo do rei.
             created.Skip(12 + 4);
             Assert.Equal(60, created.ReadInt16());                          // rosto do Guarda_Real, não o 304 do rei
-            created.Skip(15 * 2 + 32 + 2 + 6);
+            created.Skip(15 * 2 + 64 + 2 + 12);
             Assert.Equal(0x6F, created.ReadByte());                         // Merchant do rei: o clique abre a evolução
             (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
             var me = await CharacterOf("jogadora");
@@ -1107,7 +1110,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             created.Skip(4);
             ushort oracle = created.ReadUInt16();
             Assert.Equal("BlueOracle", created.ReadString(12));
-            created.Skip(4 + 16 * 2 + 32 + 2 + 6);
+            created.Skip(4 + 16 * 2 + 64 + 2 + 12);
             Assert.Equal(13, created.ReadByte() & 0x0F);                     // tipo que sempre abre a pergunta
 
             await a.SendAsync(NpcClickPacket(oracle));
@@ -1158,7 +1161,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             created.Skip(4);
             ushort ehre = created.ReadUInt16();
             Assert.Equal("Ehre", created.ReadString(12));
-            created.Skip(4 + 16 * 2 + 32 + 2 + 6);
+            created.Skip(4 + 16 * 2 + 64 + 2 + 12);
             Assert.Equal(SoulQuest.EhreClientMerchant, created.ReadByte() & 0x0F);
 
             var me = await CharacterOf("jogadora");
@@ -1213,7 +1216,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         using var a = await EnterWorldAsync("jogadora", "Alice");
         var bar = Enumerable.Repeat((byte)0xFF, 20).ToArray();
         bar[1] = 13;                                                         // começo da barra (SkillBar[4] da STRUCT_MOB)
-        bar[6] = 22;                                                         // segunda parte (0x30A do 0x114)
+        bar[6] = 22;                                                         // segunda parte (0x416 do 0x114)
         await a.SendAsync(new PacketWriter(Opcodes.SkillBar, 32, 1).WriteBytes(bar).ToArray());
         await Task.Delay(100);
 
@@ -1222,9 +1225,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
         await a.SendAsync(new PacketWriter(Opcodes.CharacterLogin, CharacterLoginRequest.PacketSize).WriteInt32(0).Skip(20).ToArray());
         var login = await a.ReceiveAsync();
         Assert.Equal(Opcodes.CharacterLoginOk, login.Type);
-        login.Skip(0x2F8 - 12);                                              // 0x10 + SkillBar da STRUCT_MOB (0x2E8)
+        login.Skip(0x32C - 12);                                              // 0x10 + SkillBar da STRUCT_MOB (0x31C)
         Assert.Equal(new byte[] { 0xFF, 13, 0xFF, 0xFF }, Enumerable.Range(0, 4).Select(_ => login.ReadByte()).ToArray());
-        login.Skip(0x30A - 0x2FC);
+        login.Skip(0x416 - 0x330);
         Assert.Equal(new byte[] { 0xFF, 0xFF, 22 }, Enumerable.Range(0, 3).Select(_ => login.ReadByte()).ToArray());
     }
 
@@ -1247,7 +1250,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(Opcodes.MoveItem, (await a.ReceiveAsync()).Type);
         var score = await a.ReceiveAsync();
         Assert.Equal(Opcodes.UpdateScore, score.Type);
-        score.Skip(7);
+        score.Skip(13);
         Assert.Equal(6, score.ReadByte() & 0x0F);                   // AttackRun
     }
 
@@ -1381,7 +1384,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
         await a.SendAsync(SkillPacket(1, 11, 1));                                          // em si mesma
         var score = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
-        score.Skip(0x2A - 12);
+        score.Skip(0x3E - 12);
         short affect = score.ReadInt16();
         Assert.Equal((int)AffectType.Assault, affect >> 8);                                // ícone do efeito
         Assert.Equal(12, affect & 0xFF);                                                   // 12 × 8 s
@@ -1396,7 +1399,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         // Acabou o tempo: o efeito sai e a ficha volta sem o ícone.
         me.Affects[0] = me.Affects[0] with { Expires = DateTime.UtcNow.AddSeconds(-1) };
         var after = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
-        after.Skip(0x2A - 12);
+        after.Skip(0x3E - 12);
         Assert.Equal(0, after.ReadInt16());
         Assert.Equal(damage, me.CurrentScore.Damage);
     }
@@ -1420,16 +1423,15 @@ public sealed class ServerFlowTests : IAsyncLifetime
 
             await a.SendAsync(SkillPacket(1, 37, 1));
             var score = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
-            score.Skip(0x2A - 12);
+            score.Skip(0x3E - 12);
             Assert.Equal((int)AffectType.LightningStorm, score.ReadInt16() >> 8);
 
             // A aura bate sozinha no boneco ao lado, com o raio da Thunderbolt (33).
             var hit = await ReceiveTypeAsync(a, Opcodes.Attack);
-            hit.Skip(0x18 - 12);
+            hit.Skip(0x38 - 12);
             Assert.Equal(World.ThunderboltSkill, hit.ReadInt16());
-            hit.Skip(0x2C - 0x1A);
-            hit.Skip(2);
-            Assert.True(hit.ReadInt16() > 0);
+            hit.Skip(0x40 - 0x3A);
+            Assert.True(hit.ReadInt32() > 0);
         }
         finally
         {
@@ -1531,7 +1533,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await a.SendAsync(new PacketWriter(Opcodes.ApplyBonus, 20, 1).WriteInt16(2).WriteInt16(5000).WriteInt16((short)masterId).Skip(2).ToArray());
             var etc = await a.ReceiveAsync();
             Assert.Equal(Opcodes.UpdateEtc, etc.Type);
-            etc.Skip(8);
+            etc.Skip(0x18 - 12);
             Assert.Equal(1, etc.ReadInt32());                                  // LearnedSkill com o bit 0
             Assert.StartsWith("Você aprendeu", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
 
@@ -1588,13 +1590,13 @@ public sealed class ServerFlowTests : IAsyncLifetime
             await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
             await a.SendAsync(SkillPacket(1, 8, dummyId));
             var hit = await ReceiveTypeAsync(a, Opcodes.AttackOne);
-            hit.Skip(0x1A - 0x0C);
-            Assert.Equal(38, hit.ReadInt16());                                          // mana que sobrou, no próprio ataque
-            hit.Skip(0x2E - 0x1C);
-            Assert.True(hit.ReadInt16() >= me.CurrentScore.Damage * 80 / 100 + 15);     // dano normal + força da skill
+            hit.Skip(0x34 - 12);
+            Assert.Equal(38, hit.ReadInt32());                                          // mana que sobrou, no próprio ataque
+            hit.Skip(0x40 - 0x38);
+            Assert.True(hit.ReadInt32() >= me.CurrentScore.Damage * 80 / 100 + 15);     // dano normal + força da skill
             var mp = await ReceiveTypeAsync(a, Opcodes.UpdateHpMp);
-            mp.Skip(2);
-            Assert.Equal(38, mp.ReadInt16());                                           // MP em 0x0E
+            mp.Skip(4);
+            Assert.Equal(38, mp.ReadInt32());                                           // MP em 0x10
 
             // Sem mana suficiente: ignorado.
             me.BaseScore.Mp = 5;
@@ -1616,8 +1618,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         fm.BaseScore.Hp = 10;
         await f.SendAsync(SkillPacket(2, 27, 2));
         var heal = await ReceiveTypeAsync(f, Opcodes.AttackOne);
-        heal.Skip(0x2E - 0x0C);
-        Assert.True(heal.ReadInt16() < 0);                                               // cura aparece como dano negativo
+        heal.Skip(0x40 - 12);
+        Assert.True(heal.ReadInt32() < 0);                                               // cura aparece como dano negativo
         Assert.True(fm.BaseScore.Hp > 10);
         Assert.Equal(85, fm.BaseScore.Mp);
     }

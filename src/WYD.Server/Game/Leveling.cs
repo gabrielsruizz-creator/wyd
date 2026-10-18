@@ -5,6 +5,9 @@ namespace WYD.Server.Game;
 /// <summary>Subida de nível: pontos e vida/mana a mais por nível, e vida/mana cheias ao subir.</summary>
 public static class Leveling
 {
+    /// <summary>Teto da experiência (o client 7.57 guarda 64 bits; a tabela vai até alguns bilhões).</summary>
+    public const long MaxExp = 1_000_000_000_000_000;
+
     /// <summary>Pontos de atributo, especiais e de skill ganhos por nível.</summary>
     public const short ScorePointsPerLevel = 5, SpecialPointsPerLevel = 1, SkillPointsPerLevel = 1;
 

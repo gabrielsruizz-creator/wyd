@@ -7,14 +7,14 @@ namespace WYD.Server.Protocol;
 // ======================= Client -> Servidor =======================
 
 /// <summary>
-/// 0x20D MSG_AccountLogin (116 bytes), conferido com o client 7.54:
+/// 0x20D MSG_AccountLogin (116 bytes), conferido com o client 7.57 (montado em 0x48587E):
 /// <code>
-/// 12  char AccountName[16]
-/// 28  char AccountPassword[12]
-/// 40  int  ClientVersion     (754 / 756)
-/// 44  int  DBNeedSave
-/// 48  int  AdapterName[4]    (identificação da placa de rede)
-/// 64  char Zero[52]
+/// 0x0C char AccountPassword[12]
+/// 0x18 char AccountName[16]
+/// 0x28 byte ?[52]
+/// 0x5C int  ClientVersion     (758, fixo no exe)
+/// 0x60 int  DBNeedSave
+/// 0x64 int  AdapterName[4]    (identificação da placa de rede)
 /// </code>
 /// </summary>
 public sealed record AccountLoginRequest(string Username, string Password, int ClientVersion)
@@ -23,8 +23,9 @@ public sealed record AccountLoginRequest(string Username, string Password, int C
 
     public static AccountLoginRequest Read(PacketReader r)
     {
-        string username = r.ReadString(AccountNameLength);
         string password = r.ReadString(AccountPasswordLength);
+        string username = r.ReadString(AccountNameLength);
+        r.Skip(52);
         int version = r.ReadInt32();
         return new AccountLoginRequest(username, password, version);
     }
@@ -32,11 +33,12 @@ public sealed record AccountLoginRequest(string Username, string Password, int C
     /// <summary>Monta o pacote como o client faria (usado nos testes e ferramentas).</summary>
     public byte[] Write() =>
         new PacketWriter(Opcodes.AccountLogin, PacketSize)
-            .WriteString(Username, AccountNameLength)
             .WriteString(Password, AccountPasswordLength)
+            .WriteString(Username, AccountNameLength)
+            .Skip(52)
             .WriteInt32(ClientVersion)
             .WriteInt32(1)  // DBNeedSave
-            .Skip(16 + 52)  // AdapterName, Zero
+            .Skip(16)       // AdapterName
             .ToArray();
 }
 
@@ -99,11 +101,11 @@ public sealed record CharacterLoginRequest(int Slot)
 public static class ServerPackets
 {
     /// <summary>
-    /// STRUCT_SELCHAR do client 7.54: os 4 slots da tela de seleção (744 bytes), conferido no WYD.exe.
+    /// STRUCT_SELCHAR do client 7.57: os 4 slots da tela de seleção (840 bytes), conferido no WYD.exe (0x4AE1BA).
     /// <code>
     /// 0x000 short SPX[4]          0x008 short SPY[4]         0x010 char  Name[4][16]
-    /// 0x050 SCORE Score[4] (28)   0x0C0 ITEM  Equip[4][16]   0x2C0 short Guild[4]
-    /// 0x2C8 int   Coin[4]         0x2D8 int   Exp[4]
+    /// 0x050 SCORE Score[4] (48)   0x110 ITEM  Equip[4][16]   0x310 short Guild[4]
+    /// 0x318 int   Coin[4]         0x328 long  Exp[4]
     /// </code>
     /// </summary>
     public const int SelCharSize =
@@ -113,35 +115,38 @@ public static class ServerPackets
         + CharactersPerAccount * MaxEquip * Item.Size // Equip[4][16]
         + CharactersPerAccount * 2                // Guild[4]
         + CharactersPerAccount * 4                // Coin[4]
-        + CharactersPerAccount * 4;               // Exp[4]
+        + CharactersPerAccount * 8;               // Exp[4]
 
     public const int MessagePanelSize = PacketHeader.Size + MessageLength;
 
-    /// <summary>0x10E: cabeçalho, SELCHAR, Cargo[128], int Coin, char Account[16], byte Keys[16] e 8 bytes livres.</summary>
+    /// <summary>0x10A: cabeçalho, byte Keys[16], 4 bytes, SELCHAR, Cargo[128], int Coin e 28 bytes (conta).</summary>
     /// <remarks>Os tamanhos seguem a tabela que o WYD.exe usa para conferir cada pacote recebido.</remarks>
-    public const int AccountLoginOkSize = 1824;
-    public const int SelCharPacketSize = PacketHeader.Size + SelCharSize;
+    public const int AccountLoginOkSize = 1928;
+
+    /// <summary>0x110 / 0x112: cabeçalho, int (não lido), SELCHAR.</summary>
+    public const int SelCharPacketSize = PacketHeader.Size + 4 + SelCharSize;
     public const int SignalSize = PacketHeader.Size + 4;
     public const int HeaderOnlySize = PacketHeader.Size;
 
     /// <summary>
-    /// STRUCT_MOB do client 7.54: a ficha completa do personagem (756 bytes), conferida no WYD.exe.
+    /// STRUCT_MOB do client 7.57: a ficha completa do personagem (1024 bytes), conferida no WYD.exe.
     /// <code>
     /// 0x000 char  Name[16]       0x010 byte  Clan          0x011 byte  Merchant     0x012 ushort Guild
     /// 0x014 byte  Class          0x015 byte  Rsv           0x016 ushort Quest       0x018 int   Coin
-    /// 0x01C int   Exp            0x020 short SPX           0x022 short SPY
-    /// 0x024 SCORE BaseScore      0x040 SCORE CurrentScore  0x05C ITEM  Equip[16]    0x0DC ITEM  Carry[64]
-    /// 0x2DC uint  LearnedSkill   0x2E0 short ScoreBonus    0x2E2 short SpecialBonus 0x2E4 short SkillBonus
-    /// 0x2E6 byte  Critical      0x2E7 byte  SaveMana      0x2E8 byte  SkillBar[4]  0x2EC byte  GuildLevel
-    /// 0x2ED byte  Magic         0x2EE byte  RegenHP       0x2EF byte  RegenMP      0x2F0 byte  Resist[4]
+    /// 0x01C int   ?              0x020 long  Exp           0x028 short SPX          0x02A short SPY
+    /// 0x02C SCORE BaseScore      0x05C SCORE CurrentScore  0x08C ITEM  Equip[16]    0x10C ITEM  Carry[64]
+    /// 0x30C uint  LearnedSkill[2] 0x314 short ScoreBonus   0x316 short SpecialBonus 0x318 short SkillBonus
+    /// 0x31A byte  Critical      0x31B byte  SaveMana      0x31C byte  SkillBar[4]  0x320 byte  GuildLevel
+    /// 0x321 byte  Magic         0x322 byte  RegenHP       0x323 byte  RegenMP      0x324 byte  Resist[4]
+    /// 0x328 (216 bytes que o servidor manda zerados)
     /// </code>
     /// </summary>
-    public const int MobSize = 0x2F4;
+    public const int MobSize = 0x400;
 
     /// <summary>0x114: cabeçalho, short X, short Y, STRUCT_MOB, id do jogador, clima, barra de skills extra (e o resto zerado).</summary>
-    public const int CharacterLoginOkSize = 1244;
+    public const int CharacterLoginOkSize = 1712;
 
-    public const int CreateMobSize = 176;
+    public const int CreateMobSize = 232;
     public const int RemoveMobSize = 16;
     public const int MoveSize = 52;
     public const int ChatSize = PacketHeader.Size + MessageLength;
@@ -162,7 +167,7 @@ public static class ServerPackets
     public static byte[] SecondPasswordOk(ushort id) =>
         new PacketWriter(Opcodes.SecondPassword, SecondPasswordRequest.PacketSize, id).Skip(20).ToArray();
 
-    /// <summary>Pacote só com o cabeçalho (os sinais de falha 0x119/0x11A/0x11B têm 12 bytes no 7.54).</summary>
+    /// <summary>Pacote só com o cabeçalho (os sinais de falha 0x119/0x11A/0x11B têm 12 bytes).</summary>
     public static byte[] HeaderOnly(ushort type, ushort id = 0) => new PacketWriter(type, HeaderOnlySize, id).ToArray();
 
     /// <summary>
@@ -188,13 +193,13 @@ public static class ServerPackets
     public static byte[] SelCharEffect(ushort id, int slot) => new PacketWriter(Opcodes.SelCharEffect, 16, id).WriteInt32(slot).ToArray();
 
     /// <summary>
-    /// 0x364: põe um jogador na tela de quem recebe. Layout conferido no WYD.exe 7.54:
+    /// 0x364: põe um jogador na tela de quem recebe. Layout do 7.57 (alinhado com o do 7.54, a validar):
     /// <code>
     /// 0x0C short X, Y          0x10 ushort Id          0x12 char Name[12]
     /// 0x1E byte ChaosPoint     0x1F byte CurrentKill   0x20 ushort TotalKill
-    /// 0x22 ushort Equip[16]    0x42 byte Affect[32]    0x62 ushort Guild
-    /// 0x64 SCORE Score         0x80 ushort CreateType  0x82 byte Refino[16]
-    /// 0x92 char Tab[26]        0xAC (4 bytes)
+    /// 0x22 ushort Equip[16]    0x42 short Affect[32]   0x82 ushort Guild
+    /// 0x84 SCORE Score         0xB4 (4 bytes)          0xB8 ushort CreateType
+    /// 0xBA byte Refino[16]     0xCA char Tab[26]       0xE4 (4 bytes)
     /// </code>
     /// </summary>
     public static byte[] CreateMob(ushort mobId, Character c) =>
@@ -214,6 +219,7 @@ public static class ServerPackets
         WriteAffects(w, affects);                     // 0x42 Affect
         w.WriteUInt16(guild);
         score.Write(w);
+        w.Skip(4);
         w.WriteUInt16(0);                             // CreateType: aparece normalmente
         w.Skip(16);                                   // refino de cada equipamento
         w.WriteString("", 26);                        // Tab
@@ -271,78 +277,88 @@ public static class ServerPackets
     }
 
     /// <summary>
-    /// Ataque (0x39D / 0x39E / 0x36C), lido no WYD.exe 7.54. O client manda o dano como -1 e o servidor
-    /// devolve o mesmo pacote com o dano de cada alvo para todos que estão vendo (inclusive quem atacou).
+    /// Ataque (0x39D 1 alvo, 0x39E 2 alvos, 0x367 até 13), lido no WYD.exe 7.57 (montado em 0x41DCFA, lido em
+    /// 0x48A5DD). O client manda o dano como -1 e o servidor devolve o mesmo pacote com o dano de cada alvo para todos
+    /// que estão vendo (inclusive quem atacou).
     /// <code>
-    /// 0x0C ushort Atacante        0x10 short X, Y do atacante     0x14 short X, Y do alvo
-    /// 0x18 short Skill            0x1C byte Movimento             0x20 int Hold
-    /// 0x24 int ExpDoAtacante      0x2C {ushort Alvo, short Dano} × 1, 2 ou 13
+    /// 0x0C int Hold               0x10 int ManaGasta              0x18 long ExpDoAtacante
+    /// 0x22 short X, Y do atacante 0x26 short X, Y do alvo         0x2A ushort Atacante
+    /// 0x2E byte Movimento         0x34 int ManaAtual              0x38 short Skill
+    /// 0x3C {int Alvo, int Dano} × 1, 2 ou 13, e um int no fim
     /// </code>
     /// </summary>
     public static class AttackLayout
     {
-        public const int Attacker = 0x0C;
-        public const int TargetX = 0x14, TargetY = 0x16;
-        public const int Skill = 0x18;
-        public const int CurrentMp = 0x1A;
-        public const int Hold = 0x20;
-        public const int Exp = 0x24;
-        public const int Targets = 0x2C;
-        public const int TargetSize = 4;
+        public const int Hold = 0x0C;
+        public const int Exp = 0x18;
+        public const int PosX = 0x22, PosY = 0x24;
+        public const int TargetX = 0x26, TargetY = 0x28;
+        public const int Attacker = 0x2A;
+        public const int Motion = 0x2E;
+        public const int CurrentMp = 0x34;
+        public const int Skill = 0x38;
+        public const int Targets = 0x3C;
+        public const int TargetSize = 8;
         public const int MaxTargets = 13;
+
+        /// <summary>Tamanho do pacote com <paramref name="targets"/> alvos (72, 80 e 168 bytes).</summary>
+        public static int SizeFor(int targets) => Targets + targets * TargetSize + 4;
     }
 
     /// <summary>
-    /// 0x39D de um monstro batendo num jogador: atacante e posições em 0x0C..0x16, skill -1 (golpe normal)
-    /// em 0x18 e o alvo com o dano em 0x2C, como no ataque que o client manda. O movimento (0x1C) vai direto para a
-    /// animação do atacante (0x485A10 → 0x5265E5): os golpes normais são 4, 5 e 6 (o client usa 4 + contador de 0 a
-    /// 2, 0x523A19); 0xFF não existe e o monstro bate parado.
+    /// 0x39D de um monstro batendo num jogador, como o ataque que o client manda: skill -1 (golpe normal) e o alvo
+    /// com o dano. O movimento vai direto para a animação do atacante: os golpes normais são 4, 5 e 6 (no 7.54 o
+    /// client usa 4 + contador de 0 a 2, 0x523A19); 0xFF não existe e o monstro bate parado.
     /// </summary>
-    public static byte[] MobAttack(ushort attacker, short x, short y, ushort target, short targetX, short targetY, short damage,
-        byte motion = FirstAttackMotion) =>
-        new PacketWriter(Opcodes.AttackOne, AttackOneSize, attacker)
-            .WriteUInt16(attacker).WriteInt16(0)
-            .WriteInt16(x).WriteInt16(y).WriteInt16(targetX).WriteInt16(targetY)
-            .WriteInt16(-1)                              // skill: nenhuma
-            .WriteInt16(-1)                              // mana atual (não muda)
-            .WriteByte(motion).Skip(3)                   // movimento do golpe
-            .WriteInt32(0).WriteInt32(0)                 // Hold, Exp: só valem para o atacante jogador
-            .Skip(4)
-            .WriteUInt16(target).WriteInt16(damage)
-            .ToArray();
+    public static byte[] MobAttack(ushort attacker, short x, short y, ushort target, short targetX, short targetY, int damage,
+        byte motion = FirstAttackMotion)
+    {
+        var w = new PacketWriter(Opcodes.AttackOne, AttackOneSize, attacker);
+        w.Skip(AttackLayout.PosX - PacketHeader.Size);   // Hold, mana gasta, Exp: só valem para o atacante jogador
+        w.WriteInt16(x).WriteInt16(y).WriteInt16(targetX).WriteInt16(targetY);
+        w.WriteUInt16(attacker).Skip(2);
+        w.WriteByte(motion).Skip(AttackLayout.CurrentMp - AttackLayout.Motion - 1);
+        w.WriteInt32(-1);                                // mana atual (não muda)
+        w.WriteInt16(-1).Skip(2);                        // skill: nenhuma
+        w.WriteInt32(target).WriteInt32(damage);
+        w.Skip(4);
+        return w.ToArray();
+    }
 
-    public const int AttackOneSize = 48;
+    public static readonly int AttackOneSize = AttackLayout.SizeFor(1);
 
     /// <summary>Movimentos de golpe normal do client: 4, 5 e 6.</summary>
     public const byte FirstAttackMotion = 4, AttackMotions = 3;
 
     /// <summary>
-    /// 0x36C de uma skill do jogador em vários alvos (até 13), como o client manda; o dano é preenchido pelo
+    /// 0x367 de uma skill do jogador em vários alvos (até 13), como o client manda; o dano é preenchido pelo
     /// servidor ao processar. Usado pelas auras (Trovão), que batem sozinhas.
     /// </summary>
     public static byte[] SkillHit(ushort attacker, short x, short y, short skill, IReadOnlyList<(ushort Id, short X, short Y)> targets)
     {
-        var w = new PacketWriter(Opcodes.Attack, 96, attacker);
+        int size = AttackLayout.SizeFor(AttackLayout.MaxTargets);
+        var w = new PacketWriter(Opcodes.Attack, size, attacker);
         (ushort Id, short X, short Y) first = targets.Count > 0 ? targets[0] : (attacker, x, y);
-        w.WriteUInt16(attacker).WriteInt16(0)
-         .WriteInt16(x).WriteInt16(y).WriteInt16(first.X).WriteInt16(first.Y)
-         .WriteInt16(skill).WriteInt16(-1)
-         .WriteByte(0xFF).Skip(3)
-         .WriteInt32(0).WriteInt32(0).Skip(4);
-        foreach (var t in targets.Take(AttackLayout.MaxTargets)) w.WriteUInt16(t.Id).WriteInt16(0);
-        w.Skip(96 - w.Position);
+        w.Skip(AttackLayout.PosX - PacketHeader.Size);
+        w.WriteInt16(x).WriteInt16(y).WriteInt16(first.X).WriteInt16(first.Y);
+        w.WriteUInt16(attacker).Skip(2);
+        w.WriteByte(0xFF).Skip(AttackLayout.CurrentMp - AttackLayout.Motion - 1);
+        w.WriteInt32(-1);
+        w.WriteInt16(skill).Skip(2);
+        foreach (var t in targets.Take(AttackLayout.MaxTargets)) w.WriteInt32(t.Id).WriteInt32(0);
+        w.Skip(size - w.Position);
         return w.ToArray();
     }
 
-    /// <summary>O client guarda a experiência como número sem sinal de 32 bits (até 4.294.967.295).</summary>
-    public static uint ClientExp(long exp) => (uint)Math.Clamp(exp, 0, uint.MaxValue);
+    /// <summary>Experiência como o client 7.57 guarda: 64 bits, sem negativo.</summary>
+    public static long ClientExp(long exp) => Math.Max(0, exp);
 
-    public const int MobKillSize = 24;
+    public const int MobKillSize = 32;
 
     /// <summary>0x338: <paramref name="killed"/> morreu; se quem recebe é o matador, o client mostra a nova experiência.</summary>
-    public static byte[] MobKill(ushort killed, ushort killer, int killerExp, int hold = 0) =>
+    public static byte[] MobKill(ushort killed, ushort killer, long killerExp, int hold = 0) =>
         new PacketWriter(Opcodes.MobKill, MobKillSize, killed)
-            .WriteInt32(hold).WriteUInt16(killed).WriteUInt16(killer).WriteInt32(killerExp)
+            .WriteInt32(hold).WriteUInt16(killed).WriteUInt16(killer).Skip(4).WriteInt64(ClientExp(killerExp))
             .ToArray();
 
     public const int CommandSize = 128;
@@ -368,26 +384,36 @@ public static class ServerPackets
 
     /// <summary>
     /// 0x337: experiência, skills aprendidas, pontos e gold (o client copia cada campo para a ficha).
-    /// <code>0x0C int Hold, 0x10 int Exp, 0x14 uint Skills, 0x18 short Pontos, 0x1A Especiais, 0x1C Skill, 0x20 int Gold</code>
+    /// <code>
+    /// 0x0C int Hold      0x10 long Exp     0x18 uint Skills[2]
+    /// 0x20 short Pontos  0x22 Especiais    0x24 Skill            0x28 int Gold
+    /// </code>
     /// </summary>
     public static byte[] UpdateEtc(ushort id, Character c) =>
-        new PacketWriter(Opcodes.UpdateEtc, 36, id)
+        new PacketWriter(Opcodes.UpdateEtc, 48, id)
             .WriteInt32(0)
-            .WriteUInt32(ClientExp(c.Exp))
-            .WriteUInt32(c.LearnedSkill)
+            .WriteInt64(ClientExp(c.Exp))
+            .WriteUInt32(c.LearnedSkill).WriteUInt32(0)
             .WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus).Skip(2)
             .WriteInt32(c.Coin)
+            .Skip(4)
             .ToArray();
 
-    /// <summary>0x336: atributos do jogador (nível, vida, mana...), por exemplo depois de subir de nível.</summary>
+    public const int UpdateScoreSize = 144;
+
+    /// <summary>
+    /// 0x336: atributos do jogador (nível, vida, mana...), por exemplo depois de subir de nível. No 7.57
+    /// (0x5113CC): SCORE em 0x0C, Critical e SaveMana em 0x3C, short Affect[32] em 0x3E, Guild em 0x7E, GuildLevel em
+    /// 0x80.
+    /// </summary>
     public static byte[] UpdateScore(ushort id, Character c)
     {
-        var w = new PacketWriter(Opcodes.UpdateScore, 92, id);
+        var w = new PacketWriter(Opcodes.UpdateScore, UpdateScoreSize, id);
         c.CurrentScore.Write(w);                      // 0x0C
-        w.WriteByte(c.Critical).WriteByte(c.SaveMana); // 0x28 Critical, SaveMana (o client os copia para 0x2E6/0x2E7)
-        WriteAffects(w, Affects.ToClient(c, DateTime.UtcNow));   // 0x2A Affect: ícones dos buffs
-        w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x4A Guild, GuildLevel
-        w.Skip(92 - w.Position);                      // 0x4E Resist e o resto
+        w.WriteByte(c.Critical).WriteByte(c.SaveMana); // 0x3C Critical, SaveMana
+        WriteAffects(w, Affects.ToClient(c, DateTime.UtcNow));   // 0x3E Affect: ícones dos buffs
+        w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x7E Guild, GuildLevel
+        w.Skip(UpdateScoreSize - w.Position);         // 0x82 Resist e o resto
         return w.ToArray();
     }
 
@@ -410,10 +436,13 @@ public static class ServerPackets
         return w.ToArray();
     }
 
-    /// <summary>16 shorts de efeito: (tipo &lt;&lt; 8) | unidades de 8 s que faltam (ver <see cref="Affects"/>).</summary>
+    /// <summary>Efeitos que cabem no 0x364 e no 0x336 do 7.57 (eram 16 no 7.54).</summary>
+    public const int ClientAffects = 32;
+
+    /// <summary>32 shorts de efeito: (tipo &lt;&lt; 8) | unidades de 8 s que faltam (ver <see cref="Affects"/>).</summary>
     private static void WriteAffects(PacketWriter w, short[]? affects)
     {
-        for (int i = 0; i < Affects.Max; i++)
+        for (int i = 0; i < ClientAffects; i++)
             w.WriteInt16(affects is not null && i < affects.Length ? affects[i] : (short)0);
     }
 
@@ -425,15 +454,11 @@ public static class ServerPackets
         new PacketWriter(Opcodes.UpdateCoin, 16, id).WriteInt32(coin).ToArray();
 
     /// <summary>
-    /// 0x181: HP e MP atuais do jogador. O client (0x536006) lê short Hp em 0x0C, short Mp em 0x0E e mais dois
-    /// shorts (HP e MP pedidos, que o servidor manda iguais aos atuais). Com int o MP saía 0 no client. Os quatro são
-    /// sem sinal (até 65535).
+    /// 0x181: HP e MP atuais do jogador (28 bytes no 7.57): int Hp em 0x0C, int Mp em 0x10 e mais dois ints (HP e MP
+    /// pedidos, que o servidor manda iguais aos atuais).
     /// </summary>
-    public static byte[] UpdateHpMp(ushort id, int hp, int mp)
-    {
-        ushort h = Score.Unsigned(hp), m = Score.Unsigned(mp);
-        return new PacketWriter(Opcodes.UpdateHpMp, 20, id).WriteUInt16(h).WriteUInt16(m).WriteUInt16(h).WriteUInt16(m).ToArray();
-    }
+    public static byte[] UpdateHpMp(ushort id, int hp, int mp) =>
+        new PacketWriter(Opcodes.UpdateHpMp, 28, id).WriteInt32(hp).WriteInt32(mp).WriteInt32(hp).WriteInt32(mp).ToArray();
 
     /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>
     public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> equip)
@@ -494,22 +519,25 @@ public static class ServerPackets
     public static byte[] Signal(ushort type, int parm = 0, ushort id = 0) =>
         new PacketWriter(type, SignalSize, id).WriteInt32(parm).ToArray();
 
-    /// <summary>0x10E: login aceito, com a lista de personagens e o baú da conta. O client vai para a tela de seleção.</summary>
+    /// <summary>
+    /// 0x10A: login aceito, com a lista de personagens e o baú da conta. O client (0x485B3F) vai para a tela de
+    /// seleção. As chaves de 0x0C (o client guarda no módulo de rede) vão zeradas, como no 7.54.
+    /// </summary>
     public static byte[] AccountLoginOk(ushort id, Account account, IReadOnlyList<Character> characters)
     {
         var w = new PacketWriter(Opcodes.AccountLoginOk, AccountLoginOkSize, id);
-        WriteSelChar(w, characters);                  // 0x00C
-        foreach (var item in account.Cargo) item.Write(w); // 0x2F4
-        w.WriteInt32(account.CargoCoin);              // 0x6F4
-        w.WriteString(account.Username, AccountNameLength); // 0x6F8
-        w.Skip(16);                                   // 0x708: chaves que o client guarda no módulo de rede
-        w.Skip(AccountLoginOkSize - w.Position);      // 0x718
+        w.Skip(16 + 4);                               // 0x00C Keys[16], 0x01C
+        WriteSelChar(w, characters);                  // 0x020
+        foreach (var item in account.Cargo) item.Write(w); // 0x368
+        w.WriteInt32(account.CargoCoin);              // 0x768
+        w.WriteString(account.Username, AccountNameLength); // 0x76C
+        w.Skip(AccountLoginOkSize - w.Position);      // 0x77C
         return w.ToArray();
     }
 
     /// <summary>
-    /// 0x114: entra no mundo com o personagem escolhido. O client copia a ficha (STRUCT_MOB), usa X/Y como
-    /// posição, guarda o id de 0x306 como o id do próprio jogador e troca para a cena do mapa.
+    /// 0x114: entra no mundo com o personagem escolhido. O client (0x485C1B) copia a ficha (STRUCT_MOB), usa X/Y
+    /// como posição, guarda o id de 0x412 como o id do próprio jogador e troca para a cena do mapa.
     /// </summary>
     public static byte[] CharacterLoginOk(ushort id, Character character)
     {
@@ -517,14 +545,14 @@ public static class ServerPackets
         w.WriteInt16(character.PosX);                 // 0x00C
         w.WriteInt16(character.PosY);                 // 0x00E
         WriteMob(w, character);                       // 0x010
-        w.Skip(2);                                    // 0x304
-        w.WriteUInt16(id);                            // 0x306: id do jogador no servidor
-        w.WriteUInt16(0);                             // 0x308: clima
-        for (int i = 0; i < 16; i++)                  // 0x30A: resto da barra de skills (o client junta com o SkillBar[4], 0x480CB6)
+        w.Skip(2);                                    // 0x410
+        w.WriteUInt16(id);                            // 0x412: id do jogador no servidor
+        w.WriteUInt16(0);                             // 0x414: clima
+        for (int i = 0; i < 16; i++)                  // 0x416: resto da barra de skills (o client junta com o SkillBar[4])
             w.WriteByte(character.SkillBar[4 + i]);
-        w.Skip(2);                                    // 0x31A
-        w.WriteInt32(0);                              // 0x31C: (desconhecido, o client só guarda)
-        w.Skip(CharacterLoginOkSize - w.Position);    // 0x320: não lido na entrada no mundo
+        w.Skip(2);                                    // 0x426
+        w.WriteInt32(0);                              // 0x428: Hold
+        w.Skip(CharacterLoginOkSize - w.Position);    // 0x42C: não lido na entrada no mundo
         return w.ToArray();
     }
 
@@ -539,20 +567,22 @@ public static class ServerPackets
         w.WriteByte(0);                               // Rsv
         w.WriteUInt16(0);                             // Quest
         w.WriteInt32(c.Coin);
-        w.WriteUInt32(ClientExp(c.Exp));
+        w.WriteInt32(0);                              // 0x01C
+        w.WriteInt64(ClientExp(c.Exp));
         w.WriteInt16(c.PosX);
         w.WriteInt16(c.PosY);
         c.BaseScore.Write(w);
         c.CurrentScore.Write(w);                      // CurrentScore: com a velocidade das botas e da montaria
         foreach (var item in c.Equip) item.Write(w);
         foreach (var item in c.Inventory) item.Write(w);
-        w.WriteUInt32(c.LearnedSkill);
+        w.WriteUInt32(c.LearnedSkill).WriteUInt32(0);  // LearnedSkill[2]
         w.WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus);
         w.WriteByte(c.Critical).WriteByte(c.SaveMana); // Critical, SaveMana
         for (int i = 0; i < 4; i++) w.WriteByte(c.SkillBar[i]);   // SkillBar[4]: começo da barra de skills
         w.WriteByte(0).WriteByte(0);                  // GuildLevel, Magic
         w.WriteByte(0).WriteByte(0);                  // RegenHP, RegenMP
         w.Skip(4);                                    // Resist[4]
+        w.Skip(MobSize - (w.Position - start));       // 0x328: campos novos do 7.57
 
         if (w.Position - start != MobSize)
             throw new InvalidOperationException($"STRUCT_MOB com {w.Position - start} bytes (esperado {MobSize}).");
@@ -562,6 +592,7 @@ public static class ServerPackets
     public static byte[] SelCharList(ushort type, ushort id, IReadOnlyList<Character> characters)
     {
         var w = new PacketWriter(type, SelCharPacketSize, id);
+        w.WriteInt32(0);                              // 0x0C: não lido
         WriteSelChar(w, characters);
         return w.ToArray();
     }
@@ -582,6 +613,6 @@ public static class ServerPackets
                 (c?.Equip[i] ?? default).Write(w);
         foreach (var c in slots) w.WriteUInt16(c?.Guild ?? 0);
         foreach (var c in slots) w.WriteInt32(c?.Coin ?? 0);
-        foreach (var c in slots) w.WriteUInt32(ClientExp(c?.Exp ?? 0));
+        foreach (var c in slots) w.WriteInt64(ClientExp(c?.Exp ?? 0));
     }
 }

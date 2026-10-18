@@ -124,14 +124,14 @@ public sealed class Character
                 maxHp += moved + Game.Affects.SpiritChangeHp;
                 maxMp -= moved;
             }
-            s.MaxHp = Math.Clamp(maxHp * (100 + b.HpPercent) / 100, 1, 64000);
-            s.MaxMp = Math.Clamp(maxMp * (100 + b.MpPercent) / 100, 0, 64000);
+            s.MaxHp = Math.Clamp(maxHp * (100 + b.HpPercent) / 100, 1, Score.MaxHpMp);
+            s.MaxMp = Math.Clamp(maxMp * (100 + b.MpPercent) / 100, 0, Score.MaxHpMp);
             if (buff.ManaToHpPercent > 0)
             {
                 // Controle de Mana: parte da mana máxima vira vida máxima enquanto dura.
                 int moved = s.MaxMp * buff.ManaToHpPercent / 100;
                 s.MaxMp -= moved;
-                s.MaxHp = Math.Min(64000, s.MaxHp + moved);
+                s.MaxHp = Math.Min(Score.MaxHpMp, s.MaxHp + moved);
             }
             s.Hp = Math.Min(s.Hp, s.MaxHp);
             s.Mp = Math.Min(s.Mp, s.MaxMp);

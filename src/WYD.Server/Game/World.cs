@@ -369,7 +369,7 @@ public sealed partial class World(
     }
 
     /// <summary>
-    /// Ataque do jogador (0x39D / 0x39E / 0x36C): calcula o dano em cada monstro alvo, devolve o pacote com os
+    /// Ataque do jogador (0x39D / 0x39E / 0x367): calcula o dano em cada monstro alvo, devolve o pacote com os
     /// danos a todos que estão vendo e, se algum morrer, dá a experiência e tira o monstro do mapa até renascer.
     /// </summary>
     public async Task AttackAsync(ClientSession session, byte[] packet, int? auraDamage = null)
@@ -400,7 +400,7 @@ public sealed partial class World(
 
             var me = session.Character!;
 
-            // Skill: número em 0x18 (-1 = ataque normal). Precisa ter aprendido e ter mana.
+            // Skill (-1 = ataque normal). Precisa ter aprendido e ter mana.
             short skill = System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(ServerPackets.AttackLayout.Skill));
             WYD.Server.Data.SkillDefinition? spell = null;
             if (skill >= 0 && skillCatalog.Data is null && !session.WarnedNoSkillData)
@@ -440,7 +440,7 @@ public sealed partial class World(
             {
                 int o = ServerPackets.AttackLayout.Targets + i * ServerPackets.AttackLayout.TargetSize;
                 ushort targetId = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet.AsSpan(o));
-                short damage = 0;
+                int damage = 0;
 
                 if (SkillUse.IsBuff(spell))
                 {
@@ -463,7 +463,7 @@ public sealed partial class World(
                         var a = ally.Character!;
                         int healed = Math.Min(SkillUse.HealAmount(me, spell, skill), a.MaxHp - a.BaseScore.Hp);
                         a.BaseScore.Hp += Math.Max(0, healed);
-                        damage = (short)-Math.Max(0, healed);
+                        damage = -Math.Max(0, healed);
                         outgoing.Add((ally, ServerPackets.UpdateHpMp(ally.Id, a.BaseScore.Hp, a.BaseScore.Mp)));
                     }
                 }
@@ -472,12 +472,12 @@ public sealed partial class World(
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
                     && Math.Abs(mob.X - me.PosX) <= attackRange && Math.Abs(mob.Y - me.PosY) <= attackRange)
                 {
-                    damage = (short)(auraDamage is int aura
-                        ? Math.Clamp(aura - mob.Template.Score.Ac / 8, 1, short.MaxValue)       // aura (Trovão)
+                    damage = auraDamage is int aura
+                        ? Math.Max(aura - mob.Template.Score.Ac / 8, 1)                          // aura (Trovão)
                         : spell is null
-                            ? Math.Min(short.MaxValue, Combat.Damage(me.CurrentScore, mob.Template.Score,
-                                  perforation: me.ItemBonus.Perforation) * (Combat.IsCritical(me.Critical) ? Combat.CriticalMultiplier : 1))
-                            : SkillUse.Damage(me, spell, skill, mob.Template.Score));
+                            ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
+                              * (Combat.IsCritical(me.Critical) ? Combat.CriticalMultiplier : 1)
+                            : SkillUse.Damage(me, spell, skill, mob.Template.Score);
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (mob.Hp <= 0) killed.Add(mob);
@@ -487,7 +487,7 @@ public sealed partial class World(
                         if (mob.NextAttack < now) mob.NextAttack = now + MobFirstAttackDelay;
                     }
                 }
-                System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(response.AsSpan(o + 2), damage);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(o + 4), damage);
             }
 
             // Buff sem alvo de jogador no pacote (o client manda o próprio id ou nenhum): vale em quem lançou.
@@ -500,7 +500,7 @@ public sealed partial class World(
             foreach (var mob in killed)
             {
                 long gained = Math.Max(0, mob.Template.Exp) * (100 + me.ItemBonus.ExpBonus) / 100;   // ancient de experiência
-                me.Exp = Math.Min(uint.MaxValue, me.Exp + gained);
+                me.Exp = Math.Min(Leveling.MaxExp, me.Exp + gained);
                 me.Coin = (int)Math.Min(Handlers.ItemHandler.MaxCoin, (long)me.Coin + Math.Max(0, mob.Template.Coin));
             }
             exp = me.Exp;
@@ -508,10 +508,9 @@ public sealed partial class World(
             noExpTable = killed.Count > 0 && expTable.For(me.Evolution) is null && !session.WarnedNoExpTable;
             if (noExpTable) session.WarnedNoExpTable = true;
 
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp),
-                Score.Unsigned(me.BaseScore.Mp));
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.CurrentMp), me.BaseScore.Mp);
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Hold), 0);
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), ServerPackets.ClientExp(exp));
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Exp), ServerPackets.ClientExp(exp));
 
             // Quem vê o atacante ou algum dos alvos recebe o ataque com os danos.
             foreach (var player in _players.Values)
@@ -540,7 +539,7 @@ public sealed partial class World(
                 foreach (var player in _players.Values)
                 {
                     if (!_visible[player.Id].Remove(mob.Id)) continue;
-                    outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, unchecked((int)ServerPackets.ClientExp(exp)))));
+                    outgoing.Add((player, ServerPackets.MobKill(mob.Id, session.Id, exp)));
                     outgoing.Add((player, ServerPackets.RemoveMob(mob.Id, ServerPackets.RemoveDead)));
                 }
                 if (mob.IsSummon)
@@ -655,7 +654,7 @@ public sealed partial class World(
                     : Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
-                var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, (short)damage,
+                var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, damage,
                     (byte)(ServerPackets.FirstAttackMotion + Random.Shared.Next(ServerPackets.AttackMotions)));
                 foreach (var player in _players.Values)
                     if (player == victim || InRange(player.Character!, mob) || InRange(player.Character!, c))

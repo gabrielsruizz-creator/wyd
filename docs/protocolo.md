@@ -1,7 +1,12 @@
-# Protocolo do client 7.54 / 7.56
+# Protocolo do client 7.57
 
 Como o servidor conversa com o client. Tudo é little-endian, e as strings são `char[N]`
 de tamanho fixo terminadas em zero.
+
+O servidor fala o protocolo do **client 7.57** (base 7.55 com os patches até o 7580). A comparação com o 7.54, com os
+endereços de cada leitura no WYD.exe, está em [`cliente-757.md`](cliente-757.md). As seções mais abaixo (mundo,
+monstros, itens, skills...) foram escritas com o 7.54 e os endereços citados nelas são do exe 7.54; o comportamento
+vale até ser conferido de novo no 7.57.
 
 ## Conexão
 
@@ -56,18 +61,18 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 
 | Opcode  | Nome               | Tamanho | Conteúdo                                                                 | Situação |
 |---------|--------------------|--------:|--------------------------------------------------------------------------|----------|
-| `0x20D` | AccountLogin       | 116     | `Account[16]`, `Password[12]`, `int Version`, `int DBNeedSave`, `int Adapter[4]`, `Zero[52]` | ✅ |
+| `0x20D` | AccountLogin       | 116     | `Password[12]` (0x0C), `Account[16]` (0x18), 52 bytes, `int Version = 758` (0x5C), `int DBNeedSave`, `int Adapter[4]` | ✅ exe 7.57 |
 | `0x20F` | CreateCharacter    | 36      | `int Slot`, `Name[16]`, `int Class`                                      | ✅ |
 | `0x211` | DeleteCharacter    | 44      | `int Slot`, `Name[16]`, `Password[12]`                                   | ✅ |
 | `0x213` | CharacterLogin     | 36      | `int Slot`, …                                                            | ✅ |
 | `0xFDE` | SecondPassword     | 32      | `Password[16]`, `int Change` (0 = conferir, 1 = gravar nova)             | ✅ |
-| `0x366` / `0x367` | Movimento | 52      | `short X, Y`, `int Velocidade`, `int Tipo`, `short DestX, DestY` (0x18), `char Rota[24]` | ✅ |
+| `0x366` / `0x36C` | Movimento | 52      | `short X, Y`, `int Velocidade`, `int Tipo`, `short DestX, DestY` (0x18), `char Rota[24]` | ✅ |
 | `0x369` | RequestMob         | 16      | `ushort Id` (0x0C): o client pede o 0x364 de um id que não conhece       | ✅ |
 | `0x333` | Chat               | 108     | `char Texto[96]`                                                         | ✅ |
 | `0x334` | Comando / sussurro | 128     | `char Cmd[16]` (0x0C) e o resto do texto (0x1C): "/item 905" chega como Cmd = "item", texto = "905" | ⚠️ layout lido no WYD.exe, falta ver no client |
-| `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | `ushort Atacante` (0x0C), posições, `short Skill` (0x18), alvos `{ushort Id, short Dano = -1}` a partir de 0x2C | ✅ layout |
+| `0x39D` / `0x39E` / `0x367` | Ataque | 72 / 80 / 168 | `int Hold` (0x0C), `long Exp` (0x18), posições (0x22..0x28), `ushort Atacante` (0x2A), `byte Movimento` (0x2E), `int Mana` (0x34), `short Skill` (0x38), alvos `{int Id, int Dano = -1}` a partir de 0x3C e um int no fim | ✅ exe 7.57 |
 | `0x277` | Distribuir ponto     | 20      | `short Tipo` (0 atributo, 1 especial, 2 skill no mestre), `short Qual` (0 FOR/1 INT/2 DES/3 CON ou especial 1-4), `short Extra` | ✅ |
-| `0x378` | Barra de skills      | 32      | `byte Barra[20]`: skill dentro da classe (0-23), 0xFF vazio; volta no 0x114 (SkillBar[4] da STRUCT_MOB + 16 em 0x30A) | ✅ layout |
+| `0x378` | Barra de skills      | 32      | `byte Barra[20]`: skill dentro da classe (0-23), 0xFF vazio; volta no 0x114 (SkillBar[4] da STRUCT_MOB + 16 em 0x416) | ✅ layout |
 | `0x28B` | Falar com NPC        | 20      | `int IdDoNpc`, `int Confirma` (reis, NPCs de quest) | ✅ layout |
 | `0x290` | Teleporte          | 16      | só o cabeçalho e um int 0: o jogador confirmou o teleporte num círculo (célula com a flag 0x10 no mapa do client) | ✅ |
 | `0x289` | Renascer            | 12      | só o cabeçalho: o personagem morto pede para renascer (botão, ou sozinho depois de 3 minutos) | ✅ |
@@ -83,26 +88,26 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | Opcode  | Nome                | Tamanho | Conteúdo                                                                   | Situação |
 |---------|---------------------|--------:|----------------------------------------------------------------------------|----------|
 | `0x101` | MessagePanel        | 108     | `char Text[96]`; id do cabeçalho tem de ser 0 (com outro id o client ignora, 0x499438); faixa no alto por 4 s | ✅ |
-| `0x10E` | AccountLoginOk      | 1824    | `SELCHAR` (0x00C), `ITEM Cargo[128]` (0x2F4), `int Coin` (0x6F4), `Account[16]` (0x6F8), `Keys[16]` (0x708) | ✅ |
-| `0x364` | CreateMob           | 176     | põe um jogador na tela (layout abaixo)                                     | ✅ |
-| `0x39D` / `0x39E` / `0x36C` | Ataque | 48 / 52 / 96 | o mesmo pacote com o dano de cada alvo; `int Hold` (0x20) e `int ExpDoAtacante` (0x24) atualizam a barra de experiência | ✅ layout |
-| `0x338` | MobKill             | 24      | `int Hold`, `ushort Morto`, `ushort Matador`, `int ExpDoMatador`           | ✅ layout |
+| `0x10A` | AccountLoginOk      | 1928    | `Keys[16]` (0x0C), `SELCHAR` (0x020), `ITEM Cargo[128]` (0x368), `int Coin` (0x768), `Account[16]` (0x76C) | ✅ exe 7.57 |
+| `0x364` | CreateMob           | 232     | põe um jogador na tela (layout abaixo)                                     | ⚠️ alinhado com o 7.54 |
+| `0x39D` / `0x39E` / `0x367` | Ataque | 72 / 80 / 168 | o mesmo pacote com o dano de cada alvo; `int Hold` (0x0C) e `long ExpDoAtacante` (0x18) atualizam a barra de experiência | ✅ exe 7.57 |
+| `0x338` | MobKill             | 32      | `int Hold`, `ushort Morto` (0x10), `ushort Matador` (0x12), `long ExpDoMatador` (0x18) | ✅ exe 7.57 |
 | `0x379` | BuyOk               | 24      | o pedido com o slot final e `int GoldTotal` (0x14), que o client copia para o gold | ✅ layout |
 | `0x3AF` | UpdateCoin          | 16      | `int Gold`                                                                 | ✅ layout |
-| `0x181` | UpdateHpMp          | 20      | `short Hp`, `short Mp`, `short HpPedido`, `short MpPedido` (com `int` o client lia o MP como 0) | ✅ layout |
+| `0x181` | UpdateHpMp          | 28      | `int Hp`, `int Mp`, `int HpPedido`, `int MpPedido`                         | ✅ exe 7.57 |
 | `0x3B9` | AffectList          | 140     | `AFFECT[16]` {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}: ícones dos buffs no canto | ✅ layout |
 | `0x36B` | UpdateEquip         | 60      | `ushort Equip[16]`, `byte Refino[16]` (para quem está vendo)               | ⚠️ |
-| `0x337` | UpdateEtc           | 36      | `int Hold`, `int Exp`, `uint LearnedSkill`, `short ScoreBonus, SpecialBonus, SkillBonus`, 2 de folga, `int Gold` | ✅ layout |
-| `0x336` | UpdateScore         | 92      | `SCORE` (28) @0x0C, Critical/SaveMana @0x28, `Affect[32]` @0x2A, Guild @0x4A, GuildLevel @0x4C | ⚠️ |
+| `0x337` | UpdateEtc           | 48      | `int Hold`, `long Exp` (0x10), `uint LearnedSkill[2]` (0x18), `short ScoreBonus, SpecialBonus, SkillBonus` (0x20), `int Gold` (0x28) | ✅ exe 7.57 |
+| `0x336` | UpdateScore         | 144     | `SCORE` (48) @0x0C, Critical/SaveMana @0x3C, `short Affect[32]` @0x3E, Guild @0x7E, GuildLevel @0x80 | ✅ exe 7.57 |
 | `0x182` | UpdateItem          | 24      | `short Tipo` (0 equip, 1 inventário, 2 baú), `short Slot`, `ITEM`          | ✅ |
 | `0x334` | Sussurro            | 128     | `char De[16]`, texto                                                       | ⚠️ |
 | `0x17C` | ShopList            | 236     | `int Tipo` (1 = itens), `ITEM Lista[27]`, `int Imposto`; aba *n* vem do `Carry[n*27 .. n*27+8]` do NPC | ✅ |
 | `0x165` | RemoveMob           | 16      | id no cabeçalho, `int Tipo` (0x0C)                                         | ✅ |
 | `0x366` | Move                | 52      | o mesmo pacote do client, com o id de quem andou no cabeçalho; `int Tipo` (0x14) = 1 teleporta direto para (DestX, DestY) | ✅ |
 | `0x333` | Chat                | 108     | o mesmo pacote do client, com o id de quem falou (não volta para ele)      | ✅ |
-| `0x110` | CreateCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
-| `0x112` | DeleteCharacterOk   | 756     | `SELCHAR`                                                                  | ✅ |
-| `0x114` | CharacterLoginOk    | 1244    | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x306), `ushort Clima` (0x308), `byte SkillBar2[16]` (0x30A), `int ?` (0x31C) | ✅ offsets; ⚠️ falta testar no client |
+| `0x110` | CreateCharacterOk   | 856     | `int` (0x0C, não lido), `SELCHAR` (0x10)                                   | ✅ exe 7.57 |
+| `0x112` | DeleteCharacterOk   | 856     | `int` (0x0C, não lido), `SELCHAR` (0x10)                                   | ✅ exe 7.57 |
+| `0x114` | CharacterLoginOk    | 1712    | `short X` (0x0C), `short Y` (0x0E), `STRUCT_MOB` (0x10), `ushort IdDoJogador` (0x412), `ushort Clima` (0x414), `byte SkillBar2[16]` (0x416), `int Hold` (0x428) | ✅ exe 7.57 |
 | `0xFDE` | SecondPasswordOk    | 32      | segunda senha aceita                                                       | ✅ |
 | `0xFDF` | SecondPasswordFail  | 16      | segunda senha errada: o client volta a bloquear e mostra o erro dele       | ✅ |
 | `0x119` | CharacterLoginFail  | 12      | o client mostra a mensagem dele                                            | ✅ |
@@ -113,31 +118,29 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x11A` | CreateCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 | `0x11B` | DeleteCharacterFail | 12      | o client mostra a mensagem dele                                            | ✅ |
 
-> Atenção: no 7.54 o login aceito é o `0x10E`. O `0x10A` que aparece em documentação de outras
-> versões é ignorado por este client.
+> Atenção: no 7.57 o login aceito é o `0x10A` (no 7.54 era o `0x10E`, que o 7.57 não trata mais).
 
 > Tamanhos: o WYD.exe tem uma tabela com o tamanho esperado de cada pacote que recebe. Se não bater,
 > ele só grava "Type check missing" no log dele e segue; mesmo assim o servidor usa os tamanhos exatos.
 
-### `0x364` CreateMob (176 bytes)
+### `0x364` CreateMob (232 bytes)
 
 | Offset | Campo | Offset | Campo |
 |-------:|-------|-------:|-------|
-| `0x0C` | `short X, Y` | `0x42` | `byte Affect[32]` |
-| `0x10` | `ushort Id` | `0x62` | `ushort Guild` |
-| `0x12` | `char Name[12]` | `0x64` | `SCORE Score` |
-| `0x1E` | `byte ChaosPoint, CurrentKill` | `0x80` | `ushort CreateType` |
-| `0x20` | `ushort TotalKill` | `0x82` | `byte Refino[16]` |
-| `0x22` | `ushort Equip[16]` | `0x92` | `char Tab[26]` |
+| `0x0C` | `short X, Y` | `0x42` | `short Affect[32]` |
+| `0x10` | `ushort Id` | `0x82` | `ushort Guild` |
+| `0x12` | `char Name[12]` | `0x84` | `SCORE Score` |
+| `0x1E` | `byte ChaosPoint, CurrentKill` | `0xB8` | `ushort CreateType` |
+| `0x20` | `ushort TotalKill` | `0xBA` | `byte Refino[16]` |
+| `0x22` | `ushort Equip[16]` | `0xCA` | `char Tab[26]` |
 
-### Structs (7.54)
+### Structs (7.57)
 
 - **`STRUCT_ITEM`** (8 bytes): `short Index`, depois `{byte Effect, byte Value}` × 3.
-- **`STRUCT_SCORE`** (28 bytes): `short Level, Ac, Damage`, `byte Merchant, AttackRun`,
-  `ushort MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `byte Special[4]`. O client lê vida e mana sem sinal
-  (também no `0x181` e na mana do `0x39D`) e limita as máximas em 64000 (0x55C8C1); nível, defesa, dano e atributos
-  têm sinal (até 32767). O dano de cada golpe no `0x39D` também é um short com sinal.
-- **`STRUCT_SELCHAR`** (744 bytes, os 4 slots da conta):
+- **`STRUCT_SCORE`** (48 bytes): `int Level, Ac, Damage`, `byte Merchant, AttackRun, Direction, ChaosRate`,
+  `int MaxHp, MaxMp, Hp, Mp`, `short Str, Int, Dex, Con`, `short Special[4]`. O client limita vida e mana máximas em
+  100000 (0x53CF0A). O dano de cada golpe no ataque é um int.
+- **`STRUCT_SELCHAR`** (840 bytes, os 4 slots da conta):
 
   | Offset  | Campo                  |
   |--------:|------------------------|
@@ -145,27 +148,27 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
   | `0x008` | `short SPY[4]`         |
   | `0x010` | `char Name[4][16]`     |
   | `0x050` | `SCORE Score[4]`       |
-  | `0x0C0` | `ITEM Equip[4][16]`    |
-  | `0x2C0` | `short Guild[4]`       |
-  | `0x2C8` | `int Coin[4]`          |
-  | `0x2D8` | `int Exp[4]`           |
+  | `0x110` | `ITEM Equip[4][16]`    |
+  | `0x310` | `short Guild[4]`       |
+  | `0x318` | `int Coin[4]`          |
+  | `0x328` | `long Exp[4]`          |
 
   `Equip[0]` é o "rosto" do personagem (1 = TK, 11 = FM, 21 = BM, 31 = HT).
-- **`STRUCT_MOB`** (756 bytes, a ficha completa do personagem):
+- **`STRUCT_MOB`** (1024 bytes, a ficha completa do personagem):
 
   | Offset  | Campo | Offset  | Campo |
   |--------:|-------|--------:|-------|
-  | `0x000` | `char Name[16]` | `0x05C` | `ITEM Equip[16]` |
-  | `0x010` | `byte Clan` | `0x0DC` | `ITEM Carry[64]` |
-  | `0x011` | `byte Merchant` | `0x2DC` | `uint LearnedSkill` |
-  | `0x012` | `ushort Guild` | `0x2E0` | `short ScoreBonus, SpecialBonus, SkillBonus` |
-  | `0x014` | `byte Class` | `0x2E6` | `byte Critical, SaveMana` |
-  | `0x016` | `ushort Quest` | `0x2E8` | `byte SkillBar[4]` (`0xFF` = vazio) |
-  | `0x018` | `int Coin` | `0x2EC` | `byte GuildLevel, Magic, RegenHP, RegenMP` |
-  | `0x01C` | `int Exp` | `0x2F0` | `byte Resist[4]` |
-  | `0x020` | `short SPX, SPY` | | |
-  | `0x024` | `SCORE BaseScore` | | |
-  | `0x040` | `SCORE CurrentScore` | | |
+  | `0x000` | `char Name[16]` | `0x08C` | `ITEM Equip[16]` |
+  | `0x010` | `byte Clan` | `0x10C` | `ITEM Carry[64]` |
+  | `0x011` | `byte Merchant` | `0x30C` | `uint LearnedSkill[2]` |
+  | `0x012` | `ushort Guild` | `0x314` | `short ScoreBonus, SpecialBonus, SkillBonus` |
+  | `0x014` | `byte Class` | `0x31A` | `byte Critical, SaveMana` |
+  | `0x016` | `ushort Quest` | `0x31C` | `byte SkillBar[4]` (`0xFF` = vazio) |
+  | `0x018` | `int Coin` | `0x320` | `byte GuildLevel, Magic, RegenHP, RegenMP` |
+  | `0x020` | `long Exp` | `0x324` | `byte Resist[4]` |
+  | `0x028` | `short SPX, SPY` | `0x328` | 216 bytes novos (o servidor manda zerados) |
+  | `0x02C` | `SCORE BaseScore` | | |
+  | `0x05C` | `SCORE CurrentScore` | | |
 
 ## Como validar um layout com o client real
 

@@ -15,7 +15,7 @@ public static class Combat
         int baseDamage = Math.Max(1, attacker.Damage);
         int rolled = baseDamage * random.Next(80, 121) / 100;
         int ac = target.Ac * (100 - Math.Clamp(perforation, 0, 100)) / 100;   // perfuração: ignora parte da defesa
-        int damage = Math.Clamp(rolled - ac / 4, 1, short.MaxValue);
+        int damage = Math.Max(rolled - ac / 4, 1);
         return Math.Max(1, damage * (100 - Math.Clamp(absorption, 0, 90)) / 100); // absorção: o alvo recebe menos
     }
 

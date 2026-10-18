@@ -46,6 +46,13 @@ public sealed class PacketReader
         return value;
     }
 
+    public long ReadInt64()
+    {
+        var value = BinaryPrimitives.ReadInt64LittleEndian(_buffer.AsSpan(_position));
+        _position += 8;
+        return value;
+    }
+
     public ReadOnlySpan<byte> ReadBytes(int count)
     {
         var span = _buffer.AsSpan(_position, count);

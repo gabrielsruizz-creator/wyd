@@ -65,15 +65,15 @@ public static class KeyTableFinder
             var packet = (byte[])encrypted.Clone();
             if (!PacketCipher.Decrypt(packet, keyTable) || PacketHeader.ReadType(packet) != Opcodes.AccountLogin) return null;
 
-            // Conta[16] logo depois do cabeçalho (layout do 7.54); aceita também senha[12] antes da conta.
+            // Conta[16] depois da senha[12] (7.57) ou logo depois do cabeçalho (7.54).
             var r = new PacketReader(packet);
             string accountFirst = r.ReadString(16);
             r = new PacketReader(packet);
             r.Skip(12);
             string accountSecond = r.ReadString(16);
             string? username =
-                Handlers.LoginHandler.UsernamePattern().IsMatch(accountFirst) ? accountFirst :
-                Handlers.LoginHandler.UsernamePattern().IsMatch(accountSecond) ? accountSecond : null;
+                Handlers.LoginHandler.UsernamePattern().IsMatch(accountSecond) ? accountSecond :
+                Handlers.LoginHandler.UsernamePattern().IsMatch(accountFirst) ? accountFirst : null;
             if (username is null) return null;
 
             int version = packet.Length >= AccountLoginRequest.PacketSize ? AccountLoginRequest.Read(new PacketReader(packet)).ClientVersion : 0;

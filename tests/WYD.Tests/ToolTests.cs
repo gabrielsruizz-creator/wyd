@@ -27,7 +27,7 @@ public class ToolTests
         rng.NextBytes(exe);
         tableBytes.CopyTo(exe, 123_457);
 
-        var login = EncryptedLogin(new KeyTable(tableBytes), "jogador", 754);
+        var login = EncryptedLogin(new KeyTable(tableBytes), "jogador", 758);
         var raw = new byte[4 + login.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(raw, PacketHeader.InitCode);
         login.CopyTo(raw, 4);
@@ -38,7 +38,7 @@ public class ToolTests
         Assert.Equal(123_457, match.Offset);
         Assert.Equal(tableBytes, match.Table);
         Assert.Equal("jogador", match.Username);
-        Assert.Equal(754, match.ClientVersion);
+        Assert.Equal(758, match.ClientVersion);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class ToolTests
         var exe = new byte[100_000];
         rng.NextBytes(exe);
 
-        Assert.Empty(KeyTableFinder.Search(exe, [EncryptedLogin(new KeyTable(tableBytes), "jogador", 754)]));
+        Assert.Empty(KeyTableFinder.Search(exe, [EncryptedLogin(new KeyTable(tableBytes), "jogador", 758)]));
     }
 
     [Fact]
@@ -71,12 +71,12 @@ public class ToolTests
         tableBytes.CopyTo(exe, 9_000);
         var table = new KeyTable(tableBytes);
 
-        var first = EncryptedLogin(table, "jogador", 754, keyWord: 77);
+        var first = EncryptedLogin(table, "jogador", 758, keyWord: 77);
         var candidates = KeyTableFinder.Search(exe, [first]);
         Assert.Contains(candidates, m => m.Offset == 9_000);
         Assert.Contains(candidates, m => m.Offset == 9_000 + shift * 2);
 
-        var second = EncryptedLogin(table, "jogador", 754, keyWord: 5);
+        var second = EncryptedLogin(table, "jogador", 758, keyWord: 5);
         var remaining = Assert.Single(KeyTableFinder.Filter(candidates, second));
         Assert.Equal(9_000, remaining.Offset);
         Assert.Single(KeyTableFinder.Search(exe, [first, second]));
@@ -696,7 +696,7 @@ public class ToolTests
         var c = new WYD.Server.Game.Character { Name = "Teste" };
         c.ItemBonus = new ItemBonus(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Critical: 30, SaveMana: 12);
         var score = new PacketReader(ServerPackets.UpdateScore(1, c));
-        score.Skip(0x28 - 12);
+        score.Skip(0x3C - 12);
         Assert.Equal(30, score.ReadByte());
         Assert.Equal(12, score.ReadByte());
     }
