@@ -65,7 +65,7 @@ public static class Sefirot
         }
         c.Coin -= Price;
         c.Equip[EternalStoneSlot] = default;
-        int free = Array.FindIndex(c.Inventory, 0, basicSlots, i => i.IsEmpty);   // sempre há: as pedras saíram
+        int free = Bags.FirstFree(c);                                              // sempre há: as pedras saíram
         c.Inventory[free] = new Item((short)(FirstSefirot + (int)cls));
         if (!changed.Contains(free)) changed.Add(free);
         return changed;

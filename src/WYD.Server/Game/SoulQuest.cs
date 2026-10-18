@@ -110,7 +110,7 @@ public static class SoulQuest
 
         foreach (var slot in slots) TakeOne(c, slot);
         c.Coin -= OdinPrice;
-        int free = Array.FindIndex(c.Inventory, 0, basicSlots, i => i.IsEmpty);
+        int free = Bags.FirstFree(c);
         if (free < 0) free = slots.Min();                // só falta se as runas eram empilhadas e nenhuma acabou
         c.Inventory[free] = new Item(stone);
         return (null, slots.Append(free).Distinct().ToList());
@@ -135,7 +135,7 @@ public static class SoulQuest
         TakeOne(c, stoneSlot);
         if (!oldCape.IsEmpty)
         {
-            int free = Array.FindIndex(c.Inventory, 0, basicSlots, i => i.IsEmpty);
+            int free = Bags.FirstFree(c);
             if (free < 0)
             {
                 c.Inventory[stoneSlot] = c.Inventory[stoneSlot].IsEmpty ? new Item(stone) : c.Inventory[stoneSlot];

@@ -13,6 +13,7 @@ namespace WYD.Server.Handlers;
 public sealed partial class CharacterHandler(
     IOptions<ServerOptions> options,
     ICharacterRepository characters,
+    IAccountRepository accounts,
     World world,
     WYD.Server.Data.ItemCatalog catalog,
     ILogger<CharacterHandler> logger)
@@ -110,6 +111,12 @@ public sealed partial class CharacterHandler(
 
         if (Stats.FixNewMounts(character.Equip) | Stats.FixNewMounts(character.Inventory))
             await characters.SaveItemsAsync(character);
+        // Bolsas vencidas e itens em slots que o client 7.57 não mostra (ver Bags.Repair).
+        if (Bags.Repair(character, session.Account!.Cargo, DateTime.UtcNow))
+        {
+            await characters.SaveItemsAsync(character);
+            await accounts.SaveCargoAsync(session.Account!);
+        }
         // Vida/mana cheias no máximo base continuam cheias no máximo com CON, INT e equipamento.
         bool fullHp = character.BaseScore.Hp >= character.BaseScore.MaxHp, fullMp = character.BaseScore.Mp >= character.BaseScore.MaxMp;
         if (character.Evolution >= Evolution.Celestial) Skills.Teach(character, Skills.SoulOfLimits);   // Celestial já tem a Soul

@@ -30,6 +30,7 @@ public static class Opcodes
     public const ushort NpcClick = 0x28B;          // 20 bytes: int IdDoNpc, int Confirma; NPCs que conversam (reis, quests) (conferido no WYD.exe 7.54)
     public const ushort Teleport = 0x290;          // 16 bytes: o client confirmou o teleporte num círculo (célula com a flag 0x10 no mapa) (conferido no WYD.exe 7.54)
     public const ushort Revive = 0x289;            // só o cabeçalho: o personagem morto pede para renascer (botão ou 3 minutos depois; conferido no WYD.exe 7.54)
+    public const ushort DeleteItem = 0x2E4;        // 20 bytes: int SlotDoInventário, int Índice; lixeira do inventário (conferido no WYD.exe 7.57, 0x464BB9)
     public const ushort DropItem = 0x272;          // 32 bytes: int TipoOrig, int SlotOrig, ...; largar no chão: ignorado (no 7.54 não há item no chão)
     public const ushort RequestMob = 0x369;        // client pede o 0x364 de um id que ele não conhece (conferido no WYD.exe 7.54)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
@@ -88,6 +89,7 @@ public static class Opcodes
         MoveStop => "MoveStop",
         RequestMob => "RequestMob",
         DropItem => "DropItem",
+        DeleteItem => "DeleteItem",
         Attack => "Attack",
         AttackOne => "AttackOne",
         AttackTwo => "AttackTwo",

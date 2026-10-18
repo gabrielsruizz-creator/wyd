@@ -44,7 +44,7 @@ public sealed partial class World
         var lost = new List<Item>();
         foreach (var drop in drops)
         {
-            int slot = Array.FindIndex(c.Inventory, 0, Handlers.CommandHandler.BasicInventorySlots, i => i.IsEmpty);
+            int slot = Bags.FirstFree(c);
             if (slot < 0)
             {
                 lost.Add(drop);

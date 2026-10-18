@@ -456,6 +456,21 @@ itens (101 a 104) marcam adicionais sorteados e saem do item. No 7.54 não exist
 para o inventário de quem matou (0x182, inventário). O client ainda manda o `0x272` (largar, 32 bytes: int tipo,
 int slot, int rotação, short X, short Y) ao arrastar um item para fora; o servidor ignora e o item fica no slot.
 
+## Inventário do 7.57: bolsas e lixeira
+
+O inventário tem 4 páginas de 15 slots (`Carry[0..59]`, slot = página × 15 + linha × 5 + coluna). As páginas 1 e 2
+estão sempre liberadas; a 3 só com a **Bolsa do Andarilho** (item 3467) em `Carry[60]` e a 4 com outra em
+`Carry[61]` (o client confere em 0x53DD04 e desenha os cadeados por isso). `Carry[60..63]` não aparecem na grade:
+qualquer outro item ali fica invisível, e por isso o servidor só põe itens em slots liberados (`Bags.FirstFree`).
+
+- **Usar a bolsa** (0x373 do slot dela): o servidor a põe no primeiro slot de bolsa vazio ou vencido por 30 dias (com
+  as duas valendo, estende a que vence antes) e devolve o 0x182 dos dois slots. A data fica nos efeitos da bolsa:
+  106 = dia e 110 = mês, que o client mostra no botão ("Mês x / y Dia(s)", 0x497000), e 108 = ano − 2000. Ao entrar
+  no jogo, as bolsas vencidas saem e os itens em slots que o client não mostra vão para slots livres (ou o baú).
+- **Lixeira** (o ícone azul): depois do "Deseja realmente apagar?" o client manda o `0x2E4` (20 bytes: `int Slot`,
+  `int Índice`) e só tira o item com o `0x182` de volta. Depois de usar a bolsa ele também manda um 0x2E4 do slot de
+  onde ela saiu, que já está vazio e é ignorado.
+
 ## Tamanho dos itens no inventário
 
 O efeito 33 do item (0 a 7) escolhe um par largura × altura na tabela `{int, int}[8]` em 0x5C88F4 (na `.data`):

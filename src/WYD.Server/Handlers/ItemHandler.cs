@@ -61,6 +61,9 @@ public sealed class ItemHandler(
             src is null || dest is null || srcPos >= src.Length || destPos >= dest.Length ? "Posição inválida." :
             src[srcPos].IsEmpty ? null : // nada para mover: ignora em silêncio
             (srcType == 0 && srcPos == 0) || (destType == 0 && destPos == 0) ? "O rosto do personagem não pode ser trocado." :
+            (srcType == 1 && srcPos >= Bags.Usable) || (destType == 1 && destPos >= Bags.Usable) ? "Posição inválida." :
+            destType == 1 && !Bags.CanHold(c, destPos) ? "Essa bolsa está trancada: use uma Bolsa do Andarilho." :
+            srcType == 1 && !dest[destPos].IsEmpty && !Bags.CanHold(c, srcPos) ? "Essa bolsa está trancada: use uma Bolsa do Andarilho." :
             destType == 0 && !CanEquip(c, src[srcPos], destPos, out var why) ? why :
             srcType == 0 && !dest[destPos].IsEmpty && !CanEquip(c, dest[destPos], srcPos, out var why2) ? why2 :
             null;
@@ -122,6 +125,18 @@ public sealed class ItemHandler(
         if (place is null || srcType == 0 || srcPos < 0 || srcPos >= place.Length || place[srcPos].IsEmpty) return;
 
         var item = place[srcPos];
+        if (item.Index == Bags.TravelingBag && srcType == 1)
+        {
+            int bagSlot = Bags.Use(c, DateTime.UtcNow);
+            Consume(place, srcPos);
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, srcPos, place[srcPos]));
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, bagSlot, c.Inventory[bagSlot]));
+            var until = Bags.Expires(c.Inventory[bagSlot])!.Value.AddDays(-1);
+            await session.SendMessageAsync($"Bolsa {bagSlot - Bags.FirstBagSlot + 3} liberada até {until:dd/MM/yyyy}.");
+            await SaveAsync(session);
+            return;
+        }
+
         if (catalog.List?[item.Index] is not { } def)
         {
             await session.SendMessageAsync("Para usar itens o servidor precisa do ItemList.bin na pasta data.");
@@ -346,8 +361,8 @@ public sealed class ItemHandler(
             return;
         }
 
-        if (mySlot < 0 || mySlot >= CommandHandler.BasicInventorySlots || !c.Inventory[mySlot].IsEmpty)
-            mySlot = (short)Array.FindIndex(c.Inventory, 0, CommandHandler.BasicInventorySlots, i => i.IsEmpty);
+        if (!Bags.CanHold(c, mySlot) || !c.Inventory[mySlot].IsEmpty)
+            mySlot = (short)Bags.FirstFree(c);
         if (mySlot < 0)
         {
             await session.SendMessageAsync("Inventário cheio.");
@@ -411,6 +426,25 @@ public sealed class ItemHandler(
         def.Effects.FirstOrDefault(e => e.Effect == effect).Value;
 
     private static string Name(ItemDefinition def) => def.Name.Replace('_', ' ');
+
+    // ---------------------------------------------------------------- lixeira
+
+    /// <summary>
+    /// 0x2E4 (20 bytes): item jogado na lixeira do inventário, depois do "Deseja realmente apagar?" (0x464BB9):
+    /// int slot do inventário em 0x0C, int índice do item em 0x10. O client só tira o item com o 0x182 de volta. Depois
+    /// de usar a Bolsa do Andarilho o client também manda um, para o slot de onde ela saiu: o slot já está vazio e o
+    /// pedido é ignorado.
+    /// </summary>
+    public async Task HandleDeleteAsync(ClientSession session, PacketReader packet)
+    {
+        int slot = packet.ReadInt32(), index = packet.ReadInt32();
+        var c = session.Character!;
+        if (slot < 0 || slot >= Bags.Usable || c.Inventory[slot].IsEmpty || c.Inventory[slot].Index != index) return;
+        logger.LogInformation("[{Id}] {Name} jogou fora o item {Index} do slot {Slot}.", session.Id, c.Name, index, slot);
+        c.Inventory[slot] = default;
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Inventory, slot, default));
+        await SaveAsync(session);
+    }
 
     private async Task SaveAsync(ClientSession session, bool cargo = false)
     {

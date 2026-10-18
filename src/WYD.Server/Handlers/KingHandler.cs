@@ -324,7 +324,7 @@ public sealed class KingHandler(
         {
             if (!cape.IsEmpty)
             {
-                capeToInventory = Array.FindIndex(c.Inventory, 0, CommandHandler.BasicInventorySlots, i => i.IsEmpty);
+                capeToInventory = Bags.FirstFree(c);
                 if (capeToInventory < 0)
                 {
                     await session.SendMessageAsync("Deixe um espaço livre no inventário para a sua capa antes de evoluir.");

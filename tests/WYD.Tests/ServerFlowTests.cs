@@ -1234,6 +1234,32 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Trash_bin_deletes_the_item_and_traveling_bag_unlocks_a_page()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var me = await CharacterOf("jogadora");
+        me.Inventory[3] = new Item(400);
+
+        // Índice diferente do que está no slot: ignorado.
+        await a.SendAsync(new PacketWriter(Opcodes.DeleteItem, 20, 1).WriteInt32(3).WriteInt32(905).ToArray());
+        await a.SendAsync(new PacketWriter(Opcodes.DeleteItem, 20, 1).WriteInt32(3).WriteInt32(400).ToArray());
+        var gone = await a.ReceiveAsync();
+        Assert.Equal(Opcodes.UpdateItem, gone.Type);
+        Assert.Equal((1, 3, 0), (gone.ReadInt16(), gone.ReadInt16(), gone.ReadInt16()));
+        Assert.True(me.Inventory[3].IsEmpty);
+
+        // Bolsa do Andarilho: vai para o slot 60 e libera a 3ª página.
+        me.Inventory[5] = new Item(Bags.TravelingBag);
+        await a.SendAsync(UsePacket(1, 5));
+        var source = await a.ReceiveAsync();
+        Assert.Equal((1, 5, 0), (source.ReadInt16(), source.ReadInt16(), source.ReadInt16()));
+        var bag = await a.ReceiveAsync();
+        Assert.Equal((1, 60, Bags.TravelingBag), (bag.ReadInt16(), bag.ReadInt16(), bag.ReadInt16()));
+        Assert.StartsWith("Bolsa 3 liberada até", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.True(Bags.CanHold(me, 30));
+    }
+
+    [Fact]
     public async Task Mount_runs_fast_once_equipped()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");

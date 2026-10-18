@@ -34,6 +34,7 @@ public sealed class PacketDispatcher
         Register(Opcodes.UseItem, 28, SessionState.InGame, items.HandleUseAsync);
         Register(Opcodes.Buy, 18, SessionState.InGame, items.HandleBuyAsync);
         Register(Opcodes.Sell, 18, SessionState.InGame, items.HandleSellAsync);
+        Register(Opcodes.DeleteItem, PacketHeader.Size + 8, SessionState.InGame, items.HandleDeleteAsync);
         int oneTarget = ServerPackets.AttackLayout.SizeFor(1);
         Register(Opcodes.AttackOne, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.AttackTwo, oneTarget, SessionState.InGame, world.HandleAttackAsync);

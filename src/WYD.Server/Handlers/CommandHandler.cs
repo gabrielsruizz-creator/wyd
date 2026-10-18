@@ -1,3 +1,4 @@
+using WYD.Server.Game;
 using Microsoft.Extensions.Logging;
 using WYD.Server.Data;
 using WYD.Server.Database;
@@ -23,10 +24,10 @@ public sealed class CommandHandler(
     ILogger<CommandHandler> logger)
 {
     /// <summary>
-    /// Slots do inventário que o client 7.54 mostra: 63, numa grade de 9 colunas × 7 linhas (slot = linha × 9 +
-    /// coluna; o client limpa e redesenha os 63 em 0x537E67). O 7.54 não tem bolsas.
+    /// Slots do inventário onde podem estar itens comuns no client 7.57: as 4 páginas de 15 (ver <see cref="Bags"/>;
+    /// as duas últimas só com a Bolsa do Andarilho). Para pôr um item, use <see cref="Bags.FirstFree"/>.
     /// </summary>
-    public const int BasicInventorySlots = 63;
+    public const int BasicInventorySlots = Bags.Usable;
 
     /// <summary>Os comandos de GM com o que fazem, na ordem do /gm ajuda.</summary>
     public static readonly (string Usage, string Description)[] GmCommands =
@@ -419,7 +420,7 @@ public sealed class CommandHandler(
             return;
         }
 
-        int slot = Array.FindIndex(character.Inventory, 0, BasicInventorySlots, i => i.IsEmpty);
+        int slot = Bags.FirstFree(character);
         if (slot < 0)
         {
             await session.SendMessageAsync("Inventário cheio.");
