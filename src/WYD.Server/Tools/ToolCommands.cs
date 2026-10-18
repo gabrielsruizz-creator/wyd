@@ -308,6 +308,93 @@ public static class ToolCommands
         return errors == 0 ? 0 : 1;
     }
 
+    /// <summary>
+    /// launcher &lt;pasta do client&gt; &lt;ip&gt;: aponta o launcher para o servidor (primeira linha do Settings.txt =
+    /// http://ip/). O servidor responde a lista de atualização na porta 80, e o launcher libera o jogo e as
+    /// Configurações. O Settings.txt anterior vira Settings.txt.bak.
+    /// </summary>
+    public static int LauncherCommand(string client, string ip)
+    {
+        string? path = Directory.Exists(client) ? Directory.EnumerateFiles(client)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("Settings.txt", StringComparison.OrdinalIgnoreCase)) : null;
+        if (path is null)
+        {
+            Console.Error.WriteLine($"{client}: não achei o Settings.txt do client.");
+            return 1;
+        }
+        if (!IPAddress.TryParse(ip, out var parsed) || parsed.AddressFamily != AddressFamily.InterNetwork)
+        {
+            Console.Error.WriteLine($"IP inválido: {ip}");
+            return 2;
+        }
+        var settings = File.ReadAllBytes(path);
+        string before = ClientSettings.PatchAddress(settings), after = $"http://{ip}/";
+        if (before != after)
+        {
+            File.Copy(path, path + ".bak", overwrite: true);
+            File.WriteAllBytes(path, ClientSettings.SetPatchAddress(settings, after));
+        }
+        Console.WriteLine($"Launcher: atualização em {after} (antes: {before}). Com o servidor aberto, o launcher libera o jogo e as Configurações.");
+        return 0;
+    }
+
+    /// <summary>
+    /// client-config &lt;pasta do client&gt; [janela|tela-cheia] [resolução]: mostra ou troca o modo de tela e a
+    /// resolução no Config.bin (o que a tela de Configurações do launcher grava). Sem o arquivo, parte dos valores que
+    /// o WYD.exe usa sem ele.
+    /// </summary>
+    public static int ClientConfigCommand(string client, string[] options)
+    {
+        if (!Directory.Exists(client))
+        {
+            Console.Error.WriteLine($"Pasta não encontrada: {client}");
+            return 1;
+        }
+        string path = Directory.EnumerateFiles(client)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("Config.bin", StringComparison.OrdinalIgnoreCase))
+            ?? Path.Combine(client, "Config.bin");
+        bool exists = File.Exists(path);
+        var values = ClientSettings.ReadConfig(exists ? File.ReadAllBytes(path) : null);
+        // Sem Config.bin, a versão (que o launcher usa para saber quais patches já tem) vem do config.txt.
+        if (!exists && Directory.EnumerateFiles(client).FirstOrDefault(f => Path.GetFileName(f).Equals("config.txt", StringComparison.OrdinalIgnoreCase)) is { } txt
+            && System.Text.RegularExpressions.Regex.Match(File.ReadAllText(txt), @"\[VERSION\]\s*(\d+)") is { Success: true } m
+            && short.TryParse(m.Groups[1].Value, out short version))
+            values[ClientSettings.Version] = version;
+
+        foreach (var option in options)
+        {
+            switch (option.ToLowerInvariant())
+            {
+                case "janela" or "window":
+                    values[ClientSettings.Window] = 1;
+                    break;
+                case "tela-cheia" or "telacheia" or "fullscreen":
+                    values[ClientSettings.Window] = 0;
+                    break;
+                default:
+                    if (ClientSettings.ParseResolution(option) is not { } res)
+                    {
+                        Console.Error.WriteLine($"Opção desconhecida: {option}. Use janela, tela-cheia ou uma resolução: " +
+                            string.Join(", ", ClientSettings.Resolutions.Where(r => r.Bits == 32).Select(r => $"{r.Width}x{r.Height}")) + ".");
+                        return 2;
+                    }
+                    values[ClientSettings.Resolution] = res;
+                    break;
+            }
+        }
+
+        if (options.Length > 0)
+        {
+            if (exists) File.Copy(path, path + ".bak", overwrite: true);
+            File.WriteAllBytes(path, ClientSettings.WriteConfig(values));
+        }
+        Console.WriteLine($"{path}{(exists || options.Length > 0 ? "" : " (não existe; valores padrão do jogo)")}:");
+        Console.WriteLine($"  Tela: {(values[ClientSettings.Window] == 0 ? "cheia" : "janela")}, resolução {ClientSettings.Describe(values[ClientSettings.Resolution])}.");
+        for (int i = 0; i < ClientSettings.Names.Length; i++)
+            Console.WriteLine($"  [{ClientSettings.Names[i]}] {values[i]}");
+        return 0;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {

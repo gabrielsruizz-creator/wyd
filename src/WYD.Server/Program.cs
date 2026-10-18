@@ -32,6 +32,10 @@ public static class Program
                 return ToolCommands.ItemsCommand(itemList, null);
             case ["items", var itemList, var filter]:
                 return ToolCommands.ItemsCommand(itemList, filter);
+            case ["launcher", var client, var ip]:
+                return ToolCommands.LauncherCommand(client, ip);
+            case ["client-config", var client, .. var options]:
+                return ToolCommands.ClientConfigCommand(client, options);
             case ["fix-lists", var client]:
                 return ToolCommands.FixListsCommand(client);
             case ["extract-exptable", var exe]:
@@ -100,6 +104,8 @@ public static class Program
                       WYD.Server unequip <conta> <personagem> [slot...]  apaga peças equipadas (sem slot: as armas, 6 e 7)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
                       WYD.Server items <ItemList.bin> [texto]       lista os itens do jogo
+                      WYD.Server launcher <pasta do client> <ip>     aponta o launcher (Settings.txt) para o servidor
+                      WYD.Server client-config <pasta do client> [janela|tela-cheia] [1024x768]  modo de tela e resolução (Config.bin)
                       WYD.Server fix-lists <pasta do client>         acerta o checksum da ItemList e da SkillData e copia para data/
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
                       WYD.Server patch-client <WYD.exe>             corrige o client: efeito das armas +13 a +15, item em 1 slot

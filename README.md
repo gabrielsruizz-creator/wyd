@@ -108,6 +108,21 @@ ele se recusa a conectar. O próprio servidor responde essas páginas na porta *
 Rode sem o IP no final para só ver o que tem no arquivo. Para amigos jogarem de outros PCs, use o seu
 IP público e libere as portas **8281** e **80** no firewall e no roteador.
 
+Aponte também o launcher (`@WYDLauncher.exe`) para o servidor. Ele busca a lista de atualização no endereço da
+primeira linha do `Settings.txt`; com o endereço oficial, que não existe mais, ele para em "Verificando a
+atualização" e não libera o jogo nem as Configurações (modo janela, resolução, som):
+
+```powershell
+dotnet run --project src\WYD.Server -- launcher "C:\caminho\do\jogo" 127.0.0.1
+```
+
+Com o servidor aberto, o launcher passa direto. Sem o launcher, o modo de tela e a resolução (o `Config.bin`, que
+o WYD.exe 7.57 lê no lugar do `config.txt`) também podem ser trocados por aqui:
+
+```powershell
+dotnet run --project src\WYD.Server -- client-config "C:\caminho\do\jogo" janela 1024x768
+```
+
 **2. Ache a KeyTable** (veja [`data/README.md`](data/README.md)):
 
 ```powershell

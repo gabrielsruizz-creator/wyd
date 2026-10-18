@@ -853,4 +853,28 @@ public class ToolTests
         Assert.Null(Ancient.EffectOf(items, 3701));                                          // grupo sem a 4ª cópia
         Assert.Null(Ancient.EffectOf(items, 905));                                           // item comum
     }
+
+    [Fact]
+    public void Launcher_address_is_the_first_line_of_settings()
+    {
+        var settings = System.Text.Encoding.Latin1.GetBytes("http://patch.wyd.com.br/patch/update_regular/\r\nReservado\r\nConteúdo\r\n");
+        var changed = WYD.Server.Tools.ClientSettings.SetPatchAddress(settings, "http://127.0.0.1/");
+        Assert.Equal("http://127.0.0.1/\r\nReservado\r\nConteúdo\r\n", System.Text.Encoding.Latin1.GetString(changed));
+        Assert.Equal("http://127.0.0.1/", WYD.Server.Tools.ClientSettings.PatchAddress(changed));
+    }
+
+    [Fact]
+    public void Client_config_has_window_mode_and_resolution()
+    {
+        var values = WYD.Server.Tools.ClientSettings.ReadConfig(null);                    // sem Config.bin: padrão do exe
+        Assert.Equal(7, values[WYD.Server.Tools.ClientSettings.Resolution]);
+        Assert.Equal((short)8, WYD.Server.Tools.ClientSettings.ParseResolution("1024x768"));     // 32 bits
+        Assert.Equal((short)3, WYD.Server.Tools.ClientSettings.ParseResolution("3"));
+        Assert.Null(WYD.Server.Tools.ClientSettings.ParseResolution("1366x768"));
+        values[WYD.Server.Tools.ClientSettings.Window] = 0;
+        var file = WYD.Server.Tools.ClientSettings.WriteConfig(values);
+        Assert.Equal(30, file.Length);
+        Assert.Equal(values, WYD.Server.Tools.ClientSettings.ReadConfig(file));
+        Assert.Equal(7000, BinaryPrimitives.ReadInt16LittleEndian(file));
+    }
 }
