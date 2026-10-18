@@ -179,6 +179,20 @@ public class ToolTests
     }
 
     [Fact]
+    public void Exp_tables_of_64_bits_are_found_and_stop_before_what_follows()
+    {
+        // Como no 7.57: números de 64 bits e, depois da Celestial, pares de ints pequenos (0x50, 0x12C...).
+        var exe = new byte[400];
+        long[] values = [500, 1124, 1826, 2610, 9000, 0, 20_000_000, 400_000_000, 8_200_000_000, 0x12C_0000_0050];
+        for (int i = 0; i < values.Length; i++)
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(exe.AsSpan(64 + i * 8), values[i]);
+
+        var (mortal, celestial) = WYD.Server.Data.ExpTable.FindInClient(exe)!.Value;
+        Assert.Equal(new long[] { 500, 1124, 1826, 2610, 9000 }, mortal.Next);
+        Assert.Equal(new long[] { 20_000_000, 400_000_000, 8_200_000_000 }, celestial!.Next);
+    }
+
+    [Fact]
     public void Level_stops_at_the_evolution_cap_and_evolves()
     {
         var c = new WYD.Server.Game.Character { Exp = long.MaxValue };

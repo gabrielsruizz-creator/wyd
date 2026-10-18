@@ -13,8 +13,8 @@ namespace WYD.Server.Data;
 /// </summary>
 public sealed class ExpTable
 {
-    /// <summary>Começo da tabela de Mortal/Arch no client 7.54 (500, 1124, 1826, 2610...), usado para achá-la no WYD.exe.</summary>
-    private static readonly uint[] Signature = [500, 1124, 1826, 2610];
+    /// <summary>Começo da tabela de Mortal/Arch (500, 1124, 1826, 2610...), usado para achá-la no WYD.exe.</summary>
+    private static readonly long[] Signature = [500, 1124, 1826, 2610];
 
     public ExpTable(IReadOnlyList<long> next) => Next = next;
 
@@ -30,33 +30,42 @@ public sealed class ExpTable
     /// <summary>
     /// Procura as tabelas no WYD.exe. A de Mortal/Arch começa em 500, 1124, 1826, 2610 e não diminui até o
     /// nível 400; logo depois vem a de Celestial/Sub Celestial, que começa em 0 (a experiência no início de
-    /// cada nível; aqui ela é guardada como as outras, com o quanto cada nível precisa para passar).
+    /// cada nível; aqui ela é guardada como as outras, com o quanto cada nível precisa para passar). No 7.54 os
+    /// números têm 32 bits; no 7.57, 64.
     /// </summary>
     public static (ExpTable Mortal, ExpTable? Celestial)? FindInClient(byte[] exe)
     {
-        for (int o = 0; o + Signature.Length * 4 <= exe.Length; o += 4)
-        {
-            bool match = true;
-            for (int i = 0; i < Signature.Length && match; i++)
-                match = BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(o + i * 4)) == Signature[i];
-            if (!match) continue;
+        foreach (int width in new[] { 8, 4 })
+            for (int o = 0; o + Signature.Length * width <= exe.Length; o += 4)
+            {
+                bool match = true;
+                for (int i = 0; i < Signature.Length && match; i++)
+                    match = Read(exe, o + i * width, width) == Signature[i];
+                if (!match) continue;
 
-            var mortal = ReadRising(exe, o);
-            var celestial = ReadRising(exe, o + mortal.Count * 4);
-            return (new ExpTable(mortal),
-                celestial.Count > 1 && celestial[0] == 0 ? new ExpTable(celestial.Skip(1).ToList()) : null);
-        }
+                var mortal = ReadRising(exe, o, width);
+                var celestial = ReadRising(exe, o + mortal.Count * width, width);
+                return (new ExpTable(mortal),
+                    celestial.Count > 1 && celestial[0] == 0 ? new ExpTable(celestial.Skip(1).ToList()) : null);
+            }
         return null;
     }
 
-    /// <summary>Números de 32 bits a partir de <paramref name="offset"/> enquanto não diminuem.</summary>
-    private static List<long> ReadRising(byte[] exe, int offset)
+    private static long Read(byte[] exe, int offset, int width) => width == 8
+        ? BinaryPrimitives.ReadInt64LittleEndian(exe.AsSpan(offset))
+        : BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(offset));
+
+    /// <summary>
+    /// Números a partir de <paramref name="offset"/> enquanto não diminuem nem saltam mais de 100 vezes (no 7.57 a
+    /// tabela de Celestial é seguida de pares de ints pequenos que, lidos como 64 bits, parecem crescer).
+    /// </summary>
+    private static List<long> ReadRising(byte[] exe, int offset, int width)
     {
         var values = new List<long>();
-        for (int p = offset; p + 4 <= exe.Length; p += 4)
+        for (int p = offset; p + width <= exe.Length; p += width)
         {
-            uint v = BinaryPrimitives.ReadUInt32LittleEndian(exe.AsSpan(p));
-            if (values.Count > 0 && v < values[^1]) break;
+            long v = Read(exe, p, width);
+            if (values.Count > 0 && (v < values[^1] || values[^1] > 0 && v / values[^1] > 100)) break;
             values.Add(v);
         }
         return values;

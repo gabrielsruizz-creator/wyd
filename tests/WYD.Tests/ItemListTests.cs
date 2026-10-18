@@ -146,6 +146,35 @@ public class ItemListTests
     }
 
     [Fact]
+    public void Fix_checksum_reaches_the_client_value_using_only_empty_items()
+    {
+        var file = ItemList.Encode(PlainList());
+        Assert.True(ItemList.FixChecksum(file) > 0);
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, file);
+            var list = ItemList.Load(path);
+            Assert.True(list.MatchesClient);
+            Assert.Equal(3, list.All.Count());                 // os itens mexidos continuam vazios
+            Assert.Equal("Espada Longa", list[905]!.Name);
+        }
+        finally { File.Delete(path); }
+        Assert.Equal(ItemList.ClientChecksum, BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(ItemList.DataSize)));
+    }
+
+    [Fact]
+    public void Skill_data_checksum_is_fixed_in_empty_skills()
+    {
+        var file = SkillData.Encode([new SkillDefinition(0, 1, 2, 30, 4, 5), new SkillDefinition(SkillData.ClientCount - 1, 9, 1, 8, 2, 3)]);
+        SkillData.FixChecksum(file);
+        Assert.Equal(SkillData.ClientChecksum, SkillData.ComputeChecksum(file));
+        var data = SkillData.Parse(file);
+        Assert.Equal(30, data[0]!.ManaSpent);
+        Assert.Equal(8, data[SkillData.ClientCount - 1]!.ManaSpent);
+    }
+
+    [Fact]
     public void Rejects_short_file()
     {
         var path = Path.GetTempFileName();

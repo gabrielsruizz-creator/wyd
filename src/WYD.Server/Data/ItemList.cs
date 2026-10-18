@@ -42,17 +42,17 @@ public sealed record ItemDefinition(
 }
 
 /// <summary>
-/// Lê o ItemList.bin do client 7.54 (formato conferido no WYD.exe): 6500 itens de 140 bytes com cada
-/// byte em XOR 0x5A, seguidos de um int. O client só aceita o arquivo se o checksum dos bytes codificados
-/// der <see cref="ClientChecksum"/>. O ExtraItem.bin opcional traz registros de 142 bytes
+/// Lê o ItemList.bin do client 7.57 (formato conferido no WYD.exe, igual ao do 7.54): 6500 itens de 140 bytes com
+/// cada byte em XOR 0x5A, seguidos de um int. O client só aceita o arquivo se o checksum dos bytes codificados
+/// der <see cref="ClientChecksum"/> (0x53A3CB no exe). O ExtraItem.bin opcional traz registros de 142 bytes
 /// (short índice + item em claro) que substituem itens da lista.
 /// </summary>
 public sealed class ItemList
 {
     public const int MaxItems = 6500;
     public const int DataSize = MaxItems * ItemDefinition.Size;
-    public const int ClientChecksum = 0x3845CE2;
-    private const byte XorKey = 0x5A;
+    public const int ClientChecksum = 0x381AF9B;
+    public const byte XorKey = 0x5A;
 
     private readonly ItemDefinition[] _items;
 
@@ -98,23 +98,19 @@ public sealed class ItemList
         return new ItemList(items, checksum);
     }
 
-    /// <summary>Mesmo cálculo do WYD.exe (função em 0x5599B2), feito sobre os bytes ainda codificados.</summary>
-    public static int ComputeChecksum(ReadOnlySpan<byte> data)
+    /// <summary>Ver <see cref="DataChecksum"/>.</summary>
+    public static int ComputeChecksum(ReadOnlySpan<byte> data) => DataChecksum.Compute(data);
+
+    /// <summary>
+    /// Acerta o checksum do arquivo para o do client (ver <see cref="DataChecksum.Fix"/>) e regrava o int do fim.
+    /// Retorna quantos bytes mudaram.
+    /// </summary>
+    public static int FixChecksum(byte[] file)
     {
-        int sum = 0;
-        for (int i = 0; i < data.Length; i++)
-        {
-            int b = (sbyte)data[i];
-            int m = i % 9;
-            if (m == 0) sum += b * 2;
-            if (m == 1) sum += b ^ 0xFF;
-            if (m == 2) sum += b / 3;
-            if (m == 3) sum += b * 2;
-            if (m == 4) sum -= b ^ 0x5A;
-            if (m == 5) sum -= b;
-            else sum += b / 5;
-        }
-        return sum;
+        if (file.Length < DataSize + 4) throw new InvalidDataException($"tem {file.Length} bytes; o esperado são {DataSize + 4}.");
+        int changed = DataChecksum.Fix(file.AsSpan(0, DataSize), ItemDefinition.Size, ClientChecksum, XorKey);
+        BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(DataSize), ComputeChecksum(file.AsSpan(0, DataSize)));
+        return changed;
     }
 
     /// <summary>Gera um ItemList.bin (usado nos testes).</summary>

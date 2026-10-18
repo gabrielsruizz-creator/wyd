@@ -42,14 +42,17 @@ Vêm dos arquivos do servidor original (não do client):
 Copie os dois para cá e reinicie o servidor. O log mostra quantos foram criados e quais arquivos
 foram ignorados (vazios ou de outro tamanho). Sem eles o servidor funciona normalmente, só sem monstros.
 
-## `ItemList.bin` (opcional, por enquanto)
+## `ItemList.bin` e `SkillData.bin`
 
-A lista de itens do client. Por ora é usada só pelo comando `items`, que mostra os itens e confere se o
-arquivo é o que o client 7.54 espera:
+A lista de itens e as skills do client 7.57. As que vêm no patch 7580 não batem com o checksum que o WYD.exe dele
+espera (o client pararia com "Initialize Data Failed"); o `fix-lists` acerta as duas mexendo só em registros vazios,
+guarda as originais como `.original` e copia as duas para cá:
 
 ```powershell
-dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada
+dotnet run --project src\WYD.Server -- fix-lists "C:\caminho\do\jogo"
 ```
+
+Para ver os itens: `dotnet run --project src\WYD.Server -- items data\ItemList.bin Espada`.
 
 ## `ExpTable.txt` e `ExpTableCelestial.txt` (opcionais)
 
@@ -61,11 +64,6 @@ dotnet run --project src\WYD.Server -- extract-exptable "C:\caminho\do\WYD.exe"
 ```
 
 Sem ela o jogo funciona, mas ninguém sobe de nível.
-
-## `SkillData.bin` (opcional)
-
-As skills do client (fica na pasta do jogo, junto do `ItemList.bin`). Com ela, aprender uma skill no mestre
-gasta os pontos de skill certos de cada uma; sem ela, aprender não custa pontos.
 
 ## `npc-visual.txt` (opcional)
 

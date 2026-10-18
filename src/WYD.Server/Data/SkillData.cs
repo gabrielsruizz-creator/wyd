@@ -11,7 +11,8 @@ public sealed record SkillDefinition(int Index, int SkillPoint, int TargetType, 
     int TickType = 0, int TickValue = 0);
 
 /// <summary>
-/// SkillData.bin do client 7.54: registros de 96 bytes em XOR 0x5A (104 skills) e um int de checksum no fim.
+/// SkillData.bin do client 7.57: registros de 96 bytes em XOR 0x5A (248: as 104 do 7.54, 104 a 199 vazios e as
+/// novas 200 a 247) e um int no fim. O client confere o checksum dos registros (<see cref="ClientChecksum"/>).
 /// Cada registro começa com int SkillPoint (pontos de skill para aprender), TargetType, ManaSpent, Delay, Range,
 /// InstanceType (1 dano físico, 2-5 dano mágico, 6 cura...), InstanceValue, TickType, TickValue, AffectType,
 /// AffectValue, AffectTime.
@@ -20,6 +21,8 @@ public sealed record SkillDefinition(int Index, int SkillPoint, int TargetType, 
 public sealed class SkillData
 {
     public const int RecordSize = 96;
+    public const int ClientCount = 248;
+    public const int ClientChecksum = 0x184918;
     private const byte XorKey = 0x5A;
 
     private readonly SkillDefinition[] _skills;
@@ -46,6 +49,23 @@ public sealed class SkillData
             skills.Add(new SkillDefinition(k, I(0), I(1), I(2), I(3), I(4), I(5), I(6), I(9), I(10), I(11), I(7), I(8)));
         }
         return new SkillData(skills);
+    }
+
+    /// <summary>Checksum dos registros (sem o int do fim), como o client calcula.</summary>
+    public static int ComputeChecksum(byte[] file) => DataChecksum.Compute(file.AsSpan(0, file.Length / RecordSize * RecordSize));
+
+    /// <summary>
+    /// Acerta o checksum para o do client mexendo em skills vazias (ver <see cref="DataChecksum.Fix"/>) e regrava o int
+    /// do fim. Retorna quantos bytes mudaram.
+    /// </summary>
+    public static int FixChecksum(byte[] file)
+    {
+        int size = file.Length / RecordSize * RecordSize;
+        if (size != ClientCount * RecordSize || file.Length != size + 4)
+            throw new InvalidDataException($"tem {file.Length} bytes; a do client 7.57 tem {ClientCount * RecordSize + 4}.");
+        int changed = DataChecksum.Fix(file.AsSpan(0, size), RecordSize, ClientChecksum, XorKey);
+        BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(size), ComputeChecksum(file));
+        return changed;
     }
 
     /// <summary>Codifica de volta (para os testes).</summary>

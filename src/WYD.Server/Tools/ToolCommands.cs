@@ -244,13 +244,68 @@ public static class ToolCommands
 
         var items = list.All.Where(i => filter is null || i.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
         Console.WriteLine($"{path}: {list.All.Count()} itens, checksum 0x{list.Checksum:X} " +
-                          (list.MatchesClient ? "(igual ao esperado pelo client 7.54)." : $"(o client 7.54 espera 0x{Data.ItemList.ClientChecksum:X})."));
+                          (list.MatchesClient ? "(igual ao esperado pelo client 7.57)." : $"(o client 7.57 espera 0x{Data.ItemList.ClientChecksum:X}; rode o fix-lists)."));
         Console.WriteLine($"{"Índice",6}  {"Nome",-32} {"Modelo",6} {"Nível",5} {"Pos",6} {"Preço",10}");
         foreach (var i in items)
             Console.WriteLine($"{i.Index,6}  {i.Name,-32} {i.Mesh,6} {i.ReqLevel,5} {i.Pos,6} {i.Price,10}");
         if (filter is not null)
             Console.WriteLine($"{items.Count} item(ns) com \"{filter}\".");
         return 0;
+    }
+
+    /// <summary>
+    /// fix-lists &lt;pasta do client&gt;: acerta o checksum da ItemList.bin e da SkillData.bin do client para o que o
+    /// WYD.exe espera (as do patch 7580 não batem com o exe dele) e copia as duas para data/ do servidor. O original de
+    /// cada uma fica em .original (só na primeira vez); a que já estava em data/ vira .bak.
+    /// </summary>
+    public static int FixListsCommand(string client)
+    {
+        if (!Directory.Exists(client))
+        {
+            Console.Error.WriteLine($"Pasta não encontrada: {client}");
+            return 1;
+        }
+        int errors = 0;
+        foreach (var (name, expected, compute, fix) in new (string, int, Func<byte[], int>, Func<byte[], int>)[]
+        {
+            ("ItemList.bin", Data.ItemList.ClientChecksum, f => Data.ItemList.ComputeChecksum(f.AsSpan(0, Math.Min(f.Length, Data.ItemList.DataSize))), Data.ItemList.FixChecksum),
+            ("SkillData.bin", Data.SkillData.ClientChecksum, Data.SkillData.ComputeChecksum, Data.SkillData.FixChecksum),
+        })
+        {
+            string? path = Directory.EnumerateFiles(client)
+                .FirstOrDefault(f => Path.GetFileName(f).Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (path is null)
+            {
+                Console.Error.WriteLine($"{name}: não está em {client}.");
+                errors++;
+                continue;
+            }
+            var file = File.ReadAllBytes(path);
+            int before = compute(file);
+            if (before == expected)
+                Console.WriteLine($"{name}: checksum 0x{before:X} já é o que o client espera.");
+            else
+            {
+                int changed;
+                try { changed = fix(file); }
+                catch (InvalidDataException ex)
+                {
+                    Console.Error.WriteLine($"{name}: {ex.Message}");
+                    errors++;
+                    continue;
+                }
+                if (!File.Exists(path + ".original")) File.Copy(path, path + ".original");
+                File.WriteAllBytes(path, file);
+                Console.WriteLine($"{name}: checksum 0x{before:X} -> 0x{compute(file):X} ({changed} bytes em registros vazios). Original em {name}.original.");
+            }
+            Directory.CreateDirectory("data");
+            string server = Path.Combine("data", name);
+            if (File.Exists(server) && !File.ReadAllBytes(server).AsSpan().SequenceEqual(file))
+                File.Copy(server, server + ".bak", overwrite: true);
+            File.WriteAllBytes(server, file);
+            Console.WriteLine($"  copiada para {server}.");
+        }
+        return errors == 0 ? 0 : 1;
     }
 
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
