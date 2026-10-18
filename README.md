@@ -151,7 +151,9 @@ nova, então rode de novo quando trocar o arquivo.
 
 **Visual de outro client 7.54** (opcional; por exemplo o do Star Destiny): copia os modelos, texturas, cenário,
 interface, efeitos e música novos ou diferentes (os mapas ficam os seus), converte a ItemList (para o client e para `data/ItemList.bin`) e
-tira o `Itemname.bin` (os nomes passam a vir da ItemList). Exe, DLL, launcher e as logos do servidor ficam como estão;
+tira o `Itemname.bin` (os nomes passam a vir da ItemList). Os modelos que o Star renumerou (17, como o arco ancient
+`aawbow`, 2892 no original e 2798 no Star) voltam ao número original nos itens: o client trata alguns modelos pelo
+número, e com o número do Star o arco aparecia montado de trás para frente. Exe, DLL, launcher e as logos do servidor ficam como estão;
 o que for substituído vai para `backup-import-...` dentro do client. Rode na pasta do servidor, com o jogo fechado:
 
 ```powershell

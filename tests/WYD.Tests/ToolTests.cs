@@ -863,6 +863,23 @@ public class ToolTests
 
         // Uma lista já no formato do 7.54 passa direto (chave de 1 byte).
         Assert.Equal(1, WYD.Server.Tools.ItemListImport.Convert(WYD.Server.Data.ItemList.Encode(plain))!.KeyLength);
+
+        // Modelos renumerados voltam ao número do nosso client.
+        plain[777 * 140 + 64] = 0xEE; plain[777 * 140 + 65] = 0x0A;    // mesh 2798
+        star = plain.Select((b, i) => (byte)(b ^ key[i % 512])).ToArray();
+        var remapped = WYD.Server.Tools.ItemListImport.Convert(star, new Dictionary<short, short> { [2798] = 2892 })!;
+        Assert.Equal(1, remapped.RemappedMeshes);
+        try
+        {
+            File.WriteAllBytes(path, remapped.File);
+            var list = WYD.Server.Data.ItemList.Load(path);
+            Assert.True(list.MatchesClient);
+            Assert.Equal(2892, list[777]!.Mesh);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]
@@ -997,6 +1014,18 @@ public class ToolTests
         var merged = System.Text.Encoding.Latin1.GetString(WYD.Server.Tools.ClientImport.MergeList(theirs, ours));
         Assert.Equal("1 mesh\\\\a.msa\r\n2791\tmesh\\\\unibow01.msa\r\n2914 mesh\\\\nuispear01.msa\r\n", merged);
         Assert.Same(theirs, WYD.Server.Tools.ClientImport.MergeList(theirs, theirs));
+    }
+
+    [Fact]
+    public void Mesh_remap_points_renumbered_models_to_our_number()
+    {
+        // O Star tem o aawbow como 2798; o nosso como 2892, número que o Star não usa.
+        var theirs = System.Text.Encoding.Latin1.GetBytes("1 mesh\\\\a.msa\r\n2798 Mesh\\aawbow.msa\r\n2799 mesh\\b.msa\r\n");
+        var ours = System.Text.Encoding.Latin1.GetBytes("1 mesh\\\\a.msa\r\n2799 mesh\\\\b.msa\r\n2892 mesh\\\\aawbow.msa\r\n");
+        var remap = WYD.Server.Tools.ClientImport.MeshRemap(theirs, ours);
+        Assert.Equal(new Dictionary<short, short> { [2798] = 2892 }, remap);
+        // Rodando de novo, com a lista já juntada no nosso client, dá o mesmo.
+        Assert.Equal(remap, WYD.Server.Tools.ClientImport.MeshRemap(theirs, WYD.Server.Tools.ClientImport.MergeList(theirs, ours)));
     }
 
     [Fact]

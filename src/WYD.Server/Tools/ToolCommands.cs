@@ -299,6 +299,10 @@ public static class ToolCommands
         }
 
         string backup = Path.Combine(target, $"backup-import-{DateTime.Now:yyyyMMdd-HHmmss}");
+        // Antes de copiar: os modelos renumerados pelo outro client, comparando com a lista que o nosso tem agora.
+        var remap = ClientImport.FindMeshList(source) is { } theirList && ClientImport.FindMeshList(target) is { } ourList
+            ? ClientImport.MeshRemap(File.ReadAllBytes(theirList), File.ReadAllBytes(ourList))
+            : [];
         var report = ClientImport.Run(source, target, backup);
         Console.WriteLine($"Arquivos: {report.Added} novos, {report.Replaced} substituídos, {report.Unchanged} já iguais; " +
                           $"{report.Fixed} assinaturas de textura/imagem corrigidas.");
@@ -307,7 +311,7 @@ public static class ToolCommands
             .FirstOrDefault(f => Path.GetFileName(f).Equals("ItemList.bin", StringComparison.OrdinalIgnoreCase));
         if (itemList is not null)
         {
-            var result = ItemListImport.Convert(File.ReadAllBytes(itemList));
+            var result = ItemListImport.Convert(File.ReadAllBytes(itemList), remap);
             if (result is null)
                 Console.Error.WriteLine($"{itemList}: não consegui decifrar a ItemList; ela não foi trocada.");
             else
@@ -323,6 +327,8 @@ public static class ToolCommands
                 if (File.Exists("data/ItemList.bin")) File.Copy("data/ItemList.bin", "data/ItemList.bin.bak", overwrite: true);
                 File.WriteAllBytes("data/ItemList.bin", result.File);
                 Console.WriteLine($"ItemList: {result.Items} itens, gravada no client e em data/ItemList.bin (a antiga do servidor ficou em data/ItemList.bin.bak).");
+                if (result.RemappedMeshes > 0)
+                    Console.WriteLine($"  {result.RemappedMeshes} itens com modelo renumerado pelo outro client voltaram ao número do nosso ({remap.Count} modelos).");
             }
         }
 

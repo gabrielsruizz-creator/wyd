@@ -114,6 +114,36 @@ public static class ClientImport
         return System.Text.Encoding.Latin1.GetBytes(text);
     }
 
+    /// <summary>
+    /// Números de modelo do outro client que são um arquivo que o nosso já tem com outro número (só no nosso): o Star
+    /// renumerou 17 (o aawbow.msa, arco ancient, é o 2892 no nosso e o 2798 no dele).
+    /// </summary>
+    public static Dictionary<short, short> MeshRemap(byte[] theirs, byte[] ours)
+    {
+        static Dictionary<int, string> Read(byte[] b)
+        {
+            var d = new Dictionary<int, string>();
+            foreach (var line in System.Text.Encoding.Latin1.GetString(b).Split('\n'))
+            {
+                var parts = line.Split(new[] { ' ', '\t', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2 && int.TryParse(parts[0], out int i))
+                    d[i] = parts[1].Replace("\\\\", "\\").ToLowerInvariant();
+            }
+            return d;
+        }
+        var t = Read(theirs);
+        var ourOnly = Read(ours).Where(kv => !t.ContainsKey(kv.Key))
+            .GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.Min(kv => kv.Key));
+        return t.Where(kv => ourOnly.ContainsKey(kv.Value))
+            .ToDictionary(kv => (short)kv.Key, kv => (short)ourOnly[kv.Value]);
+    }
+
+    public static string? FindMeshList(string client) =>
+        Directory.Exists(Path.Combine(client, "Mesh"))
+            ? Directory.EnumerateFiles(Path.Combine(client, "Mesh"))
+                .FirstOrDefault(f => Path.GetFileName(f).Equals("MeshList.txt", StringComparison.OrdinalIgnoreCase))
+            : null;
+
     private static string Relative(string root, string file) => Path.GetRelativePath(root, file).Replace('\\', '/');
 
     /// <summary>Volta as assinaturas para as do client original. Retorna true se mudou algo.</summary>

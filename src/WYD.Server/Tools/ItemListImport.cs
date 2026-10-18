@@ -11,15 +11,19 @@ namespace WYD.Server.Tools;
 /// </summary>
 public static class ItemListImport
 {
-    public sealed record Result(byte[] File, int KeyLength, int Items, int AdjustedBytes);
+    public sealed record Result(byte[] File, int KeyLength, int Items, int AdjustedBytes, int RemappedMeshes = 0);
 
     private const int Size = ItemDefinition.Size;
     private const int MaxPeriod = 2048;
     private const int Candidates = 6;
     private const byte OriginalXor = 0x5A;
 
-    /// <summary>Converte; null se nenhuma chave decifra a lista.</summary>
-    public static Result? Convert(byte[] source)
+    /// <summary>
+    /// Converte; null se nenhuma chave decifra a lista. <paramref name="meshRemap"/> troca o modelo (Mesh) dos itens:
+    /// o Star deu números novos a modelos que o nosso client já tem com outro número (ver
+    /// <see cref="ClientImport.MeshRemap"/>), e o client trata alguns modelos pelo número.
+    /// </summary>
+    public static Result? Convert(byte[] source, IReadOnlyDictionary<short, short>? meshRemap = null)
     {
         if (source.Length < ItemList.DataSize) return null;
         var data = source.AsSpan(0, ItemList.DataSize).ToArray();
@@ -38,12 +42,24 @@ public static class ItemListImport
         }
         if (bestPlain is null || bestScore < MinValidItems) return null;
 
+        int remapped = 0;
+        if (meshRemap is { Count: > 0 })
+            for (int item = 1; item < ItemList.MaxItems; item++)
+            {
+                var mesh = bestPlain.AsSpan(item * Size + 64, 2);
+                if (bestPlain[item * Size] != 0 && meshRemap.TryGetValue(System.Buffers.Binary.BinaryPrimitives.ReadInt16LittleEndian(mesh), out short to))
+                {
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(mesh, to);
+                    remapped++;
+                }
+            }
+
         var encoded = new byte[ItemList.DataSize + 4];
         for (int i = 0; i < ItemList.DataSize; i++) encoded[i] = (byte)(bestPlain[i] ^ OriginalXor);
         int adjusted = FixChecksum(encoded.AsSpan(0, ItemList.DataSize));
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(encoded.AsSpan(ItemList.DataSize),
             ItemList.ComputeChecksum(encoded.AsSpan(0, ItemList.DataSize)));
-        return new Result(encoded, bestPeriod, bestScore, adjusted);
+        return new Result(encoded, bestPeriod, bestScore, adjusted, remapped);
     }
 
     /// <summary>Uma lista de verdade tem milhares de itens com nome legível; uma chave errada quase nenhum.</summary>
