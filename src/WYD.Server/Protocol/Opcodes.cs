@@ -42,7 +42,7 @@ public static class Opcodes
     public const ushort DeleteCharacterOk = 0x112;     // MSG_CNFDeleteCharacter, 856 bytes (conferido no WYD.exe 7.57)
     public const ushort CharacterLoginOk = 0x114;      // MSG_CNFCharacterLogin, 1712 bytes com STRUCT_MOB de 1024 (conferido no WYD.exe 7.57)
     public const ushort SkillBar = 0x378;             // 32 bytes: byte Barra[20] (skill dentro da classe, 0xFF vazio); o client manda ao mudar a barra (conferido no WYD.exe 7.54)
-    public const ushort AffectList = 0x3B9;            // 140 bytes: AFFECT[16] {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}; ícones dos buffs no canto (conferido no WYD.exe 7.54)
+    public const ushort AffectList = 0x3B9;            // 268 bytes: AFFECT[32] {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}; ícones dos buffs no canto (conferido no WYD.exe 7.54)
     public const ushort Motion = 0x36A;                // 20 bytes: short Movimento, short Parâmetro; animação do personagem do cabeçalho (conferido no WYD.exe 7.54)
     public const ushort SelCharEffect = 0x3B4;         // 16 bytes: int Slot (0-3); na seleção de personagens, efeito em cima do personagem do slot (conferido no WYD.exe 7.54)
     public const ushort CharacterLogoutOk = 0x116;     // só o cabeçalho: o client volta para a seleção de personagens com a lista que já tem (conferido no WYD.exe 7.54)

@@ -95,7 +95,7 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x379` | BuyOk               | 24      | o pedido com o slot final e `int GoldTotal` (0x14), que o client copia para o gold | ✅ layout |
 | `0x3AF` | UpdateCoin          | 16      | `int Gold`                                                                 | ✅ layout |
 | `0x181` | UpdateHpMp          | 28      | `int Hp`, `int Mp`, `int HpPedido`, `int MpPedido`                         | ✅ exe 7.57 |
-| `0x3B9` | AffectList          | 140     | `AFFECT[16]` {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}: ícones dos buffs no canto | ✅ layout |
+| `0x3B9` | AffectList          | 268     | `AFFECT[32]` (o 7.57 lê sempre 32, 0x5110E5) {byte Tipo, byte Valor, short Nível, int Tempo em 8 s}: ícones dos buffs no canto | ✅ layout |
 | `0x36B` | UpdateEquip         | 60      | `ushort Equip[16]`, `byte Refino[16]` (para quem está vendo)               | ⚠️ |
 | `0x337` | UpdateEtc           | 48      | `int Hold`, `long Exp` (0x10), `uint LearnedSkill[2]` (0x18), `short ScoreBonus, SpecialBonus, SkillBonus` (0x20), `int Gold` (0x28) | ✅ exe 7.57 |
 | `0x336` | UpdateScore         | 144     | `SCORE` (48) @0x0C, Critical/SaveMana @0x3C, `short Affect[32]` @0x3E, Guild @0x7E, GuildLevel @0x80 | ✅ exe 7.57 |

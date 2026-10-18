@@ -432,15 +432,17 @@ public static class ServerPackets
     }
 
     /// <summary>
-    /// 0x3B9: os buffs do próprio jogador, que o client (0x534F83) copia para a lista que desenha no canto da tela
-    /// com o tempo. 16 × {byte Tipo, byte Valor, short Nível, int Tempo} em 0x0C, tempo em unidades de 8 s.
+    /// 0x3B9: os buffs do próprio jogador, que o client 7.57 (0x5110E5) copia para a lista que desenha no canto da
+    /// tela com o tempo. 32 × {byte Tipo, byte Valor, short Nível, int Tempo} em 0x0C, tempo em unidades de 8 s; Tipo 0
+    /// = sem ícone. O client lê sempre os 32 (o 7.54 lia 16): com o pacote curto ele desenhava lixo do buffer como
+    /// ícones.
     /// </summary>
     public static byte[] AffectList(ushort id, Character c)
     {
-        var w = new PacketWriter(Opcodes.AffectList, 12 + Affects.Max * 8, id);
+        var w = new PacketWriter(Opcodes.AffectList, AffectListSize, id);
         var now = DateTime.UtcNow;
-        var active = c.Affects.Where(a => a.Expires > now).Take(Affects.Max).ToList();
-        for (int i = 0; i < Affects.Max; i++)
+        var active = c.Affects.Where(a => a.Expires > now).Take(ClientAffects).ToList();
+        for (int i = 0; i < ClientAffects; i++)
         {
             if (i >= active.Count) { w.Skip(8); continue; }
             var a = active[i];
@@ -450,8 +452,10 @@ public static class ServerPackets
         return w.ToArray();
     }
 
-    /// <summary>Efeitos que cabem no 0x364 e no 0x336 do 7.57 (eram 16 no 7.54).</summary>
+    /// <summary>Efeitos que cabem no 0x364, no 0x336 e no 0x3B9 do 7.57 (eram 16 no 7.54).</summary>
     public const int ClientAffects = 32;
+
+    public const int AffectListSize = PacketHeader.Size + ClientAffects * 8;
 
     /// <summary>32 shorts de efeito: (tipo &lt;&lt; 8) | unidades de 8 s que faltam (ver <see cref="Affects"/>).</summary>
     private static void WriteAffects(PacketWriter w, short[]? affects)

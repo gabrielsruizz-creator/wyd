@@ -312,4 +312,13 @@ public class ProtocolTests
         Assert.Equal(7, BinaryPrimitives.ReadInt32LittleEndian(p.AsSpan(0x3C)));         // alvo
         Assert.Equal(40000, BinaryPrimitives.ReadInt32LittleEndian(p.AsSpan(0x40)));     // dano
     }
+
+    [Fact]
+    public void Affect_list_always_has_the_32_entries_the_client_reads()
+    {
+        var c = ClassTemplates.Create(1, 0, "Guerreiro", CharacterClass.TransKnight, 2100, 2100);
+        var p = ServerPackets.AffectList(1, c);
+        Assert.Equal(268, p.Length);
+        Assert.False(p.AsSpan(PacketHeader.Size).ContainsAnyExcept((byte)0));    // sem buff: nenhum ícone
+    }
 }

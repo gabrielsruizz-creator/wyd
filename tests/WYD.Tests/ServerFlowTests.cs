@@ -1394,7 +1394,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(damage + 7 * 5, me.CurrentScore.Damage);
         Assert.Equal(40, me.BaseScore.Mp);
         var icons = await ReceiveTypeAsync(a, Opcodes.AffectList);                         // ícones do canto (0x3B9)
-        Assert.Equal(140, icons.Length);
+        Assert.Equal(268, icons.Length);                                                   // 32 posições no 7.57
         Assert.Equal((byte)AffectType.Assault, icons.ReadByte());
         icons.Skip(3);
         Assert.Equal(12, icons.ReadInt32());
