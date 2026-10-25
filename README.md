@@ -37,6 +37,9 @@ ficou no histórico do git.
 - [x] Gemas (3386 a 3389): Diamante (experiência), Esmeralda (absorção), Coral (perfuração), Garnet (drop), cada item
       equipado com gema vale 10%. No ancient troca a versão do item; em qualquer item +10 ou mais (arma ou armadura)
       fica nos bits da refinação e muda o brilho
+- [x] Pintura: Tintura (3397 a 3406) + Pó de Oriharukon = Feijão Mágico (3407 a 3416), que arrastado no elmo, peitoral,
+      calça, luva, bota ou escudo troca a cor do brilho da refinação (10 cores; aparece a partir do +1). O Removedor de
+      Tintura (3417) volta à cor normal. A refinação continua a mesma
 - [x] Mestres de skill (Cap.Cavaleiros, Foema_Ancian, Mestre_Archi, ForeLearner): lista das skills e aprender,
       gastando os pontos de skill da `SkillData.bin`
 - [x] Sefirot no mestre de skill: Eternal Stone no slot 10 + 8 pedras + 30 milhões de gold

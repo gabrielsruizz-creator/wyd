@@ -567,3 +567,15 @@ Mortal e Arch usam as capas comuns. O Celestial e o Sub Celestial usam as Master
 Akeronia (3198, vermelha) e Adventurer (3199, branca), com modelo próprio (2880). Ao virar Celestial o servidor
 veste a Master do reino da capa atual e põe a capa antiga no inventário; só Celestial e Sub Celestial equipam as
 Master.
+
+## Pintura (7.57)
+
+A cor de uma peça fica no tipo do efeito da refinação: 43 é a cor normal e de 116 a 125 são as 10 cores (o valor
+continua sendo a refinação, inclusive do +10 em diante com a gema). O client aceita como refinação os tipos 43 e de
+115 a 126 (0x5385AA, 0x538476), passa a cor para a peça (0x4C5768) e desenha o brilho com a textura da cor
+(0x4CB771), só com refinação +1 ou mais: 116 `bl`, 117 `re`, 118 `gr`, 119 `si`, 120 `dk`, 121 `vi`, 122 `or`,
+123 `pi`, 124 `ye`, 125 `db` (EffectTextureList 0x113 a 0x188). Os Feijões Mágicos (3407 a 3416, uso 186) seguem essa
+ordem; o Removedor (3417, uso 186) volta para o 43. Ao segurar um item de uso 186 o client acende como destino o
+elmo, peitoral, calça, luva, bota e escudo (Pos 2, 4, 8, 16, 32 e 128 sem tipo de arma; 0x41D3F6) e manda o 0x373
+com o slot de destino. A Tintura (3397 a 3406) vira o Feijão da mesma cor com o Pó de Oriharukon (regra do servidor).
+

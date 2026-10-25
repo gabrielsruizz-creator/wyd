@@ -118,22 +118,13 @@ public static class Refining
         return Math.Min(100, rate + FailBonus[refine] * Fails(item));
     }
 
-    /// <summary>O item tem onde guardar a refinação (o efeito 43 ou um efeito livre)?</summary>
+    /// <summary>O item tem onde guardar a refinação (o efeito da refinação ou um efeito livre)?</summary>
     public static bool CanStore(Item item) =>
-        item.Effect1 is Stats.EfSanc or 0 || item.Effect2 is Stats.EfSanc or 0 || item.Effect3 is Stats.EfSanc or 0;
+        Stats.SancSlot(item) != 0 || item.Effect1 == 0 || item.Effect2 == 0 || item.Effect3 == 0;
 
-    /// <summary>O item com a refinação e as falhas trocadas (escreve no efeito 43, ou no primeiro efeito livre).</summary>
-    public static Item WithRefine(Item item, int refine, int fails)
-    {
-        byte raw = (byte)(refine + 10 * Math.Clamp(fails, 0, MaxFails));
-        if (item.Effect1 == Stats.EfSanc) item.Value1 = raw;
-        else if (item.Effect2 == Stats.EfSanc) item.Value2 = raw;
-        else if (item.Effect3 == Stats.EfSanc) item.Value3 = raw;
-        else if (item.Effect1 == 0) (item.Effect1, item.Value1) = ((byte)Stats.EfSanc, raw);
-        else if (item.Effect2 == 0) (item.Effect2, item.Value2) = ((byte)Stats.EfSanc, raw);
-        else if (item.Effect3 == 0) (item.Effect3, item.Value3) = ((byte)Stats.EfSanc, raw);
-        return item;
-    }
+    /// <summary>O item com a refinação e as falhas trocadas (no efeito da refinação, ou no primeiro efeito livre).</summary>
+    public static Item WithRefine(Item item, int refine, int fails) =>
+        Stats.WithRawSanc(item, (byte)(refine + 10 * Math.Clamp(fails, 0, MaxFails)));
 
     /// <summary>Uma tentativa: sobe um (e zera as falhas) ou guarda mais uma falha.</summary>
     public static (Item Item, bool Success) Try(Item item, int chance, Random random)
@@ -153,9 +144,6 @@ public static class Refining
         int raw = Stats.RawSanc(item);
         int gem = raw >= Ancient.RefinedBase ? (raw - Ancient.RefinedBase) % 4 : 0;
         byte value = (byte)(Ancient.RefinedBase + 4 * (refine - Ancient.MinRefine) + gem);
-        if (item.Effect1 == Stats.EfSanc) item.Value1 = value;
-        else if (item.Effect2 == Stats.EfSanc) item.Value2 = value;
-        else if (item.Effect3 == Stats.EfSanc) item.Value3 = value;
-        return item;
+        return Stats.WithRawSanc(item, value, create: false);
     }
 }

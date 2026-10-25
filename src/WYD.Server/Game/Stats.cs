@@ -94,9 +94,45 @@ public static class Stats
         return s;
     }
 
-    /// <summary>Valor guardado no efeito 43 (refinação; do +10 em diante também a gema).</summary>
-    public static int RawSanc(Item item) =>
-        item.Effect1 == EfSanc ? item.Value1 : item.Effect2 == EfSanc ? item.Value2 : item.Effect3 == EfSanc ? item.Value3 : 0;
+    /// <summary>
+    /// Tipos de efeito que guardam a refinação: o 43 e, como no client (0x5385AA, 0x538476), de 115 a 126. De 116 a
+    /// 125 são as cores da pintura (ver <see cref="Dyes"/>): o valor é a refinação de sempre.
+    /// </summary>
+    public static bool IsSancEffect(int effect) => effect is EfSanc or >= 115 and <= 126;
+
+    /// <summary>Qual dos 3 efeitos do item guarda a refinação (1 a 3), ou 0 se nenhum.</summary>
+    public static int SancSlot(Item item) =>
+        IsSancEffect(item.Effect1) ? 1 : IsSancEffect(item.Effect2) ? 2 : IsSancEffect(item.Effect3) ? 3 : 0;
+
+    /// <summary>Valor guardado no efeito da refinação (refinação; do +10 em diante também a gema).</summary>
+    public static int RawSanc(Item item) => SancSlot(item) switch
+    {
+        1 => item.Value1,
+        2 => item.Value2,
+        3 => item.Value3,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// O item com outro valor no efeito da refinação (mantendo o tipo, que pode ser uma cor). Sem esse efeito, usa o
+    /// primeiro efeito livre com o 43, se <paramref name="create"/>.
+    /// </summary>
+    public static Item WithRawSanc(Item item, byte raw, bool create = true)
+    {
+        switch (SancSlot(item))
+        {
+            case 1: item.Value1 = raw; break;
+            case 2: item.Value2 = raw; break;
+            case 3: item.Value3 = raw; break;
+            default:
+                if (!create) break;
+                if (item.Effect1 == 0) (item.Effect1, item.Value1) = (EfSanc, raw);
+                else if (item.Effect2 == 0) (item.Effect2, item.Value2) = (EfSanc, raw);
+                else if (item.Effect3 == 0) (item.Effect3, item.Value3) = (EfSanc, raw);
+                break;
+        }
+        return item;
+    }
 
     /// <summary>Um efeito de um item, com a refinação aplicada (como o client em 0x556F5B).</summary>
     public static int Ability(Item item, ItemList? items, int effect)
@@ -107,7 +143,7 @@ public static class Stats
         if (def is not null)
             foreach (var e in def.Effects)
                 if (e.Effect == effect) value += e.Value;
-        if (effect != EfSanc)
+        if (!IsSancEffect(effect))
         {
             if (item.Effect1 == effect) value += (sbyte)item.Value1;
             if (item.Effect2 == effect) value += (sbyte)item.Value2;

@@ -1403,6 +1403,55 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Tint_becomes_a_magic_bean_that_paints_the_armor()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var c = await CharacterOf("jogadora");
+        c.Inventory[0] = new Item(412);                                   // Pó de Oriharukon
+        c.Inventory[1] = new Item(3398);                                  // Tintura vermelha
+        c.Inventory[2] = new Item(1210) { Effect1 = 43, Value1 = 5 };     // armadura +5
+        c.Inventory[3] = new Item(905) { Effect1 = 43, Value1 = 5 };      // espada +5
+        c.Inventory[4] = new Item(3417);                                  // Removedor de Tintura
+
+        byte[] Use(int srcPos, int destPos) =>
+            new PacketWriter(Opcodes.UseItem, 36).WriteInt32(1).WriteInt32(srcPos).WriteInt32(1).WriteInt32(destPos).Skip(8).ToArray();
+
+        // Tintura + Oriharukon = Feijão Mágico da mesma cor.
+        await a.SendAsync(Use(0, 1));
+        Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);          // o pó sumiu
+        var bean = await a.ReceiveAsync();
+        bean.Skip(4);
+        Assert.Equal(3408, bean.ReadInt16());
+        Assert.Equal("Feijão Mágico pronto: arraste-o na peça que quer pintar.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        Assert.True(c.Inventory[0].IsEmpty);
+
+        // Arma não pega pintura: o feijão volta para a tela.
+        await a.SendAsync(Use(1, 3));
+        Assert.Equal("Só elmo, peitoral, calça, luva, bota e escudo podem ser pintados.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
+        var back = await a.ReceiveAsync();
+        back.Skip(4);
+        Assert.Equal(3408, back.ReadInt16());
+
+        // Na armadura: a refinação vira a cor vermelha (117), com o mesmo +5.
+        await a.SendAsync(Use(1, 2));
+        Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);          // o feijão sumiu
+        var armor = await a.ReceiveAsync();
+        armor.Skip(4);
+        Assert.Equal((1210, 117, 5), (armor.ReadInt16(), armor.ReadByte(), armor.ReadByte()));
+        Assert.Equal(5, Stats.Refine(c.Inventory[2]));
+
+        // Refinar uma peça pintada mantém a cor.
+        c.Inventory[2] = Refining.WithRefine(c.Inventory[2], 6, 0);
+        Assert.Equal((117, 6), (c.Inventory[2].Effect1, c.Inventory[2].Value1));
+
+        // O removedor volta para o 43.
+        await a.SendAsync(Use(4, 2));
+        for (int i = 0; i < 2; i++) await a.ReceiveAsync();
+        Assert.Equal((43, 6), (c.Inventory[2].Effect1, c.Inventory[2].Value1));
+        Assert.True(c.Inventory[4].IsEmpty);
+    }
+
+    [Fact]
     public async Task Buff_skill_shows_the_icon_raises_damage_and_expires()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");                         // TK

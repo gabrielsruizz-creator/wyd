@@ -164,6 +164,14 @@ public sealed class ItemHandler(
                 return;
             }
         }
+        else if (usable == Game.Dyes.UsableBean && Game.Dyes.ColorOf(item.Index) is { } color)
+        {
+            if (!await PaintAsync(session, place, srcPos, srcType, destType, destPos, color))
+            {
+                await RestoreAsync(session, place, srcType, srcPos);
+                return;
+            }
+        }
         else if (Game.Refining.MaterialOf(usable) is { } material)
         {
             if (!await RefineAsync(session, place, srcPos, srcType, destType, destPos, material))
@@ -264,6 +272,50 @@ public sealed class ItemHandler(
     }
 
     /// <summary>
+    /// Feijão Mágico (ou Removedor de Tintura) arrastado numa peça: troca a cor do brilho da refinação (ver
+    /// <see cref="Game.Dyes"/>). O Feijão é gasto; a refinação continua a mesma.
+    /// </summary>
+    private async Task<bool> PaintAsync(ClientSession session, Item[] beans, int beanPos, int beanType, int destType, int destPos,
+        byte color)
+    {
+        var c = session.Character!;
+        var dest = Place(session, destType);
+        if (dest is null || destPos < 0 || destPos >= dest.Length || dest[destPos].IsEmpty || (destType == beanType && destPos == beanPos))
+        {
+            await session.SendMessageAsync("Arraste o Feijão Mágico em cima da peça que quer pintar.");
+            return false;
+        }
+
+        var target = dest[destPos];
+        if (catalog.List![target.Index] is not { } def || !Game.Dyes.CanPaint(def))
+        {
+            await session.SendMessageAsync("Só elmo, peitoral, calça, luva, bota e escudo podem ser pintados.");
+            return false;
+        }
+        if (Game.Dyes.Paint(target, color) is not { } painted)
+        {
+            await session.SendMessageAsync(color == Game.Stats.EfSanc ? "Esta peça já está com a cor normal."
+                : Game.Stats.SancSlot(target) != 0 ? "Esta peça já está com essa cor." : "Esta peça não tem onde guardar a cor.");
+            return false;
+        }
+
+        dest[destPos] = painted;
+        Consume(beans, beanPos);
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)beanType, beanPos, beans[beanPos]));
+        await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
+        if (destType == 0)
+        {
+            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            foreach (var viewer in world.Viewers(session))
+                await viewer.SendAsync(update);
+        }
+        if (color != Game.Stats.EfSanc && Game.Stats.Refine(painted) == 0)
+            await session.SendMessageAsync("Pintada. A cor aparece no brilho quando a peça for refinada.");
+        if (destType == 2 || beanType == 2) await SaveAsync(session, cargo: true);
+        return true;
+    }
+
+    /// <summary>
     /// Pó de Oriharukon (até +6) ou de Laktorerium (até +9, e do +10 para o +11) arrastado num item: tenta subir a refinação com a
     /// chance do client (ver <see cref="Game.Refining"/>). O pó é gasto sempre; na falha o item fica igual, mas a
     /// próxima tentativa tem mais chance.
@@ -281,6 +333,22 @@ public sealed class ItemHandler(
 
         var target = dest[destPos];
         short powder = powders[powderPos].Index;
+        if (Game.Dyes.BeanOf(target.Index) is { } bean)
+        {
+            // Tintura + Pó de Oriharukon = Feijão Mágico da mesma cor.
+            if (material != Game.RefineMaterial.Oriharukon)
+            {
+                await session.SendMessageAsync("A Tintura vira Feijão Mágico com o Pó de Oriharukon.");
+                return false;
+            }
+            dest[destPos] = new Item(bean);
+            Consume(powders, powderPos);
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)powderType, powderPos, powders[powderPos]));
+            await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
+            await session.SendMessageAsync("Feijão Mágico pronto: arraste-o na peça que quer pintar.");
+            if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
+            return true;
+        }
         string name = Game.Refining.Name(material, powder);
         int refine = Game.Stats.Refine(target);
         if (Game.Refining.Grade(target, catalog.List!) == 0 || !Game.Refining.CanStore(target))

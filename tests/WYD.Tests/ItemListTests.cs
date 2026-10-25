@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 using WYD.Server.Data;
+using WYD.Server.Game;
+using WYD.Server.Protocol;
 
 namespace WYD.Tests;
 
@@ -84,6 +86,11 @@ public class ItemListTests
         Put(412, "Oriharukon_Powder", 0, 0, 1_000_000, (38, 4), (33, 1));
         Put(413, "Laktorerium_Powder", 0, 0, 900, (38, 5), (33, 1));
         Put(1210, "Armadura_Grau5", 4, 0, 1000, (3, 50), (87, 5));
+        Put(3397, "Blue_Firal", 8192, 0, 15000, (18, 255), (33, 0));          // Tintura azul
+        Put(3398, "Red_Firal", 8192, 0, 15000, (18, 255), (33, 0));
+        Put(3407, "Blue_Enamel", 0, 0, 300, (38, 186), (33, 0));              // Feijão Mágico azul
+        Put(3408, "Red_Enamel", 0, 0, 300, (38, 186), (33, 0));
+        Put(3417, "Remover_Enamel", 0, 0, 50, (38, 186), (33, 0));
 
         var path = Path.GetTempFileName();
         try
@@ -184,5 +191,33 @@ public class ItemListTests
             Assert.Throws<InvalidDataException>(() => ItemList.Load(path));
         }
         finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Paint_keeps_the_refine_in_the_color_type()
+    {
+        var armor = new Item(1210) { Effect1 = 43, Value1 = 7 };
+        Assert.Equal((short)3407, Dyes.BeanOf(3397));
+        Assert.Null(Dyes.BeanOf(3407));
+        Assert.Equal((byte)116, Dyes.ColorOf(3407));
+        Assert.Equal((byte)125, Dyes.ColorOf(3416));
+        Assert.Equal((byte)43, Dyes.ColorOf(Dyes.Remover));
+
+        var blue = Dyes.Paint(armor, 116)!.Value;
+        Assert.Equal((116, 7), (blue.Effect1, blue.Value1));
+        Assert.Equal(7, Stats.Refine(blue));
+        Assert.Null(Dyes.Paint(blue, 116));                                  // já está azul
+        Assert.Null(Dyes.Paint(new Item(1210), 43));                         // nada para tirar
+
+        // Sem refinação: a cor vai para o primeiro efeito livre, com +0.
+        var plain = Dyes.Paint(new Item(1210) { Effect1 = 3, Value1 = 10 }, 118)!.Value;
+        Assert.Equal((118, 0), (plain.Effect2, plain.Value2));
+        var refined = Refining.WithRefine(plain, 1, 0);
+        Assert.Equal((118, 1), (refined.Effect2, refined.Value2));
+
+        // +10 em diante: a gema e a refinação alta continuam no mesmo efeito colorido.
+        var high = Refining.WithHighRefine(blue with { Value1 = 230 }, 12);
+        Assert.Equal((116, 238), (high.Effect1, high.Value1));
+        Assert.Equal(12, Stats.Refine(high));
     }
 }

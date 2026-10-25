@@ -80,10 +80,7 @@ public static class Ancient
         int refine = Stats.Refine(item);
         if (refine < MinRefine) return item;
         byte raw = (byte)(RefinedBase + 4 * (refine - MinRefine) + ((int)gem - (int)AncientEffect.Exp));
-        if (item.Effect1 == Stats.EfSanc) item.Value1 = raw;
-        else if (item.Effect2 == Stats.EfSanc) item.Value2 = raw;
-        else if (item.Effect3 == Stats.EfSanc) item.Value3 = raw;
-        return item;
+        return Stats.WithRawSanc(item, raw, create: false);
     }
 
     /// <summary>O efeito que o item equipado dá: o do ancient, ou a gema de um item +10 ou mais.</summary>
