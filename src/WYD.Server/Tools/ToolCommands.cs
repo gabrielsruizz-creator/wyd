@@ -395,6 +395,51 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>
+    /// fix-mesh-textures &lt;pasta do client&gt;: acha os modelos (.msa) com o nome da textura cortado (ver
+    /// <see cref="MeshTextures"/>), copia a textura de verdade com o nome cortado e põe esse nome na
+    /// MeshTextureList.bin. A lista anterior vira MeshTextureList.bin.bak.
+    /// </summary>
+    public static int FixMeshTexturesCommand(string client)
+    {
+        string? mesh = Directory.Exists(client) ? Directory.EnumerateDirectories(client)
+            .FirstOrDefault(d => Path.GetFileName(d).Equals("mesh", StringComparison.OrdinalIgnoreCase)) : null;
+        string? listPath = mesh is null ? null : Directory.EnumerateFiles(mesh)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("MeshTextureList.bin", StringComparison.OrdinalIgnoreCase));
+        if (mesh is null || listPath is null)
+        {
+            Console.Error.WriteLine($"{client}: não achei a pasta mesh com a MeshTextureList.bin (client 7.57).");
+            return 1;
+        }
+        var files = Directory.EnumerateFiles(mesh).ToDictionary(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase);
+        string? FileOf(string entry) => files.TryGetValue(entry["mesh\\".Length..], out var f) ? f : null;
+
+        var list = File.ReadAllBytes(listPath);
+        var models = files.Values.Where(f => f.EndsWith(".msa", StringComparison.OrdinalIgnoreCase))
+            .Select(f => (Path.GetFileName(f), File.ReadAllBytes(f)));
+        var fixes = MeshTextures.Plan(models, list, e => FileOf(e) is not null);
+        if (fixes.Count == 0)
+        {
+            Console.WriteLine("Nenhum modelo com o nome da textura cortado.");
+            return 0;
+        }
+        if (!MeshTextures.Add(list, fixes.Select(f => f.Missing)))
+        {
+            Console.Error.WriteLine("A MeshTextureList.bin não tem registros livres suficientes; nada foi alterado.");
+            return 1;
+        }
+        foreach (var fix in fixes)
+        {
+            string target = Path.Combine(mesh, fix.Missing["mesh\\".Length..]);
+            if (!File.Exists(target)) File.Copy(FileOf(fix.Source)!, target);
+            Console.WriteLine($"  {fix.Model}: o client procura {fix.Missing}; agora é uma cópia de {fix.Source}.");
+        }
+        if (!File.Exists(listPath + ".bak")) File.Copy(listPath, listPath + ".bak");
+        File.WriteAllBytes(listPath, list);
+        Console.WriteLine($"{fixes.Count} textura(s) acrescentada(s) à MeshTextureList.bin (a original ficou em MeshTextureList.bin.bak).");
+        return 0;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {

@@ -439,6 +439,15 @@ que soma no máximo 12. O nome e a refinação do item não mudam.
 | 7.57 | 0x4FFFE6, 0x500085, 0x50010D, 0x500190 | 0x5DC590, 0x5DC5B0 |
 | 7.54 | 0x524865, 0x524904, 0x52498C, 0x524A0F | 0x5AC840, 0x5AC860 |
 
+## Texturas de modelos com nome cortado (7.57)
+
+O `.msa` guarda o nome da textura num campo de 11 bytes em 0x20 (lido em 0x4C283C); o client monta `mesh\nome.wys`
+(0x4C27DF) e procura esse nome exato na `mesh\MeshTextureList.bin` (0x4BEFB4: 2048 registros de 0x108 bytes, nome
+terminado em zero e o resto 0xCD). Modelos com nome de mais de 10 letras saíram cortados: o `aawswordtwo.msa`
+(Hrotti, modelo 2899) diz `ordtwo.tga`, o client não acha `mesh\ordtwo.wys` e desenha a arma sem a textura (apagada,
+sem os brilhos). O comando `fix-mesh-textures` copia a textura de verdade com o nome cortado e põe esse nome num
+registro livre da lista.
+
 ## WYDLauncher
 
 O launcher lê o endereço de patch na primeira linha do `Settings.txt` (o resto do arquivo são os textos da janela) e

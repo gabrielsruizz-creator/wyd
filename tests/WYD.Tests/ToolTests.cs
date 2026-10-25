@@ -910,4 +910,26 @@ public class ToolTests
         Assert.Equal(values, WYD.Server.Tools.ClientSettings.ReadConfig(file));
         Assert.Equal(7000, BinaryPrimitives.ReadInt16LittleEndian(file));
     }
+
+    [Fact]
+    public void Truncated_model_texture_names_get_an_entry_in_the_texture_list()
+    {
+        static byte[] Msa(string texture)
+        {
+            var msa = new byte[0x40];
+            System.Text.Encoding.Latin1.GetBytes(texture).CopyTo(msa, 0x20);
+            return msa;
+        }
+        var list = new byte[WYD.Server.Tools.MeshTextures.RecordSize * WYD.Server.Tools.MeshTextures.Records];
+        WYD.Server.Tools.MeshTextures.Add(list, ["mesh\\aawswordtwo.wys", "mesh\\aawswordtwo_b.wys", "mesh\\bow16.wys"]);
+
+        Assert.Equal("mesh\\ordtwo.wys", WYD.Server.Tools.MeshTextures.TextureOf(Msa("ordtwo.tga")));
+        var fixes = WYD.Server.Tools.MeshTextures.Plan([("aawswordtwo.msa", Msa("ordtwo.tga")), ("bow16.msa", Msa("bow16"))], list, _ => true);
+        var fix = Assert.Single(fixes);                                       // o bow16 já está na lista
+        Assert.Equal(("mesh\\ordtwo.wys", "mesh\\aawswordtwo.wys"), (fix.Missing, fix.Source));
+
+        Assert.True(WYD.Server.Tools.MeshTextures.Add(list, [fix.Missing]));
+        Assert.Equal("mesh\\ordtwo.wys", WYD.Server.Tools.MeshTextures.Names(list)[3]);
+        Assert.Empty(WYD.Server.Tools.MeshTextures.Plan([("aawswordtwo.msa", Msa("ordtwo.tga"))], list, _ => true));
+    }
 }
