@@ -16,6 +16,11 @@ public interface IAccountRepository
 
     /// <summary>0 = jogador; 1 ou mais = GM (pode usar comandos como /item).</summary>
     Task SetAccessLevelAsync(int accountId, int level);
+
+    Task SetPasswordAsync(int accountId, string passwordHash);
+
+    /// <summary>Todas as contas, por nome (sem o baú).</summary>
+    Task<List<(Account Account, DateTime? LastLogin)>> ListAsync();
 }
 
 public interface ICharacterRepository

@@ -1949,6 +1949,16 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
 
     public Task UpdateLastLoginAsync(int accountId, string? ip) => Task.CompletedTask;
 
+    public Task SetPasswordAsync(int accountId, string passwordHash)
+    {
+        foreach (var a in _accounts.Values.Where(a => a.Id == accountId))
+            a.PasswordHash = passwordHash;
+        return Task.CompletedTask;
+    }
+
+    public Task<List<(Account Account, DateTime? LastLogin)>> ListAsync() =>
+        Task.FromResult(_accounts.Values.OrderBy(a => a.Username).Select(a => (a, (DateTime?)null)).ToList());
+
     public Task SetAccessLevelAsync(int accountId, int level)
     {
         foreach (var a in _accounts.Values.Where(a => a.Id == accountId))

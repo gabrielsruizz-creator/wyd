@@ -147,6 +147,33 @@ public sealed class MySqlAccountRepository(MySqlDatabase db) : IAccountRepositor
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task SetPasswordAsync(int accountId, string passwordHash)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand("UPDATE accounts SET password_hash = @h WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@h", passwordHash);
+        command.Parameters.AddWithValue("@id", accountId);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<List<(Account Account, DateTime? LastLogin)>> ListAsync()
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand(
+            "SELECT id, username, access_level, banned, last_login_at FROM accounts ORDER BY username", connection);
+        await using var r = await command.ExecuteReaderAsync();
+        var list = new List<(Account, DateTime?)>();
+        while (await r.ReadAsync())
+            list.Add((new Account
+            {
+                Id = r.GetInt32("id"),
+                Username = r.GetString("username"),
+                AccessLevel = r.GetInt32("access_level"),
+                Banned = r.GetBoolean("banned"),
+            }, r.IsDBNull(r.GetOrdinal("last_login_at")) ? null : r.GetDateTime("last_login_at")));
+        return list;
+    }
+
     public async Task UpdateLastLoginAsync(int accountId, string? ip)
     {
         await using var connection = await db.OpenAsync();

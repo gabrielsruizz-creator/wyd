@@ -183,6 +183,16 @@ dotnet run --project src\WYD.Server -- --Server:LogPackets=true
 Com `LogPackets` ligado, o console mostra cada pacote trocado com o client, o que ajuda a corrigir
 qualquer diferença de protocolo.
 
+## Contas
+
+```powershell
+dotnet run --project src\WYD.Server -- accounts                       # todas as contas e os personagens
+dotnet run --project src\WYD.Server -- set-password <conta> <senha>   # troca a senha (para entrar numa conta)
+dotnet run --project src\WYD.Server -- show <conta> <personagem>      # ficha, equipamento e inventário
+```
+
+As senhas ficam gravadas só como hash: não dá para ver a senha de uma conta, só trocar.
+
 ## Comandos de GM
 
 Dê nível de GM a uma conta (vale a partir do próximo login):

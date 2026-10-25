@@ -95,6 +95,10 @@ public static class Program
                 return await UnstuckAsync(host.Services, args[1]);
             case "unequip" when args.Length >= 3:
                 return await UnequipAsync(host.Services, args[1], args[2], args[3..]);
+            case "accounts" when args.Length == 1:
+                return await ListAccountsAsync(host.Services);
+            case "set-password" when args.Length == 3:
+                return await SetPasswordAsync(host.Services, args[1], args[2]);
             case "show" when args.Length == 3:
                 return await ShowAsync(host.Services, args[1], args[2]);
             case "clear-buffs" when args.Length == 3:
@@ -108,6 +112,8 @@ public static class Program
                       WYD.Server set-access <conta> <nivel>         0 = jogador, 1 = GM (libera /item no jogo)
                       WYD.Server unstuck <conta>                    leva os personagens da conta para a cidade inicial
                       WYD.Server unequip <conta> <personagem> [slot...]  apaga peças equipadas (sem slot: as armas, 6 e 7)
+                      WYD.Server accounts                           lista as contas e os personagens de cada uma
+                      WYD.Server set-password <conta> <senha>       troca a senha da conta
                       WYD.Server show <conta> <personagem>          mostra a ficha, o equipamento e o inventário
                       WYD.Server clear-buffs <conta> <personagem>   tira os efeitos de skill ativos (buffs, Soul)
                       WYD.Server serverlist <serverlist.bin> [ip]   mostra (ou troca) os IPs do serverlist
@@ -281,6 +287,40 @@ public static class Program
         Console.WriteLine("  Inventário:");
         for (int i = 0; i < c.Inventory.Length; i++)
             if (!c.Inventory[i].IsEmpty) Console.WriteLine($"    {i,2}: {Describe(c.Inventory[i])}");
+        return 0;
+    }
+
+    private static async Task<int> ListAccountsAsync(IServiceProvider services)
+    {
+        var characters = services.GetRequiredService<ICharacterRepository>();
+        var list = await services.GetRequiredService<IAccountRepository>().ListAsync();
+        foreach (var (account, lastLogin) in list)
+        {
+            var chars = await characters.ListByAccountAsync(account.Id);
+            string flags = (account.AccessLevel > 0 ? $" GM {account.AccessLevel}" : "") + (account.Banned ? " banida" : "");
+            Console.WriteLine($"{account.Username}{flags} (último login: {lastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "nunca"})");
+            foreach (var c in chars.OrderBy(c => c.Slot))
+                Console.WriteLine($"    slot {c.Slot}: {c.Name}, {c.Class}, {c.Evolution} nível {c.BaseScore.Level + 1}");
+        }
+        Console.WriteLine($"{list.Count} conta(s). As senhas ficam só como hash; para entrar numa conta, troque a senha com set-password.");
+        return 0;
+    }
+
+    private static async Task<int> SetPasswordAsync(IServiceProvider services, string username, string password)
+    {
+        var accounts = services.GetRequiredService<IAccountRepository>();
+        if (await accounts.FindByUsernameAsync(username) is not { } account)
+        {
+            Console.Error.WriteLine($"A conta '{username}' não existe.");
+            return 1;
+        }
+        if (password.Length is < 4 or > 11)
+        {
+            Console.Error.WriteLine("A senha precisa ter de 4 a 11 caracteres (o client manda no máximo 11).");
+            return 1;
+        }
+        await accounts.SetPasswordAsync(account.Id, Security.PasswordHasher.Hash(password));
+        Console.WriteLine($"Senha de '{username}' trocada.");
         return 0;
     }
 
