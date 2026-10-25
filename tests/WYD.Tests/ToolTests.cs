@@ -928,8 +928,11 @@ public class ToolTests
         var fix = Assert.Single(fixes);                                       // o bow16 já está na lista
         Assert.Equal(("mesh\\ordtwo.wys", "mesh\\aawswordtwo.wys"), (fix.Missing, fix.Source));
 
-        Assert.True(WYD.Server.Tools.MeshTextures.Add(list, [fix.Missing]));
-        Assert.Equal("mesh\\ordtwo.wys", WYD.Server.Tools.MeshTextures.Names(list)[3]);
+        Assert.True(fix.Rename);                                              // ninguém mais usa o nome completo
+        Assert.True(WYD.Server.Tools.MeshTextures.Apply(list, fixes));
+        var names = WYD.Server.Tools.MeshTextures.Names(list);
+        Assert.Equal("mesh\\ordtwo.wys", names[0]);                          // no mesmo número: a "_b" continua logo depois
+        Assert.Equal("mesh\\aawswordtwo_b.wys", names[1]);
         Assert.Empty(WYD.Server.Tools.MeshTextures.Plan([("aawswordtwo.msa", Msa("ordtwo.tga"))], list, _ => true));
     }
 }

@@ -445,8 +445,10 @@ O `.msa` guarda o nome da textura num campo de 11 bytes em 0x20 (lido em 0x4C283
 (0x4C27DF) e procura esse nome exato na `mesh\MeshTextureList.bin` (0x4BEFB4: 2048 registros de 0x108 bytes, nome
 terminado em zero e o resto 0xCD). Modelos com nome de mais de 10 letras saíram cortados: o `aawswordtwo.msa`
 (Hrotti, modelo 2899) diz `ordtwo.tga`, o client não acha `mesh\ordtwo.wys` e desenha a arma sem a textura (apagada,
-sem os brilhos). O comando `fix-mesh-textures` copia a textura de verdade com o nome cortado e põe esse nome num
-registro livre da lista.
+sem os brilhos). O client desenha com a textura de número `índice + deslocamento` (0x4C1077), e as armas novas têm a
+variação `_b` logo depois da textura (`aawswordtwo.wys` em 1683, `aawswordtwo_b.wys` em 1684); por isso o comando
+`fix-mesh-textures` troca o nome no próprio registro da textura de verdade para o nome cortado (os números não mudam)
+e copia o arquivo com esse nome. Ele parte sempre da lista original (`MeshTextureList.bin.bak`).
 
 ## WYDLauncher
 
