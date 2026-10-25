@@ -448,6 +448,12 @@ procura o nome exato na `mesh\MeshTextureList.bin` (0x4BEFB4: 2048 registros de 
 o resto 0xCD). O campo cortado do `aawswordtwo.msa` (`ordtwo.tga`) não é usado. O desenho usa a textura de número
 `índice + Texture do item` (0x4C1077): a variação `_b` logo depois de cada arma nova é o visual "Closed_" (Texture 1).
 
+Cada registro guarda o tipo da textura no byte 0xFF (`N`, `A` ou `C`). As armas novas (modelos 2889 a 2901) ganham o
+brilho de refinação e de ancient numa segunda passada (0x4CAB5A), com uma textura de efeito que corre pela arma; o
+client pula essa passada quando a textura da arma é do tipo `C` (0x4CAD4D). Na lista original todas as texturas `aa`
+são `A`, menos `mesh\aawswordtwo.wys` (Hrotti, registro 1683), que veio `C`: por isso o Hrotti era a única arma nova
+sem brilho. `fix-mesh-textures` passa esse registro para `A`.
+
 ## WYDLauncher
 
 O launcher lê o endereço de patch na primeira linha do `Settings.txt` (o resto do arquivo são os textos da janela) e

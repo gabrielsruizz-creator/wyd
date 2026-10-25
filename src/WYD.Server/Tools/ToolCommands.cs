@@ -395,6 +395,42 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>
+    /// fix-mesh-textures &lt;pasta do client&gt;: devolve o brilho de refinação e de ancient do Hrotti (ver
+    /// <see cref="MeshTextures"/>). Parte da MeshTextureList.bin.bak se ela existir (a original, guardada por uma
+    /// versão antiga deste comando que trocava nomes na lista), o que também desfaz aquela troca.
+    /// </summary>
+    public static int FixMeshTexturesCommand(string client)
+    {
+        string? mesh = Directory.Exists(client) ? Directory.EnumerateDirectories(client)
+            .FirstOrDefault(d => Path.GetFileName(d).Equals("mesh", StringComparison.OrdinalIgnoreCase)) : null;
+        string? listPath = mesh is null ? null : Directory.EnumerateFiles(mesh)
+            .FirstOrDefault(f => Path.GetFileName(f).Equals("MeshTextureList.bin", StringComparison.OrdinalIgnoreCase));
+        if (mesh is null || listPath is null)
+        {
+            Console.Error.WriteLine($"{client}: não achei a pasta mesh com a MeshTextureList.bin (client 7.57).");
+            return 1;
+        }
+
+        string original = listPath + ".bak";
+        bool restored = File.Exists(original);
+        var list = File.ReadAllBytes(restored ? original : listPath);
+        var fixedNames = MeshTextures.FixGlow(list);
+        if (!restored) File.Copy(listPath, original);
+        File.WriteAllBytes(listPath, list);
+
+        // Cópia da textura do Hrotti feita pela versão antiga do comando; o client não usa.
+        string leftover = Path.Combine(mesh, "ordtwo.wys");
+        if (File.Exists(leftover)) File.Delete(leftover);
+
+        if (restored) Console.WriteLine("Lista original restaurada a partir da MeshTextureList.bin.bak.");
+        foreach (var name in fixedNames) Console.WriteLine($"  {name}: tipo 'C' -> 'A' (brilho de refinação e ancient).");
+        Console.WriteLine(fixedNames.Count == 0
+            ? "Nenhuma textura de arma nova sem brilho."
+            : $"{fixedNames.Count} textura(s) corrigida(s). A lista original fica em MeshTextureList.bin.bak.");
+        return 0;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {

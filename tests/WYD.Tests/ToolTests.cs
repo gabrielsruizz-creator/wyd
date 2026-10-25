@@ -910,4 +910,25 @@ public class ToolTests
         Assert.Equal(values, WYD.Server.Tools.ClientSettings.ReadConfig(file));
         Assert.Equal(7000, BinaryPrimitives.ReadInt16LittleEndian(file));
     }
+
+    [Fact]
+    public void Mesh_texture_fix_turns_on_the_glow_of_new_weapons_marked_C()
+    {
+        var list = new byte[WYD.Server.Tools.MeshTextures.RecordSize * WYD.Server.Tools.MeshTextures.Records];
+        void Put(int i, string name, char type)
+        {
+            System.Text.Encoding.Latin1.GetBytes(name).CopyTo(list, i * WYD.Server.Tools.MeshTextures.RecordSize);
+            list[i * WYD.Server.Tools.MeshTextures.RecordSize + WYD.Server.Tools.MeshTextures.TypeOffset] = (byte)type;
+        }
+        Put(0, "mesh\\aawswordtwo.wys", 'C');
+        Put(1, "mesh\\aawbow.wys", 'A');
+        Put(2, "mesh\\ch010401.wys", 'C');                                 // roupa: fica como está
+
+        Assert.Equal(["mesh\\aawswordtwo.wys"], WYD.Server.Tools.MeshTextures.FixGlow(list));
+        int t = WYD.Server.Tools.MeshTextures.TypeOffset, r = WYD.Server.Tools.MeshTextures.RecordSize;
+        Assert.Equal((byte)'A', list[t]);
+        Assert.Equal((byte)'A', list[r + t]);
+        Assert.Equal((byte)'C', list[2 * r + t]);
+        Assert.Empty(WYD.Server.Tools.MeshTextures.FixGlow(list));
+    }
 }
