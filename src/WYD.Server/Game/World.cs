@@ -971,8 +971,11 @@ public sealed partial class World(
     {
         var c = session.Character!;
         var look = c.VisibleEquip;
-        outgoing.Add((session, ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, look[0])));
+        // O 0x36B com outro rosto faz o client tocar o efeito da transformação (0x510A85); vai antes do rosto no
+        // inventário para o próprio jogador também ver.
         var equip = ServerPackets.UpdateEquip(session.Id, look);
+        outgoing.Add((session, equip));
+        outgoing.Add((session, ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, look[0])));
         foreach (var viewer in _players.Values)
             if (viewer != session && _visible[viewer.Id].Contains(session.Id))
                 outgoing.Add((viewer, equip));
@@ -1004,11 +1007,21 @@ public sealed partial class World(
         }
     }
 
-    /// <summary>Id livre para uma invocação, de cima para baixo (os monstros do mapa usam os de baixo).</summary>
+    private int _nextSummonId = Mob.LastId;
+
+    /// <summary>
+    /// Id livre para uma invocação, de cima para baixo (os monstros do mapa usam os de baixo), sem repetir o que acabou
+    /// de sair: o client ainda está sumindo com o mob antigo e um 0x364 no mesmo id deixava o antigo parado na tela.
+    /// </summary>
     private ushort? FreeSummonIdLocked()
     {
-        for (int id = Mob.LastId; id >= Mob.FirstId; id--)
+        const int span = Mob.LastId - Mob.FirstId + 1;
+        for (int i = 0; i < span; i++)
+        {
+            int id = _nextSummonId;
+            _nextSummonId = id == Mob.FirstId ? Mob.LastId : id - 1;
             if (!_mobs.ContainsKey((ushort)id)) return (ushort)id;
+        }
         return null;
     }
 
@@ -1105,7 +1118,7 @@ public sealed partial class World(
         {
             if (!InRange(player.Character!, pet)) continue;
             _visible[player.Id].Add(pet.Id);
-            outgoing.Add((player, pet.CreatePacket()));
+            outgoing.Add((player, pet.CreatePacket(ServerPackets.CreateSummoned)));   // com o efeito de invocação
         }
     }
 

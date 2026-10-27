@@ -1612,6 +1612,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         me.LearnedSkill |= 1u << (64 % 24);
 
         await a.SendAsync(SkillPacket(1, 64, 1));
+        var look = await ReceiveTypeAsync(a, Opcodes.UpdateEquip);            // o 0x36B toca o efeito da transformação
+        Assert.Equal(22, look.ReadInt16() & 0xFFF);
         var face = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
         Assert.Equal(((short)ServerPackets.ItemPlace.Equip, (short)0, (short)22), (face.ReadInt16(), face.ReadInt16(), face.ReadInt16()));
         Assert.Equal(21, me.Equip[0].Index);                                   // o rosto de verdade fica guardado
@@ -1648,6 +1650,19 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.NotEqual(boneco.Id, wolf.Id);
             wolf.Skip(0x22 - 12);
             Assert.Equal(226, wolf.ReadInt16());
+            wolf.Skip(0xB8 - 0x24);
+            Assert.Equal(ServerPackets.CreateSummoned, wolf.ReadUInt16());       // com o efeito de invocação
+
+            // Invocar de novo troca a criatura (a anterior some) e o id não se repete, para o client não deixar a
+            // antiga parada na tela.
+            me.BaseScore.Mp = me.MaxMp;
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
+            await a.SendAsync(SkillPacket(1, 58, 1));
+            var gone = await ReceiveTypeAsync(a, Opcodes.RemoveMob);
+            Assert.Equal(wolf.Id, gone.Id);
+            var second = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            Assert.NotEqual(wolf.Id, second.Id);
+            wolf = second;
 
             // A dona marca o boneco (como se tivesse batido nele sem chamar a atenção dele): o lobo vai até ele e bate,
             // como golpe dela.

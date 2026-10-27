@@ -120,7 +120,7 @@ public sealed class Mob
     /// O 0x364 do mob, sem itens que o client não tem (ver <see cref="NpcVisuals"/>); reis vão com o
     /// <see cref="KingLook"/> e os Oracles com o tipo que sempre abre a pergunta.
     /// </summary>
-    public byte[] CreatePacket()
+    public byte[] CreatePacket(ushort createType = 0)
     {
         if (IsKing)
             return ServerPackets.CreateMob(Id, Template.Name, X, Y, KingLook.Equip((Kingdom)Template.Clan), 0,
@@ -131,6 +131,6 @@ public sealed class Mob
         else if (SoulQuest.IsEhre(Template.Name)) score.Merchant = (byte)((score.Merchant & 0xF0) | SoulQuest.EhreClientMerchant);
         return ServerPackets.CreateMob(Id, Template.Name, X, Y,
             Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
-            Template.Guild, score, Game.Affects.ToClient(Affects, DateTime.UtcNow));
+            Template.Guild, score, Game.Affects.ToClient(Affects, DateTime.UtcNow), createType: createType);
     }
 }

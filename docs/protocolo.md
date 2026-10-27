@@ -134,6 +134,14 @@ O servidor sorteia um `KeyWord` novo para cada pacote que envia.
 | `0x20` | `ushort TotalKill` | `0xBA` | `byte Refino[16]` |
 | `0x22` | `ushort Equip[16]` | `0xCA` | `char Tab[26]` |
 
+`CreateType` (0x484B97, com o bit 0x8000 ignorado): 0 aparece normalmente; 2 com o efeito de teleporte; 3 com o efeito de
+invocação (luz, som e a animação de surgir, motion 14), usado nas criaturas da Evocação. Os 4 bits 0xF0 escolhem a pose
+(0x10 e 0x20).
+
+O `0x36B` com um rosto de outro modelo (ou outro efeito 18) faz o client tocar o efeito de transformação (0x510A85, som
+0x9E e motion 14); por isso a transformação manda o `0x36B` também para o próprio jogador, antes do rosto no inventário.
+Uma invocação nova não usa o id da que acabou de sair: com o mesmo id o client deixava a antiga parada na tela.
+
 ### Structs (7.57)
 
 - **`STRUCT_ITEM`** (8 bytes): `short Index`, depois `{byte Effect, byte Value}` × 3.

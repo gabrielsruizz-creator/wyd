@@ -256,8 +256,13 @@ public static class ServerPackets
         return (equip, anct);
     }
 
+    /// <summary>
+    /// CreateType 3: o client toca o efeito de invocação (luz, som e a animação de surgir, 0x484B97) em quem aparece.
+    /// </summary>
+    public const ushort CreateSummoned = 3;
+
     public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score,
-        short[]? affects = null, byte[]? anct = null)
+        short[]? affects = null, byte[]? anct = null, ushort createType = 0)
     {
         var w = new PacketWriter(Opcodes.CreateMob, CreateMobSize, mobId);
         w.WriteInt16(x).WriteInt16(y);
@@ -270,7 +275,7 @@ public static class ServerPackets
         w.WriteUInt16(guild);
         w.Skip(4);                                    // 0x84
         score.Write(w);                               // 0x88 (vida lida em 0xA0 e vida máxima em 0x98, 0x483A18)
-        w.WriteUInt16(0);                             // CreateType: aparece normalmente
+        w.WriteUInt16(createType);                    // CreateType: 0 aparece normalmente
         w.WriteBytes(anct ?? new byte[MaxEquip]);     // 0xBA tipo/cor/gema do refino de cada equipamento
         w.WriteString("", 26);                        // Tab
         w.Skip(4);
