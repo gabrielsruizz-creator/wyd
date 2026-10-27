@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using WYD.Server;
+using WYD.Server.Data;
 using WYD.Server.Database;
 using WYD.Server.Game;
 using WYD.Server.Handlers;
@@ -1732,6 +1733,27 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(1000, World.PartyShare(1000, 1));
         Assert.Equal(550, World.PartyShare(1000, 2));      // 1000 × 110% / 2
         Assert.Equal(325, World.PartyShare(1000, 4));      // 1000 × 130% / 4
+    }
+
+    [Fact]
+    public void Debuffs_weaken_monsters()
+    {
+        var now = DateTime.UtcNow;
+        var template = new NpcTemplate("Boneco", 0, 0, 0, 0, 0, 0,
+            new Score { Ac = 100, MaxHp = 1000, Hp = 1000 }, new Item[16], new Item[64]);
+        var mob = new Mob(Mob.FirstId, template, new SpawnRule { StartRange = 5 }, 100, 100);
+        var normal = World.MobAttackIntervalOf(mob);
+        Assert.True(mob.Wanders);
+
+        mob.Affects.Add(new Affect(AffectType.Pursuit, 30, 16, now.AddMinutes(1)));
+        mob.Affects.Add(new Affect(AffectType.Waste, 500, 0, now.AddMinutes(1)));
+        mob.Affects.Add(new Affect(AffectType.Freeze, 1, 0, now.AddMinutes(1)));
+        Assert.Equal(70, mob.DefenseScore(now).Ac);             // −30% de defesa
+        Assert.Equal(50, mob.Weakened(100, now));               // Enfraquecer: no máximo −50%
+        Assert.True(mob.Frozen(now) && mob.Slowed(now));
+        Assert.False(mob.Wanders);
+        Assert.True(World.MobAttackIntervalOf(mob) > normal);
+        Assert.Equal(100, mob.DefenseScore(now.AddMinutes(2)).Ac); // acabou
     }
 
     [Fact]

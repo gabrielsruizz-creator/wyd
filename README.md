@@ -58,6 +58,8 @@ ficou no histórico do git.
 - [x] Grupo: convidar (clique no jogador), aceitar, sair e o líder tirar membros, até 12; a experiência de quem mata é
       dividida entre os membros vivos perto (+10% por membro além do primeiro). As criaturas da Evocação aparecem na
       janela do grupo e somem quando o dono sai do grupo
+- [x] Debuffs nos monstros: Fúria Divina arrasta o alvo até você; Perseguição tira defesa (% do efeito, até 80%),
+      Enfraquecer tira dano (até 50%), lentidão faz bater e andar 50% mais devagar e o congelamento os prende no lugar
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam

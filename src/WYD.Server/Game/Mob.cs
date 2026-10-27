@@ -33,6 +33,30 @@ public sealed class Mob
     /// <summary>Efeitos de skill no monstro (Perseguição, Toque Sagrado, Lâmina Congelada...).</summary>
     public List<Affect> Affects { get; } = [];
 
+    /// <summary>Força do efeito ativo do tipo (0 se não tem).</summary>
+    public int AffectAmount(AffectType type, DateTime now) =>
+        Affects.FirstOrDefault(a => a.Type == type && a.Expires > now)?.Amount ?? 0;
+
+    public bool Has(AffectType type, DateTime now) => Affects.Any(a => a.Type == type && a.Expires > now);
+
+    /// <summary>Congelado (Lâmina Congelada): não anda.</summary>
+    public bool Frozen(DateTime now) => Has(AffectType.Freeze, now);
+
+    /// <summary>Lento (Toque Sagrado, gelo) ou congelado: bate e anda mais devagar.</summary>
+    public bool Slowed(DateTime now) => Has(AffectType.Slow, now) || Frozen(now);
+
+    /// <summary>Dano do monstro depois do Enfraquecer (efeito 10: tira a força em %, até 50%).</summary>
+    public int Weakened(int damage, DateTime now) =>
+        damage * (100 - Math.Min(50, AffectAmount(AffectType.Waste, now))) / 100;
+
+    /// <summary>Atributos para quem bate nele: a Perseguição (efeito 3) tira a força em % da defesa, até 80%.</summary>
+    public Score DefenseScore(DateTime now)
+    {
+        var score = Score;
+        score.Ac = score.Ac * (100 - Math.Min(80, AffectAmount(AffectType.Pursuit, now))) / 100;
+        return score;
+    }
+
     /// <summary>Invocação (Muro de Espinhos): some nessa hora, não renasce, não anda e não revida.</summary>
     public DateTime? Expires { get; set; }
 
@@ -54,7 +78,7 @@ public sealed class Mob
     public bool Attackable => Template.Merchant == 0 && !SoulQuest.IsEhre(Template.Name) && !IsPet;
 
     /// <summary>NPCs (lojas etc.) e spawns com raio zero ficam parados.</summary>
-    public bool Wanders => Attackable && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;
+    public bool Wanders => Attackable && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0 && !Frozen(DateTime.UtcNow);
 
     /// <summary>O client só pede a lista da loja quando os 4 bits de baixo de Score.Merchant valem 1.</summary>
     public bool IsShop => (Template.Score.Merchant & 0x0F) == 1;

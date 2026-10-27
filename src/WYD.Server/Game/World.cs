@@ -51,7 +51,11 @@ public sealed partial class World(
     /// 0 a 15; com 15 fica em 40%).
     /// </summary>
     public static TimeSpan MobAttackIntervalOf(Mob mob) =>
-        TimeSpan.FromMilliseconds(MobAttackInterval.TotalMilliseconds * 10 / (10 + (mob.Template.Score.AttackRun >> 4)));
+        TimeSpan.FromMilliseconds(MobAttackInterval.TotalMilliseconds * 10 / (10 + (mob.Template.Score.AttackRun >> 4))
+                                  * (mob.Slowed(DateTime.UtcNow) ? 1.5 : 1));
+
+    /// <summary>Quanto o monstro espera entre um passo e outro de perseguição (mais com lentidão; congelado não anda).</summary>
+    private static TimeSpan ChaseWait(Mob mob, DateTime now) => TimeSpan.FromSeconds(mob.Slowed(now) ? 1.5 : 1);
 
     /// <summary>Quantas células um monstro anda de cada vez quando persegue alguém.</summary>
     public const int ChaseStep = 6;
@@ -507,11 +511,11 @@ public sealed partial class World(
                     && Math.Abs(mob.X - fromX) <= attackRange && Math.Abs(mob.Y - fromY) <= attackRange)
                 {
                     damage = auraDamage is int aura
-                        ? Math.Max(aura - mob.Template.Score.Ac / 8, 1)                          // aura (Trovão)
+                        ? Math.Max(aura - mob.DefenseScore(now).Ac / 8, 1)                       // aura (Trovão)
                         : spell is null
-                            ? Combat.Damage(me.CurrentScore, mob.Template.Score, perforation: me.ItemBonus.Perforation)
+                            ? Combat.Damage(me.CurrentScore, mob.DefenseScore(now), perforation: me.ItemBonus.Perforation)
                               * (Combat.IsCritical(me.Critical) ? Combat.CriticalMultiplier : 1)
-                            : SkillUse.Damage(me, spell, skill, mob.Template.Score);
+                            : SkillUse.Damage(me, spell, skill, mob.DefenseScore(now));
                     mob.Hp -= damage;
                     hit.Add(mob);
                     if (auraDamage is null) me.LastTarget = mob.Id;
@@ -718,11 +722,11 @@ public sealed partial class World(
                 int dx = c.PosX - mob.X, dy = c.PosY - mob.Y;
                 if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > MobAttackRange)
                 {
-                    if (mob.NextMove > now) continue;
+                    if (mob.NextMove > now || mob.Frozen(now)) continue;
                     // Para uma célula antes do jogador, andando no máximo ChaseStep.
                     int stepX = Math.Clamp(dx - Math.Sign(dx), -ChaseStep, ChaseStep);
                     int stepY = Math.Clamp(dy - Math.Sign(dy), -ChaseStep, ChaseStep);
-                    mob.NextMove = now + TimeSpan.FromSeconds(1);
+                    mob.NextMove = now + ChaseWait(mob, now);
                     chases.Add((mob, (short)(mob.X + stepX), (short)(mob.Y + stepY)));
                     continue;
                 }
@@ -732,7 +736,7 @@ public sealed partial class World(
                 var buff = Affects.Bonus(c);
                 int damage = Random.Shared.Next(100) < buff.Dodge
                     ? 0                                                       // esquiva (Dodge)
-                    : Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption);
+                    : mob.Weakened(Combat.Damage(mob.Template.Score, c.CurrentScore, absorption: c.ItemBonus.Absorption), now);
                 c.BaseScore.Hp = Math.Max(0, c.BaseScore.Hp - damage);
 
                 var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, victim.Id, c.PosX, c.PosY, damage,
@@ -1049,15 +1053,15 @@ public sealed partial class World(
         int dx = pet.X - mob.X, dy = pet.Y - mob.Y;
         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > MobAttackRange)
         {
-            if (mob.NextMove > now) return true;
-            mob.NextMove = now + TimeSpan.FromSeconds(1);
+            if (mob.NextMove > now || mob.Frozen(now)) return true;
+            mob.NextMove = now + ChaseWait(mob, now);
             chases.Add((mob, (short)(mob.X + Math.Clamp(dx - Math.Sign(dx), -ChaseStep, ChaseStep)),
                 (short)(mob.Y + Math.Clamp(dy - Math.Sign(dy), -ChaseStep, ChaseStep))));
             return true;
         }
         if (mob.NextAttack > now) return true;
         mob.NextAttack = now + MobAttackIntervalOf(mob);
-        int damage = Combat.Damage(mob.Template.Score, pet.Score);
+        int damage = mob.Weakened(Combat.Damage(mob.Template.Score, pet.Score), now);
         pet.Hp = Math.Max(0, pet.Hp - damage);
         var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, pet.Id, pet.X, pet.Y, damage,
             (byte)(ServerPackets.FirstAttackMotion + Random.Shared.Next(ServerPackets.AttackMotions)));
