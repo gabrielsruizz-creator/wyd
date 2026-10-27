@@ -50,6 +50,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(37, 0, 0, 75, 0, 0, 0, 0, 0, 0, 12, 22, 100), // Tempestade de Raios: aura (TickType 22) de 100
             new(97, 0, 4, 0, 4, 13, 2, 500),               // Canhão Guardião: dano mágico 500
             new(98, 36, 6, 42, 6, 5),                      // Muro de Espinhos: 42 de mana
+            new(6, 0, 1, 0, 3, 8, 0, 0, 40),               // Fúria Divina: puxa o alvo
+            new(16, 0, 3, 0, 2, 4, 0, 0, 3, 50, 3),        // Perseguição: efeito 3 nos inimigos
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -1548,6 +1550,45 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(World.ThunderboltSkill, hit.ReadInt16());
             hit.Skip(0x40 - 0x3A);
             Assert.True(hit.ReadInt32() > 0);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Enemy_skills_debuff_the_monster_and_divine_fury_pulls_it()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(npcDir, "Boneco"), NpcDataTests.NpcFile("Boneco", 202, 1, 1_000_000));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Boneco", MaxNumMob = 1, StartX = 2106, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");                    // TK em 2100, 2100
+            var boneco = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            ushort id = boneco.Id;
+            var me = await CharacterOf("jogadora");
+            me.LearnedSkill |= 1u << 6 | 1u << 16;
+
+            // Perseguição: o efeito vai para o boneco (quem vê recebe o 0x336 dele), não para quem lançou.
+            await a.SendAsync(SkillPacket(1, 16, id));
+            var score = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
+            Assert.Equal(id, score.Id);
+            score.Skip(0x3E - 12);
+            Assert.Equal(3, score.ReadInt16() >> 8);
+            Assert.Empty(me.Affects);
+
+            // Fúria Divina: o boneco vem para o lado.
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
+            await a.SendAsync(SkillPacket(1, 6, id));
+            var move = await ReceiveTypeAsync(a, Opcodes.Move);
+            Assert.Equal(id, move.Id);
+            short x = move.ReadInt16(), y = move.ReadInt16();
+            Assert.True(Math.Abs(x - 2100) <= 1 && Math.Abs(y - 2100) <= 1 && (x, y) != (2100, 2100));
+            Assert.Equal(ServerPackets.MoveTeleport, move.ReadInt32());
         }
         finally
         {

@@ -30,6 +30,9 @@ public sealed class Mob
 
     public bool Alive { get; set; } = true;
 
+    /// <summary>Efeitos de skill no monstro (Perseguição, Toque Sagrado, Lâmina Congelada...).</summary>
+    public List<Affect> Affects { get; } = [];
+
     /// <summary>Invocação (Muro de Espinhos): some nessa hora, não renasce, não anda e não revida.</summary>
     public DateTime? Expires { get; set; }
 
@@ -98,6 +101,6 @@ public sealed class Mob
         else if (SoulQuest.IsEhre(Template.Name)) score.Merchant = (byte)((score.Merchant & 0xF0) | SoulQuest.EhreClientMerchant);
         return ServerPackets.CreateMob(Id, Template.Name, X, Y,
             Template.Equip.Select((item, slot) => Visuals?.Visible(Template.Name, slot, item.Index) ?? item.Index),
-            Template.Guild, score);
+            Template.Guild, score, Game.Affects.ToClient(Affects, DateTime.UtcNow));
     }
 }

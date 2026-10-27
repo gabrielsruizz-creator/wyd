@@ -156,6 +156,38 @@ public sealed partial class World(
         return SendAllAsync(outgoing);
     }
 
+    /// <summary>
+    /// Leva o monstro na hora para a célula (Fúria Divina): quem o vê recebe o 0x366 de teleporte, quem passa a ver
+    /// recebe o 0x364.
+    /// </summary>
+    public Task TeleportMobAsync(Mob mob, short x, short y)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            if (!mob.Alive) return Task.CompletedTask;
+            GridRemove(mob);
+            mob.X = x;
+            mob.Y = y;
+            GridAdd(mob);
+            var jump = ServerPackets.Teleport(mob.Id, x, y);
+            foreach (var player in _players.Values)
+            {
+                var mine = _visible[player.Id];
+                bool near = InRange(player.Character!, mob);
+                if (near && mine.Contains(mob.Id)) outgoing.Add((player, jump));
+                else if (near)
+                {
+                    mine.Add(mob.Id);
+                    outgoing.Add((player, mob.CreatePacket()));
+                }
+                else if (mine.Remove(mob.Id))
+                    outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
+            }
+        }
+        return SendAllAsync(outgoing);
+    }
+
     /// <summary>Até quantas células em volta se procura um lugar livre quando o pedido já está ocupado.</summary>
     public const int FreeCellRadius = 4;
 
@@ -376,6 +408,7 @@ public sealed partial class World(
     {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
+        var pulled = new List<(Mob Mob, (short X, short Y) To)>();
         var stored = new List<(int Slot, Item Item)>();
         var lost = new List<Item>();
         long exp;
@@ -436,6 +469,7 @@ public sealed partial class World(
                 (packet.Length - ServerPackets.AttackLayout.Targets) / ServerPackets.AttackLayout.TargetSize);
             var hit = new List<Mob>();
             var buffed = new List<ClientSession>();
+            var debuffed = new List<Mob>();
             for (int i = 0; i < count; i++)
             {
                 int o = ServerPackets.AttackLayout.Targets + i * ServerPackets.AttackLayout.TargetSize;
@@ -467,6 +501,27 @@ public sealed partial class World(
                         outgoing.Add((ally, ServerPackets.UpdateHpMp(ally.Id, a.BaseScore.Hp, a.BaseScore.Mp)));
                     }
                 }
+                else if (SkillUse.IsDebuff(spell)
+                    && targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var foe)
+                    && foe.Alive && foe.Attackable && !hit.Contains(foe)
+                    && Math.Abs(foe.X - me.PosX) <= attackRange && Math.Abs(foe.Y - me.PosY) <= attackRange)
+                {
+                    // Skill no inimigo sem dano: o efeito vai para o alvo (Perseguição, Toque Sagrado...); a Fúria
+                    // Divina puxa o alvo para o lado de quem lançou.
+                    hit.Add(foe);
+                    if (skill == Skills.DivineFury)
+                        pulled.Add((foe, FreeCellLocked(me.PosX, me.PosY, foe)));
+                    else if (Affects.FromSkill(me, spell!, skill, now) is { } debuff)
+                    {
+                        Affects.Apply(foe.Affects, debuff);
+                        debuffed.Add(foe);
+                    }
+                    if (foe.Target == 0 && !foe.IsSummon)
+                    {
+                        foe.Target = session.Id;
+                        if (foe.NextAttack < now) foe.NextAttack = now + MobFirstAttackDelay;
+                    }
+                }
                 else if (SkillUse.IsDamage(spell)
                     && targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
@@ -480,6 +535,13 @@ public sealed partial class World(
                             : SkillUse.Damage(me, spell, skill, mob.Template.Score);
                     mob.Hp -= damage;
                     hit.Add(mob);
+                    // Dano com efeito no alvo (Lâmina Congelada, Tempestade de Gelo...).
+                    if (spell is { AffectType: not 0 } && SkillUse.IsOnEnemy(spell) && mob.Hp > 0
+                        && Affects.FromSkill(me, spell, skill, now) is { } extra)
+                    {
+                        Affects.Apply(mob.Affects, extra);
+                        debuffed.Add(mob);
+                    }
                     if (mob.Hp <= 0) killed.Add(mob);
                     else if (mob.Target == 0 && !mob.IsSummon)
                     {
@@ -529,10 +591,19 @@ public sealed partial class World(
                         outgoing.Add((viewer, score));
             }
 
+            foreach (var mob in debuffed.Distinct())
+            {
+                var score = ServerPackets.UpdateScore(mob);
+                foreach (var viewer in _players.Values)
+                    if (_visible[viewer.Id].Contains(mob.Id))
+                        outgoing.Add((viewer, score));
+            }
+
             foreach (var mob in killed)
             {
                 mob.Alive = false;
                 mob.Hp = 0;
+                mob.Affects.Clear();
                 mob.Target = 0;
                 mob.RespawnAt = now + TimeSpan.FromSeconds(Math.Max(1, options.Value.RespawnSeconds));
                 GridRemove(mob);
@@ -556,6 +627,8 @@ public sealed partial class World(
         }
 
         await SendAllAsync(outgoing);
+        foreach (var (mob, to) in pulled)
+            await TeleportMobAsync(mob, to.X, to.Y);
         if (noSkillData)
         {
             logger.LogWarning("Sem SkillData.bin: as skills não têm efeito. Copie a SkillData.bin do client para a pasta data.");
@@ -863,6 +936,14 @@ public sealed partial class World(
                 c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
                 outgoing.Add((player, ServerPackets.UpdateScore(player.Id, c)));
                 outgoing.Add((player, ServerPackets.AffectList(player.Id, c)));
+            }
+            foreach (var mob in _mobs.Values)
+            {
+                if (mob.Affects.Count == 0 || mob.Affects.RemoveAll(a => a.Expires <= now) == 0) continue;
+                var score = ServerPackets.UpdateScore(mob);
+                foreach (var player in _players.Values)
+                    if (_visible[player.Id].Contains(mob.Id))
+                        outgoing.Add((player, score));
             }
         }
         return SendAllAsync(outgoing);

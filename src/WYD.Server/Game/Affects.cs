@@ -9,9 +9,9 @@ namespace WYD.Server.Game;
 /// </summary>
 public enum AffectType : byte
 {
-    Slow = 1,             // Holy Touch, Freeze Spiral, Ice Spear
+    Slow = 1,             // Toque Sagrado, Tempestade de Gelo, Lança de Gelo (nos inimigos)
     Haste = 2,            // Haste
-    SlowAttack = 3,       // Slow Slash
+    Pursuit = 3,          // Perseguição (Double Swing): diminui a imunidade dos inimigos
     PowerUp = 4,          // Power Up
     Freeze = 7,           // Freeze Blade
     MagicWeapon = 9,      // Magic Weapon
@@ -93,23 +93,27 @@ public static class Affects
     }
 
     /// <summary>Põe o efeito (o do mesmo tipo é trocado; cheio, o que acaba primeiro sai).</summary>
-    public static void Apply(Character c, Affect affect)
+    public static void Apply(Character c, Affect affect) => Apply(c.Affects, affect);
+
+    public static void Apply(List<Affect> affects, Affect affect)
     {
-        c.Affects.RemoveAll(a => a.Type == affect.Type);
-        if (c.Affects.Count >= Max)
-            c.Affects.Remove(c.Affects.MinBy(a => a.Expires)!);
-        c.Affects.Add(affect);
+        affects.RemoveAll(a => a.Type == affect.Type);
+        if (affects.Count >= Max)
+            affects.Remove(affects.MinBy(a => a.Expires)!);
+        affects.Add(affect);
     }
 
     /// <summary>Tira os que acabaram. Retorna true se algum saiu.</summary>
     public static bool Expire(Character c, DateTime now) => c.Affects.RemoveAll(a => a.Expires <= now) > 0;
 
     /// <summary>Os 16 shorts que o client espera: (tipo &lt;&lt; 8) | unidades de 8 s que faltam.</summary>
-    public static short[] ToClient(Character c, DateTime now)
+    public static short[] ToClient(Character c, DateTime now) => ToClient(c.Affects, now);
+
+    public static short[] ToClient(List<Affect> affects, DateTime now)
     {
         var shorts = new short[Max];
         int i = 0;
-        foreach (var a in c.Affects.Where(a => a.Expires > now).Take(Max))
+        foreach (var a in affects.Where(a => a.Expires > now).Take(Max))
         {
             int units = Math.Clamp((int)Math.Ceiling((a.Expires - now).TotalSeconds / SecondsPerUnit), 1, 255);
             shorts[i++] = (short)(((int)a.Type << 8) | units);

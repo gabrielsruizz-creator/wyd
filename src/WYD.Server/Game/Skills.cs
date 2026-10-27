@@ -38,6 +38,9 @@ public static class Skills
     /// <summary>Força Espectral (passiva): +1 de alcance em todas as armas e skills (o client já soma, 0x490525).</summary>
     public const int SpectralForce = 101;
 
+    /// <summary>Fúria Divina (TK): puxa o inimigo para o lado de quem lançou (efeito 40 na SkillData).</summary>
+    public const int DivineFury = 6;
+
     /// <summary>Soul (Limite da Alma): bit 30. O client trata rosto evoluído + esse bit como Celestial.</summary>
     public const int SoulOfLimits = 102;
 
@@ -123,10 +126,20 @@ public static class SkillUse
 
     /// <summary>Skill de efeito (buff): não dá dano nem cura, só põe um efeito.</summary>
     public static bool IsBuff(Data.SkillDefinition? spell) =>
-        spell is not null && !IsDamage(spell) && spell.InstanceType != Heal && (spell.AffectType != 0 || spell.TickType != 0);
+        spell is not null && !IsDamage(spell) && spell.InstanceType != Heal && (spell.AffectType != 0 || spell.TickType != 0)
+        && !IsOnEnemy(spell);
 
-    /// <summary>Alvo da skill: 0 = em si mesmo, 2 = num aliado (ou em si).</summary>
+    /// <summary>
+    /// Alvo da skill (TargetType da SkillData): 0 = em si mesmo, 2 = num aliado (ou em si); 1, 3 e 4 são no inimigo
+    /// (1 um alvo, 3 em área, 4 em volta), como Perseguição, Toque Sagrado, Flash, Cancelamento e Enfraquecer.
+    /// </summary>
     public const int TargetSelf = 0, TargetAlly = 2;
+
+    public static bool IsOnEnemy(Data.SkillDefinition spell) => spell.TargetType is 1 or 3 or 4;
+
+    /// <summary>Skill sem dano que só põe um efeito no inimigo (o efeito não vai para quem lançou).</summary>
+    public static bool IsDebuff(Data.SkillDefinition? spell) =>
+        spell is not null && !IsDamage(spell) && spell.InstanceType != Heal && spell.AffectType != 0 && IsOnEnemy(spell);
 
     public static bool IsDamage(Data.SkillDefinition? spell) =>
         spell is null || spell.InstanceType is Physical or >= FirstMagic and <= LastMagic;

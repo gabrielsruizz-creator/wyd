@@ -420,13 +420,20 @@ public static class ServerPackets
     /// (0x5113CC): SCORE em 0x0C, Critical e SaveMana em 0x3C, short Affect[32] em 0x3E, Guild em 0x7E, GuildLevel em
     /// 0x80.
     /// </summary>
-    public static byte[] UpdateScore(ushort id, Character c)
+    public static byte[] UpdateScore(ushort id, Character c) =>
+        UpdateScore(id, c.CurrentScore, Affects.ToClient(c, DateTime.UtcNow), c.Critical, c.SaveMana, c.Guild);
+
+    /// <summary>0x336 de um monstro: quem o vê passa a desenhar os efeitos de skill nele.</summary>
+    public static byte[] UpdateScore(Mob mob) =>
+        UpdateScore(mob.Id, mob.Score, Affects.ToClient(mob.Affects, DateTime.UtcNow), 0, 0, mob.Template.Guild);
+
+    private static byte[] UpdateScore(ushort id, Score score, short[] affects, byte critical, byte saveMana, ushort guild)
     {
         var w = new PacketWriter(Opcodes.UpdateScore, UpdateScoreSize, id);
-        c.CurrentScore.Write(w);                      // 0x0C
-        w.WriteByte(c.Critical).WriteByte(c.SaveMana); // 0x3C Critical, SaveMana
-        WriteAffects(w, Affects.ToClient(c, DateTime.UtcNow));   // 0x3E Affect: ícones dos buffs
-        w.WriteUInt16(c.Guild).WriteUInt16(0);        // 0x7E Guild, GuildLevel
+        score.Write(w);                               // 0x0C
+        w.WriteByte(critical).WriteByte(saveMana);    // 0x3C Critical, SaveMana
+        WriteAffects(w, affects);                     // 0x3E Affect: ícones dos buffs
+        w.WriteUInt16(guild).WriteUInt16(0);          // 0x7E Guild, GuildLevel
         w.Skip(UpdateScoreSize - w.Position);         // 0x82 Resist e o resto
         return w.ToArray();
     }
