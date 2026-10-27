@@ -74,6 +74,9 @@ public sealed class Character
     /// <summary>Equip[0] é o "rosto" (modelo do personagem); os demais são os equipamentos.</summary>
     public Item[] Equip { get; set; } = new Item[GameConstants.MaxEquip];
 
+    /// <summary>Vida, vida máxima e nível que os outros membros do grupo viram por último na janela.</summary>
+    public (int Hp, int MaxHp, int Level) PartyBar { get; set; }
+
     /// <summary>Último monstro que o personagem atacou (a criatura da Evocação vai nele).</summary>
     public ushort LastTarget { get; set; }
 

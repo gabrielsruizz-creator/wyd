@@ -150,6 +150,37 @@ public sealed partial class World
             outgoing.Add((member, ServerPackets.PartyRemove(session.Id)));
     }
 
+    /// <summary>De quanto em quanto tempo as barras de vida da janela do grupo são atualizadas.</summary>
+    public static readonly TimeSpan PartyBarInterval = TimeSpan.FromSeconds(1);
+
+    private DateTime _nextPartyBars;
+
+    /// <summary>
+    /// Barras da janela do grupo: quem mudou de vida, vida máxima ou nível desde a última vez manda o 0x336 para os
+    /// outros membros (o client atualiza a barra do id dele na janela, 0x51158F).
+    /// </summary>
+    public Task PartyBarsAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        lock (_lock)
+        {
+            if (now < _nextPartyBars) return Task.CompletedTask;
+            _nextPartyBars = now + PartyBarInterval;
+            foreach (var party in _parties.Values.Distinct())
+                foreach (var member in party.Members)
+                {
+                    var c = member.Character!;
+                    var bar = (c.BaseScore.Hp, c.MaxHp, c.BaseScore.Level);
+                    if (c.PartyBar == bar) continue;
+                    c.PartyBar = bar;
+                    var score = ServerPackets.UpdateScore(member.Id, c);
+                    foreach (var other in party.Members)
+                        if (other != member) outgoing.Add((other, score));
+                }
+        }
+        return SendAllAsync(outgoing);
+    }
+
     /// <summary>Quem está no grupo do jogador (ele incluído); só ele se não tem grupo.</summary>
     private IReadOnlyList<ClientSession> PartyOfLocked(ClientSession session) =>
         _parties.TryGetValue(session.Id, out var party) ? party.Members : [session];

@@ -1648,9 +1648,9 @@ public sealed class ServerFlowTests : IAsyncLifetime
             wolf.Skip(0x22 - 12);
             Assert.Equal(226, wolf.ReadInt16());
 
-            // A dona bate no boneco: o lobo vai até ele e bate também, como golpe dela.
-            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
-            await a.SendAsync(SkillPacket(1, -1, boneco.Id));
+            // A dona marca o boneco (como se tivesse batido nele sem chamar a atenção dele): o lobo vai até ele e bate,
+            // como golpe dela.
+            me.LastTarget = boneco.Id;
             PacketReader? bite = null;
             for (int i = 0; i < 40 && bite is null; i++)
             {
@@ -1661,6 +1661,19 @@ public sealed class ServerFlowTests : IAsyncLifetime
             bite!.Skip(ServerPackets.AttackLayout.Targets - 12);
             Assert.Equal(boneco.Id, bite.ReadInt32());
             Assert.True(bite.ReadInt32() > 0);
+
+            // O boneco revida no lobo, que foi quem bateu.
+            PacketReader? back = null;
+            for (int i = 0; i < 60 && back is null; i++)
+            {
+                var p = await a.ReceiveAsync();
+                if (p.Type is Opcodes.AttackOne && p.Id == boneco.Id)
+                {
+                    p.Skip(ServerPackets.AttackLayout.Targets - 12);
+                    if (p.ReadInt32() == wolf.Id) back = p;
+                }
+            }
+            Assert.NotNull(back);
         }
         finally
         {
@@ -1696,6 +1709,14 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(1, member.ReadByte());
         member.Skip(6);
         Assert.Equal(bId, member.ReadUInt16());
+
+        // A vida do Bruno muda: a Alice recebe o 0x336 dele, que atualiza a barra na janela do grupo.
+        var bruno = await CharacterOf("jogadorb");
+        bruno.BaseScore.Hp = Math.Max(1, bruno.BaseScore.Hp / 2);
+        var bar = await ReceiveTypeAsync(a, Opcodes.UpdateScore);
+        Assert.Equal(bId, bar.Id);
+        bar.Skip(0x24 - 12);
+        Assert.Equal(bruno.BaseScore.Hp, bar.ReadInt32());
 
         // O Bruno sai: sobra só a Alice e o grupo acaba para os dois.
         await b.SendAsync(new PacketWriter(Opcodes.PartyRemove, ServerPackets.PartyRemoveSize, bId).WriteInt32(0).ToArray());

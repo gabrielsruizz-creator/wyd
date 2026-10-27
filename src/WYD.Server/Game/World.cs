@@ -525,7 +525,7 @@ public sealed partial class World(
                     if (mob.Hp <= 0) killed.Add(mob);
                     else if (mob.Target == 0 && !mob.IsSummon)
                     {
-                        mob.Target = session.Id;                 // revida: passa a perseguir quem bateu
+                        mob.Target = pet?.Id ?? session.Id;      // revida: passa a perseguir quem bateu (ou a criatura)
                         if (mob.NextAttack < now) mob.NextAttack = now + MobFirstAttackDelay;
                     }
                 }
@@ -698,9 +698,14 @@ public sealed partial class World(
         var deaths = new List<ClientSession>();
         lock (_lock)
         {
-            foreach (var mob in _mobs.Values)
+            foreach (var mob in _mobs.Values.ToList())
             {
                 if (!mob.Alive || mob.Target == 0) continue;
+                if (mob.Target >= Mob.FirstId)
+                {
+                    if (MobVersusPetLocked(mob, now, outgoing, chases)) busy.Add(mob);
+                    continue;
+                }
                 if (!_players.TryGetValue(mob.Target, out var victim) || IsDead(victim.Character!)
                     || !InRange(victim.Character!, mob))
                 {
@@ -1026,6 +1031,52 @@ public sealed partial class World(
             foreach (var mob in _mobs.Values.Where(m => m.IsSummon && (m.Expires <= now || !m.Alive)).ToList())
                 RemoveSummonLocked(mob, outgoing);
         return SendAllAsync(outgoing);
+    }
+
+    /// <summary>
+    /// Monstro brigando com uma criatura da Evocação (que bateu nele): chega perto e bate; a vida dela aparece na janela
+    /// do grupo do dono (0x336) e, se acabar, ela morre e some. Retorna se o monstro está ocupado (chamar com o lock).
+    /// </summary>
+    private bool MobVersusPetLocked(Mob mob, DateTime now, List<(ClientSession To, byte[] Packet)> outgoing,
+        List<(Mob Mob, short X, short Y)> chases)
+    {
+        if (!_mobs.TryGetValue(mob.Target, out var pet) || !pet.Alive || !pet.IsPet
+            || Math.Max(Math.Abs(pet.X - mob.X), Math.Abs(pet.Y - mob.Y)) > ViewRange)
+        {
+            mob.Target = 0;
+            return false;
+        }
+        int dx = pet.X - mob.X, dy = pet.Y - mob.Y;
+        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > MobAttackRange)
+        {
+            if (mob.NextMove > now) return true;
+            mob.NextMove = now + TimeSpan.FromSeconds(1);
+            chases.Add((mob, (short)(mob.X + Math.Clamp(dx - Math.Sign(dx), -ChaseStep, ChaseStep)),
+                (short)(mob.Y + Math.Clamp(dy - Math.Sign(dy), -ChaseStep, ChaseStep))));
+            return true;
+        }
+        if (mob.NextAttack > now) return true;
+        mob.NextAttack = now + MobAttackIntervalOf(mob);
+        int damage = Combat.Damage(mob.Template.Score, pet.Score);
+        pet.Hp = Math.Max(0, pet.Hp - damage);
+        var attack = ServerPackets.MobAttack(mob.Id, mob.X, mob.Y, pet.Id, pet.X, pet.Y, damage,
+            (byte)(ServerPackets.FirstAttackMotion + Random.Shared.Next(ServerPackets.AttackMotions)));
+        foreach (var player in _players.Values)
+            if (_visible[player.Id].Contains(mob.Id) || _visible[player.Id].Contains(pet.Id))
+                outgoing.Add((player, attack));
+        if (_players.TryGetValue(pet.Owner, out var owner))
+        {
+            var bar = ServerPackets.UpdateScore(pet);
+            foreach (var member in PartyOfLocked(owner))
+                outgoing.Add((member, bar));
+        }
+        if (pet.Hp > 0) return true;
+        foreach (var player in _players.Values)
+            if (_visible[player.Id].Contains(pet.Id))
+                outgoing.Add((player, ServerPackets.MobKill(pet.Id, mob.Id, 0)));
+        RemoveSummonLocked(pet, outgoing);
+        mob.Target = 0;
+        return true;
     }
 
     /// <summary>Evocação: troca a criatura anterior do dono por uma nova ao lado dele (chamar com o lock).</summary>
