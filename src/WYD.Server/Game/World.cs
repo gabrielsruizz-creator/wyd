@@ -37,6 +37,9 @@ public sealed partial class World(
     /// <summary>Distância em que um monstro consegue bater (corpo a corpo).</summary>
     public const int MobAttackRange = 2;
 
+    /// <summary>Velocidade com que a Fúria Divina arrasta o alvo pela rota até quem lançou (a maior das corridas).</summary>
+    public const int PullSpeed = 6;
+
     /// <summary>Intervalo entre dois golpes de um monstro sem velocidade de ataque (a maioria no NPC tem 0).</summary>
     public static readonly TimeSpan MobAttackInterval = TimeSpan.FromMilliseconds(1200);
 
@@ -123,13 +126,17 @@ public sealed partial class World(
             return _players.Values.SelectMany(p => MobsNear(p.Character!.PosX, p.Character.PosY)).Distinct().ToList();
     }
 
-    /// <summary>Move um monstro: quem já via recebe o 0x366; quem passa a ver ou deixa de ver recebe 0x364/0x165.</summary>
-    public Task MoveMobAsync(Mob mob, short destX, short destY)
+    /// <summary>
+    /// Move um monstro: quem já via recebe o 0x366; quem passa a ver ou deixa de ver recebe 0x364/0x165. Sem
+    /// <paramref name="speed"/>, anda na velocidade dele.
+    /// </summary>
+    public Task MoveMobAsync(Mob mob, short destX, short destY, int? speed = null)
     {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         lock (_lock)
         {
-            var move = ServerPackets.Move(mob.Id, mob.X, mob.Y, destX, destY, mob.Speed);
+            if (!mob.Alive) return Task.CompletedTask;
+            var move = ServerPackets.Move(mob.Id, mob.X, mob.Y, destX, destY, speed ?? mob.Speed);
             GridRemove(mob);
             mob.X = destX;
             mob.Y = destY;
@@ -151,38 +158,6 @@ public sealed partial class World(
                     mine.Remove(mob.Id);
                     outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
                 }
-            }
-        }
-        return SendAllAsync(outgoing);
-    }
-
-    /// <summary>
-    /// Leva o monstro na hora para a célula (Fúria Divina): quem o vê recebe o 0x366 de teleporte, quem passa a ver
-    /// recebe o 0x364.
-    /// </summary>
-    public Task TeleportMobAsync(Mob mob, short x, short y)
-    {
-        var outgoing = new List<(ClientSession To, byte[] Packet)>();
-        lock (_lock)
-        {
-            if (!mob.Alive) return Task.CompletedTask;
-            GridRemove(mob);
-            mob.X = x;
-            mob.Y = y;
-            GridAdd(mob);
-            var jump = ServerPackets.Teleport(mob.Id, x, y);
-            foreach (var player in _players.Values)
-            {
-                var mine = _visible[player.Id];
-                bool near = InRange(player.Character!, mob);
-                if (near && mine.Contains(mob.Id)) outgoing.Add((player, jump));
-                else if (near)
-                {
-                    mine.Add(mob.Id);
-                    outgoing.Add((player, mob.CreatePacket()));
-                }
-                else if (mine.Remove(mob.Id))
-                    outgoing.Add((player, ServerPackets.RemoveMob(mob.Id)));
             }
         }
         return SendAllAsync(outgoing);
@@ -628,7 +603,7 @@ public sealed partial class World(
 
         await SendAllAsync(outgoing);
         foreach (var (mob, to) in pulled)
-            await TeleportMobAsync(mob, to.X, to.Y);
+            await MoveMobAsync(mob, to.X, to.Y, PullSpeed);
         if (noSkillData)
         {
             logger.LogWarning("Sem SkillData.bin: as skills não têm efeito. Copie a SkillData.bin do client para a pasta data.");

@@ -1581,14 +1581,17 @@ public sealed class ServerFlowTests : IAsyncLifetime
             Assert.Equal(3, score.ReadInt16() >> 8);
             Assert.Empty(me.Affects);
 
-            // Fúria Divina: o boneco vem para o lado.
+            // Fúria Divina: o boneco é arrastado (anda pela rota, rápido) até o lado.
             await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
             await a.SendAsync(SkillPacket(1, 6, id));
             var move = await ReceiveTypeAsync(a, Opcodes.Move);
             Assert.Equal(id, move.Id);
+            Assert.Equal((2106, 2100), (move.ReadInt16(), move.ReadInt16()));      // sai de onde estava
+            Assert.Equal(ServerPackets.MoveWalk, move.ReadInt32());
+            Assert.Equal(World.PullSpeed, move.ReadInt32());
+            move.Skip(ServerPackets.MaxRoute);
             short x = move.ReadInt16(), y = move.ReadInt16();
             Assert.True(Math.Abs(x - 2100) <= 1 && Math.Abs(y - 2100) <= 1 && (x, y) != (2100, 2100));
-            Assert.Equal(ServerPackets.MoveTeleport, move.ReadInt32());
         }
         finally
         {
