@@ -170,6 +170,13 @@ No seu PC, direto no arquivo (o original fica em `WYD.exe.bak`):
 dotnet run --project src\WYD.Server -- patch-client "C:\caminho\do\jogo\WYD.exe"
 ```
 
+Para testar com duas contas no mesmo PC (o client original só deixa abrir um), no seu WYD.exe (o original fica em
+`WYD.exe.um-client`; não use esse exe no `publish-client` se não quiser que os jogadores também possam abrir vários):
+
+```powershell
+dotnet run --project src\WYD.Server -- multi-client "C:\caminho\do\jogo\WYD.exe"
+```
+
 Para os jogadores receberem pelo WYDLauncher:
 
 ```powershell

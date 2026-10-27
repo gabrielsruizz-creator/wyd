@@ -87,6 +87,24 @@ public static class ClientPatcher
 
     private static byte[] OneSlotGrid => Grid(Enumerable.Repeat((1, 1), OriginalGrid.Length).ToArray());
 
+    /// <summary>
+    /// Na abertura o client 7.57 procura uma janela "With Your Destiny" (FindWindowA em 0x54D759) e, se achar, fecha:
+    /// só um client por vez. A troca vira o "je" logo depois em "jmp", e o client abre sempre.
+    /// </summary>
+    private static readonly byte[] SingleInstanceCheck = Convert.FromHexString("6894A260006A00FF1520D35D0085C0");
+
+    /// <summary>Deixa abrir mais de um client no mesmo PC (só o 7.57).</summary>
+    public static Result AllowMultipleClients(byte[] exe)
+    {
+        int at = exe.AsSpan().IndexOf(SingleInstanceCheck);
+        if (at < 0) return Result.Unknown;
+        int jump = at + SingleInstanceCheck.Length;   // depois do test eax, eax
+        if (exe[jump] == 0xEB) return Result.AlreadyPatched;
+        if (exe[jump] != 0x74) return Result.Unknown;
+        exe[jump] = 0xEB;                         // je +7 -> jmp +7
+        return Result.Patched;
+    }
+
     /// <summary>Aplica as correções no conteúdo do WYD.exe (da primeira versão conhecida que bater).</summary>
     public static Result Patch(byte[] exe) => Patch(exe, out _);
 

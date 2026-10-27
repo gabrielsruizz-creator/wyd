@@ -36,6 +36,8 @@ public static class Program
                 return ToolCommands.LauncherCommand(client, ip);
             case ["client-config", var client, .. var options]:
                 return ToolCommands.ClientConfigCommand(client, options);
+            case ["multi-client", var exe]:
+                return ToolCommands.MultiClientCommand(exe);
             case ["fix-mesh-textures", var client]:
                 return ToolCommands.FixMeshTexturesCommand(client);
             case ["fix-lists", var client]:
@@ -123,6 +125,7 @@ public static class Program
                       WYD.Server fix-mesh-textures <pasta do client> devolve o brilho de refinação e ancient do Hrotti
                       WYD.Server fix-lists <pasta do client>         acerta o checksum da ItemList e da SkillData e copia para data/
                       WYD.Server extract-exptable <WYD.exe>         copia a tabela de experiência para data/ExpTable.txt
+                      WYD.Server multi-client <WYD.exe>             deixa abrir mais de um client no mesmo PC (testes)
                       WYD.Server patch-client <WYD.exe>             corrige o client: efeito das armas +13 a +15, item em 1 slot
                       WYD.Server publish-client <WYD.exe>           põe o WYD.exe corrigido em data/patch para o launcher baixar
                       WYD.Server find-keytable <WYD.exe|.DMP> [--port 8281] [--status "texto"]  acha a KeyTable do client

@@ -431,6 +431,34 @@ public static class ToolCommands
         return 0;
     }
 
+    /// <summary>
+    /// multi-client &lt;WYD.exe&gt;: deixa abrir mais de um client no mesmo PC (para testar com duas contas). Guarda o
+    /// original em WYD.exe.um-client. Não vai para os jogadores: o publish-client usa o exe que você indicar.
+    /// </summary>
+    public static int MultiClientCommand(string exePath)
+    {
+        if (!File.Exists(exePath))
+        {
+            Console.Error.WriteLine($"Arquivo não encontrado: {exePath}");
+            return 1;
+        }
+        var exe = File.ReadAllBytes(exePath);
+        switch (ClientPatcher.AllowMultipleClients(exe))
+        {
+            case ClientPatcher.Result.AlreadyPatched:
+                Console.WriteLine("Este WYD.exe já abre mais de um client.");
+                return 0;
+            case ClientPatcher.Result.Unknown:
+                Console.Error.WriteLine("Não achei a checagem de um client só neste WYD.exe (só o 7.57 é conhecido).");
+                return 1;
+        }
+        string backup = exePath + ".um-client";
+        if (!File.Exists(backup)) File.Copy(exePath, backup);
+        File.WriteAllBytes(exePath, exe);
+        Console.WriteLine($"Pronto: o WYD.exe abre mais de um client. Original em {backup}.");
+        return 0;
+    }
+
     /// <summary>extract-exptable &lt;WYD.exe&gt;: copia a tabela de experiência do client para data/ExpTable.txt.</summary>
     public static int ExtractExpTableCommand(string exePath)
     {

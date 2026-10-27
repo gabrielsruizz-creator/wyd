@@ -931,4 +931,16 @@ public class ToolTests
         Assert.Equal((byte)'C', list[2 * r + t]);
         Assert.Empty(WYD.Server.Tools.MeshTextures.FixGlow(list));
     }
+
+    [Fact]
+    public void Multi_client_patch_turns_the_single_instance_check_into_a_jump()
+    {
+        var exe = new byte[64];
+        var check = Convert.FromHexString("6894A260006A00FF1520D35D0085C0740733C0");
+        check.CopyTo(exe, 10);
+        Assert.Equal(WYD.Server.Tools.ClientPatcher.Result.Patched, WYD.Server.Tools.ClientPatcher.AllowMultipleClients(exe));
+        Assert.Equal(0xEB, exe[10 + 15]);
+        Assert.Equal(WYD.Server.Tools.ClientPatcher.Result.AlreadyPatched, WYD.Server.Tools.ClientPatcher.AllowMultipleClients(exe));
+        Assert.Equal(WYD.Server.Tools.ClientPatcher.Result.Unknown, WYD.Server.Tools.ClientPatcher.AllowMultipleClients(new byte[64]));
+    }
 }
