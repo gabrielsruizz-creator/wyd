@@ -335,16 +335,30 @@ public sealed class ItemHandler(
         short powder = powders[powderPos].Index;
         if (Game.Dyes.BeanOf(target.Index) is { } bean)
         {
-            // Tintura + Pó de Oriharukon = Feijão Mágico da mesma cor.
+            // Tintura + Pó de Oriharukon = Feijão Mágico da mesma cor, um por pó. Num pacote de Tinturas sai um
+            // Feijão por vez: ele vai para um pacote de Feijões igual ou para um slot livre.
             if (material != Game.RefineMaterial.Oriharukon)
             {
                 await session.SendMessageAsync("A Tintura vira Feijão Mágico com o Pó de Oriharukon.");
                 return false;
             }
-            dest[destPos] = new Item(bean);
+            int beanPos = Amount(target) <= 1 ? destPos : StackSlot(c, destType, dest, bean);
+            if (beanPos < 0)
+            {
+                await session.SendMessageAsync("Sem espaço para o Feijão Mágico.");
+                return false;
+            }
             Consume(powders, powderPos);
+            if (beanPos == destPos) dest[destPos] = new Item(bean);
+            else
+            {
+                Consume(dest, destPos);
+                dest[beanPos] = dest[beanPos].IsEmpty ? new Item(bean) : WithAmount(dest[beanPos], Amount(dest[beanPos]) + 1);
+            }
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)powderType, powderPos, powders[powderPos]));
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
+            if (beanPos != destPos)
+                await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, beanPos, dest[beanPos]));
             await session.SendMessageAsync("Feijão Mágico pronto: arraste-o na peça que quer pintar.");
             if (destType == 2 || powderType == 2) await SaveAsync(session, cargo: true);
             return true;
@@ -396,6 +410,44 @@ public sealed class ItemHandler(
     public Random Random { get; set; } = Random.Shared;
 
     /// <summary>Gasta uma unidade: itens empilhados (efeito 61 = quantidade) diminuem; os outros somem.</summary>
+    /// <summary>Quantas unidades tem o item (efeito 61 nos empilhados; 1 nos outros).</summary>
+    private static int Amount(Item item) =>
+        item.IsEmpty ? 0
+        : Math.Max(1, item.Effect1 == EfAmount ? item.Value1 : item.Effect2 == EfAmount ? item.Value2 : item.Effect3 == EfAmount ? item.Value3 : 1);
+
+    /// <summary>Até quantas unidades o servidor junta num pacote.</summary>
+    public const int MaxStack = 100;
+
+    /// <summary>O item com outra quantidade (no efeito 61, ou no primeiro efeito livre).</summary>
+    private static Item WithAmount(Item item, int amount)
+    {
+        byte n = (byte)Math.Clamp(amount, 1, MaxStack);
+        if (item.Effect1 == EfAmount) item.Value1 = n;
+        else if (item.Effect2 == EfAmount) item.Value2 = n;
+        else if (item.Effect3 == EfAmount) item.Value3 = n;
+        else if (item.Effect1 == 0) (item.Effect1, item.Value1) = (EfAmount, n);
+        else if (item.Effect2 == 0) (item.Effect2, item.Value2) = (EfAmount, n);
+        else if (item.Effect3 == 0) (item.Effect3, item.Value3) = (EfAmount, n);
+        return item;
+    }
+
+    /// <summary>
+    /// Onde guardar mais uma unidade de <paramref name="index"/> no inventário (só as páginas liberadas) ou no baú: um
+    /// pacote igual com espaço, senão o primeiro slot livre; -1 se não houver.
+    /// </summary>
+    private static int StackSlot(Character c, int type, Item[] place, short index)
+    {
+        int count = type == 1 ? Math.Min(place.Length, Bags.Usable) : place.Length;
+        bool Open(int i) => type != 1 || Bags.CanHold(c, i);
+        for (int i = 0; i < count; i++)
+            if (Open(i) && place[i].Index == index && Amount(place[i]) < MaxStack
+                && (place[i].Effect1 is 0 or EfAmount || place[i].Effect2 is 0 or EfAmount || place[i].Effect3 is 0 or EfAmount))
+                return i;
+        for (int i = 0; i < count; i++)
+            if (Open(i) && place[i].IsEmpty) return i;
+        return -1;
+    }
+
     private static void Consume(Item[] place, int slot)
     {
         ref var item = ref place[slot];

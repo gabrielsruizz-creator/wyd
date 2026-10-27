@@ -1425,6 +1425,19 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal("Feijão Mágico pronto: arraste-o na peça que quer pintar.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
         Assert.True(c.Inventory[0].IsEmpty);
 
+        // Pacote de 5 Tinturas: cada pó tira uma e o Feijão vai para um slot livre; o segundo entra no mesmo pacote.
+        c.Inventory[5] = new Item(412) { Effect1 = 61, Value1 = 2 };
+        c.Inventory[6] = new Item(3397) { Effect1 = 61, Value1 = 5 };
+        for (int round = 1; round <= 2; round++)
+        {
+            await a.SendAsync(Use(5, 6));
+            for (int i = 0; i < 3; i++) Assert.Equal(Opcodes.UpdateItem, (await a.ReceiveAsync()).Type);
+            await a.ReceiveAsync();                                                   // mensagem
+        }
+        Assert.True(c.Inventory[5].IsEmpty);
+        Assert.Equal((3397, 61, 3), (c.Inventory[6].Index, c.Inventory[6].Effect1, c.Inventory[6].Value1));
+        Assert.Equal((3407, 61, 2), (c.Inventory[0].Index, c.Inventory[0].Effect1, c.Inventory[0].Value1));
+
         // Arma não pega pintura: o feijão volta para a tela.
         await a.SendAsync(Use(1, 3));
         Assert.Equal("Só elmo, peitoral, calça, luva, bota e escudo podem ser pintados.", (await a.ReceiveAsync()).ReadString(GameConstants.MessageLength));
