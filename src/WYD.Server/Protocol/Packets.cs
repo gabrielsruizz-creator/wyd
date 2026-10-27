@@ -203,12 +203,51 @@ public static class ServerPackets
     /// </code>
     /// Com a SCORE em 0x84 o client lia a vida errada (0) e mostrava os NPCs mortos.
     /// </summary>
-    public static byte[] CreateMob(ushort mobId, Character c) =>
-        CreateMob(mobId, c.Name, c.PosX, c.PosY, c.Equip.Select(i => i.Index), c.Guild, c.CurrentScore,
-            Affects.ToClient(c, DateTime.UtcNow));
+    public static byte[] CreateMob(ushort mobId, Character c)
+    {
+        var (equip, anct) = VisualEquip(c.Equip);
+        return CreateMob(mobId, c.Name, c.PosX, c.PosY, equip, c.Guild, c.CurrentScore, Affects.ToClient(c, DateTime.UtcNow), anct);
+    }
+
+    /// <summary>Slots cujo refino vai nos 4 bits de cima do índice (0x50BB00: elmo, peitoral... até as duas armas).</summary>
+    public const int FirstRefinedSlot = 1, LastRefinedSlot = 7;
+
+    /// <summary>
+    /// Equipamento como os outros jogadores o veem (0x364 em 0x22 e 0xBA, 0x36B em 0x0C e 0x2C; lidos em 0x50B6C4 e
+    /// 0x50C7BB):
+    /// <list type="bullet">
+    /// <item>Equip[i] = índice | refino &lt;&lt; 12, nos slots 1 a 7 (o client tira o refino com sar 12).</item>
+    /// <item>Anct[i], até o +9: o tipo do efeito do refino (43, ou 116 a 125 da tintura; 0 sem refino).</item>
+    /// <item>Anct[i], do +10 em diante: cor nos 4 bits de baixo (tipo − 115; 0 sem cor) e gema + 1 nos de cima (o
+    /// client soma 8 e usa como brilho, como faz no próprio personagem com 0x415535).</item>
+    /// </list>
+    /// </summary>
+    public static (short[] Equip, byte[] Anct) VisualEquip(IReadOnlyList<Item> items)
+    {
+        var equip = new short[MaxEquip];
+        var anct = new byte[MaxEquip];
+        for (int i = 0; i < MaxEquip && i < items.Count; i++)
+        {
+            var item = items[i];
+            equip[i] = item.Index;
+            if (item.IsEmpty || i < FirstRefinedSlot || i > LastRefinedSlot || item.Index >= 0x1000) continue;
+            int refine = Math.Clamp(Stats.Refine(item), 0, 15);
+            equip[i] = (short)(item.Index | refine << 12);
+            int slot = Stats.SancSlot(item);
+            byte type = slot switch { 1 => item.Effect1, 2 => item.Effect2, 3 => item.Effect3, _ => 0 };
+            if (refine < Ancient.MinRefine) anct[i] = type;
+            else
+            {
+                int color = type is >= 116 and <= 125 ? type - 115 : 0;
+                int gem = (Stats.RawSanc(item) - Ancient.RefinedBase) % 4 + 1;
+                anct[i] = (byte)(gem << 4 | color);
+            }
+        }
+        return (equip, anct);
+    }
 
     public static byte[] CreateMob(ushort mobId, string name, short x, short y, IEnumerable<short> equip, ushort guild, Score score,
-        short[]? affects = null)
+        short[]? affects = null, byte[]? anct = null)
     {
         var w = new PacketWriter(Opcodes.CreateMob, CreateMobSize, mobId);
         w.WriteInt16(x).WriteInt16(y);
@@ -222,7 +261,7 @@ public static class ServerPackets
         w.Skip(4);                                    // 0x84
         score.Write(w);                               // 0x88 (vida lida em 0xA0 e vida máxima em 0x98, 0x483A18)
         w.WriteUInt16(0);                             // CreateType: aparece normalmente
-        w.Skip(16);                                   // refino de cada equipamento
+        w.WriteBytes(anct ?? new byte[MaxEquip]);     // 0xBA tipo/cor/gema do refino de cada equipamento
         w.WriteString("", 26);                        // Tab
         w.Skip(4);
         return w.ToArray();
@@ -486,11 +525,12 @@ public static class ServerPackets
         new PacketWriter(Opcodes.UpdateHpMp, 28, id).WriteInt32(hp).WriteInt32(mp).WriteInt32(hp).WriteInt32(mp).ToArray();
 
     /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>
-    public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> equip)
+    public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> items)
     {
+        var (equip, anct) = VisualEquip(items);
         var w = new PacketWriter(Opcodes.UpdateEquip, 60, id);
-        for (int i = 0; i < MaxEquip; i++) w.WriteInt16(i < equip.Count ? equip[i].Index : (short)0);
-        w.Skip(16);
+        foreach (var index in equip) w.WriteInt16(index);
+        w.WriteBytes(anct);                           // 0x2C: como o 0xBA do 0x364 (ver VisualEquip)
         return w.ToArray();
     }
 

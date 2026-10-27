@@ -579,3 +579,13 @@ ordem; o Removedor (3417, uso 186) volta para o 43. Ao segurar um item de uso 18
 elmo, peitoral, calça, luva, bota e escudo (Pos 2, 4, 8, 16, 32 e 128 sem tipo de arma; 0x41D3F6) e manda o 0x373
 com o slot de destino. A Tintura (3397 a 3406) vira o Feijão da mesma cor com o Pó de Oriharukon (regra do servidor).
 
+## Refino, tintura e gema vistos pelos outros (7.57)
+
+O 0x364 (equipamento em 0x22, Anct[16] em 0xBA) e o 0x36B (equipamento em 0x0C, Anct[16] em 0x2C) levam o visual dos
+equipamentos dos outros jogadores (lidos em 0x50B6C4 e 0x50C7BB):
+
+- Equip[i] = índice | refino << 12 nos slots 1 a 7 (o client tira o refino com `sar 12` e o índice com `& 0xFFF`).
+- Anct[i] até o +9: o tipo do efeito do refino (43 normal, 116 a 125 as cores da tintura, 0 sem refino).
+- Anct[i] do +10 em diante: a cor nos 4 bits de baixo (tipo − 115) e a gema + 1 nos de cima; o client soma 8 e usa
+  como o brilho do item, como faz no próprio personagem (0x415535).
+

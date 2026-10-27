@@ -220,4 +220,25 @@ public class ItemListTests
         Assert.Equal((116, 238), (high.Effect1, high.Value1));
         Assert.Equal(12, Stats.Refine(high));
     }
+
+    [Fact]
+    public void Others_see_refine_tint_and_gem_in_the_equip()
+    {
+        var equip = new Item[16];
+        equip[0] = new Item(1);                                                       // rosto: sem refino
+        equip[2] = new Item(1210) { Effect1 = 43, Value1 = 27 };                    // +7 (2 falhas)
+        equip[4] = new Item(1210) { Effect2 = 118, Value2 = 5 };                    // +5 pintado de verde
+        equip[6] = new Item(905) { Effect1 = 43, Value1 = 238 };                    // +12 com Diamante
+        equip[5] = new Item(1210) { Effect1 = 121, Value1 = 243 };                  // +13 roxo com Esmeralda
+        var (shorts, anct) = ServerPackets.VisualEquip(equip);
+        Assert.Equal(1, shorts[0]);
+        Assert.Equal((short)(1210 | 7 << 12), shorts[2]);
+        Assert.Equal(43, anct[2]);
+        Assert.Equal((short)(1210 | 5 << 12), shorts[4]);
+        Assert.Equal(118, anct[4]);
+        Assert.Equal(905 | 12 << 12, (ushort)shorts[6]);
+        Assert.Equal(0x10, anct[6]);                                                // gema 0 + 1, sem cor
+        Assert.Equal(1210 | 13 << 12, (ushort)shorts[5]);
+        Assert.Equal(0x26, anct[5]);                                                // gema 1 + 1, cor 121 − 115
+    }
 }

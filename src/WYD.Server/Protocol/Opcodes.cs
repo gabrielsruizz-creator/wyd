@@ -59,7 +59,7 @@ public static class Opcodes
     public const ushort CombineDone = 0x3A7;           // só o cabeçalho: fecha as janelas de combinação (Ehre e outras) (conferido no WYD.exe 7.54)
     public const ushort UpdateCoin = 0x3AF;            // 16 bytes: int Gold (conferido no WYD.exe 7.54)
     public const ushort UpdateHpMp = 0x181;            // 28 bytes: int Hp, int Mp, int Hp, int Mp (conferido no WYD.exe 7.57)
-    public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16], byte Refino[16] (para quem está vendo)
+    public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16] (refino << 12), byte Anct[16] em 0x2C (para quem está vendo; ver VisualEquip)
     public const ushort UpdateItem = 0x182;            // 24 bytes: short Tipo (0 equip, 1 inventário, 2 baú), short Slot, ITEM (conferido no WYD.exe 7.54)
     public const ushort ShopList = 0x17C;              // 236 bytes: int tipo, ITEM Lista[27], int imposto (conferido no WYD.exe 7.54)             // 16 bytes: tira da tela o id do cabeçalho (conferido no WYD.exe 7.54)
     public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
