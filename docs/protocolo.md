@@ -588,4 +588,6 @@ equipamentos dos outros jogadores (lidos em 0x50B6C4 e 0x50C7BB):
 - Anct[i] até o +9: o tipo do efeito do refino (43 normal, 116 a 125 as cores da tintura, 0 sem refino).
 - Anct[i] do +10 em diante: a cor nos 4 bits de baixo (tipo − 115) e a gema + 1 nos de cima; o client soma 8 e usa
   como o brilho do item, como faz no próprio personagem (0x415535).
+- Montaria (slot 14): índice | (nível ÷ 10) << 12 (0x50BE8E). No próprio personagem o client usa o nível do item
+  (efeito 81, byte 4) ÷ 10 para o tamanho e a armadura da montaria; para os outros, esses 4 bits.
 

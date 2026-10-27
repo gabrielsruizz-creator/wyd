@@ -240,5 +240,9 @@ public class ItemListTests
         Assert.Equal(0x10, anct[6]);                                                // gema 0 + 1, sem cor
         Assert.Equal(1210 | 13 << 12, (ushort)shorts[5]);
         Assert.Equal(0x26, anct[5]);                                                // gema 1 + 1, cor 121 − 115
+
+        // Montaria nível 57: o client lê nível ÷ 10 nos bits de cima.
+        equip[14] = new Item(2380) { Effect1 = 100, Value1 = 0, Effect2 = 57 };
+        Assert.Equal((short)(2380 | 5 << 12), ServerPackets.VisualEquip(equip).Equip[14]);
     }
 }

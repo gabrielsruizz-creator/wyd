@@ -220,6 +220,8 @@ public static class ServerPackets
     /// <item>Anct[i], até o +9: o tipo do efeito do refino (43, ou 116 a 125 da tintura; 0 sem refino).</item>
     /// <item>Anct[i], do +10 em diante: cor nos 4 bits de baixo (tipo − 115; 0 sem cor) e gema + 1 nos de cima (o
     /// client soma 8 e usa como brilho, como faz no próprio personagem com 0x415535).</item>
+    /// <item>Montaria (slot 14): índice | (nível ÷ 10) &lt;&lt; 12 (0x50BE8E), o mesmo que o client usa no próprio
+    /// personagem (efeito 81, o nível, ÷ 10) para o tamanho e a armadura da montaria.</item>
     /// </list>
     /// </summary>
     public static (short[] Equip, byte[] Anct) VisualEquip(IReadOnlyList<Item> items)
@@ -230,6 +232,11 @@ public static class ServerPackets
         {
             var item = items[i];
             equip[i] = item.Index;
+            if (i == Stats.MountSlot && Stats.IsMount(item.Index) && item.Index < 0x1000)
+            {
+                equip[i] = (short)(item.Index | Math.Min(15, Stats.MountLevel(item) / 10) << 12);
+                continue;
+            }
             if (item.IsEmpty || i < FirstRefinedSlot || i > LastRefinedSlot || item.Index >= 0x1000) continue;
             int refine = Math.Clamp(Stats.Refine(item), 0, 15);
             equip[i] = (short)(item.Index | refine << 12);
