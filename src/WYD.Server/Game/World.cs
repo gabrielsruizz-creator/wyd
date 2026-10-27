@@ -564,6 +564,8 @@ public sealed partial class World(
                 foreach (var viewer in _players.Values)
                     if (viewer != target && _visible[viewer.Id].Contains(target.Id))
                         outgoing.Add((viewer, score));
+                if (spell?.AffectType == (int)AffectType.Transform)
+                    LookChangedLocked(target, outgoing);
             }
 
             foreach (var mob in debuffed.Distinct())
@@ -906,7 +908,9 @@ public sealed partial class World(
             foreach (var player in _players.Values)
             {
                 var c = player.Character!;
+                bool transformed = c.Affects.Any(a => a.Type == AffectType.Transform);   // mesmo se já venceu
                 if (c.Affects.Count == 0 || !Affects.Expire(c, now)) continue;
+                if (transformed && Affects.TransformFace(c) is null) LookChangedLocked(player, outgoing);
                 c.BaseScore.Hp = Math.Min(c.BaseScore.Hp, c.MaxHp);
                 c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
                 outgoing.Add((player, ServerPackets.UpdateScore(player.Id, c)));
@@ -922,6 +926,21 @@ public sealed partial class World(
             }
         }
         return SendAllAsync(outgoing);
+    }
+
+    /// <summary>
+    /// O rosto visível mudou (transformação começou ou acabou): o próprio recebe o slot 0 novo e quem o vê recebe o
+    /// equipamento (chamar com o lock).
+    /// </summary>
+    private void LookChangedLocked(ClientSession session, List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        var c = session.Character!;
+        var look = c.VisibleEquip;
+        outgoing.Add((session, ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, look[0])));
+        var equip = ServerPackets.UpdateEquip(session.Id, look);
+        foreach (var viewer in _players.Values)
+            if (viewer != session && _visible[viewer.Id].Contains(session.Id))
+                outgoing.Add((viewer, equip));
     }
 
     /// <summary>Muro de Espinhos: tira o muro anterior do jogador e põe as plantas nas células livres (chamar com o lock).</summary>

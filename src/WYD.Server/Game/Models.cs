@@ -73,6 +73,21 @@ public sealed class Character
 
     /// <summary>Equip[0] é o "rosto" (modelo do personagem); os demais são os equipamentos.</summary>
     public Item[] Equip { get; set; } = new Item[GameConstants.MaxEquip];
+
+    /// <summary>
+    /// O equipamento como aparece no client (o próprio e os outros): igual ao <see cref="Equip"/>, com o rosto da fera
+    /// no lugar do rosto enquanto dura uma transformação (ver <see cref="Game.Affects.TransformFace"/>).
+    /// </summary>
+    public Item[] VisibleEquip
+    {
+        get
+        {
+            if (Game.Affects.TransformFace(this) is not short face) return Equip;
+            var look = (Item[])Equip.Clone();
+            look[0] = new Item(face) { Effect1 = Equip[0].Effect1, Value1 = Equip[0].Value1 };
+            return look;
+        }
+    }
     public Item[] Inventory { get; set; } = new Item[GameConstants.MaxCarry];
 
     /// <summary>Velocidade de corrida com botas e montaria (calculada por <see cref="Stats.Recalculate"/>).</summary>

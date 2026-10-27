@@ -87,7 +87,7 @@ public static class Affects
         int special = SkillUse.TreeSpecial(caster.CurrentScore, skill);
         int units = Math.Clamp(Math.Max(1, spell.AffectTime) + special / 10, 1, 255);
         int baseValue = spell.AffectType != 0 ? spell.AffectValue : spell.TickValue;
-        int amount = baseValue + baseValue * special / 50;
+        int amount = type == (int)AffectType.Transform ? baseValue : baseValue + baseValue * special / 50;
         if (skill == Skills.SoulOfLimits) return new Affect((AffectType)type, amount, skill, now + Soul.Duration);
         return new Affect((AffectType)type, amount, skill, now.AddSeconds(units * SecondsPerUnit));
     }
@@ -101,6 +101,21 @@ public static class Affects
         if (affects.Count >= Max)
             affects.Remove(affects.MinBy(a => a.Expires)!);
         affects.Add(affect);
+    }
+
+    /// <summary>
+    /// Rostos das transformações da BM (AffectValue do efeito 16): 1 Lobisomem (Wolf_Master 22), 2 Homem-Urso
+    /// (Bear_Master 23), 3 Astaroth (24), 4 Titã (25), 5 Éden (Evilator 32). O client escolhe o corpo e os golpes pelo
+    /// efeito 18 do rosto (0x4DC21F), por isso a transformação troca o rosto que ele recebe.
+    /// </summary>
+    public static readonly short[] TransformFaces = [0, 22, 23, 24, 25, 32];
+
+    /// <summary>O rosto da fera enquanto a transformação dura (null sem transformação).</summary>
+    public static short? TransformFace(Character c)
+    {
+        var now = DateTime.UtcNow;
+        var t = c.Affects.FirstOrDefault(a => a.Type == AffectType.Transform && a.Expires > now);
+        return t is not null && t.Amount > 0 && t.Amount < TransformFaces.Length ? TransformFaces[t.Amount] : null;
     }
 
     /// <summary>Tira os que acabaram. Retorna true se algum saiu.</summary>

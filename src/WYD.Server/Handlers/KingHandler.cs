@@ -266,7 +266,7 @@ public sealed class KingHandler(
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Sefirot.EternalStoneSlot, default));
         await session.SendAsync(ServerPackets.UpdateCoin(session.Id, c.Coin));
         foreach (var viewer in world.Viewers(session))
-            await viewer.SendAsync(ServerPackets.UpdateEquip(session.Id, c.Equip));
+            await viewer.SendAsync(ServerPackets.UpdateEquip(session.Id, c.VisibleEquip));
         await characters.SaveItemsAsync(c);
         await characters.SaveProgressAsync(c);
 
@@ -342,7 +342,7 @@ public sealed class KingHandler(
         if (Kingdoms.IsCelestialCape(c.Equip[Kingdoms.CapeSlot].Index))
         {
             await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Kingdoms.CapeSlot, c.Equip[Kingdoms.CapeSlot]));
-            var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            var look = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(look);
         }

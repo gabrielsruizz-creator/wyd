@@ -467,7 +467,7 @@ public sealed class CommandHandler(
 
         c.Equip[0] = new Item((short)index) { Effect1 = c.Equip[0].Effect1, Value1 = c.Equip[0].Value1 };
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, 0, c.Equip[0]));
-        var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+        var look = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
         foreach (var viewer in world.Viewers(session))
             await viewer.SendAsync(look);
         await characters.SaveItemsAsync(c);
@@ -533,7 +533,7 @@ public sealed class CommandHandler(
         c.Equip[Game.Kingdoms.CapeSlot] = index == 0 ? default : new Item((short)index);
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, ServerPackets.ItemPlace.Equip, Game.Kingdoms.CapeSlot, c.Equip[Game.Kingdoms.CapeSlot]));
         await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
-        var look = ServerPackets.UpdateEquip(session.Id, c.Equip);
+        var look = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
         foreach (var viewer in world.Viewers(session))
             await viewer.SendAsync(look);
         await characters.SaveItemsAsync(c);

@@ -84,7 +84,7 @@ public sealed class ItemHandler(
             c.BaseScore.Hp = Math.Min(c.BaseScore.Hp, c.MaxHp);     // tirou um item de HP: a vida não passa do máximo
             c.BaseScore.Mp = Math.Min(c.BaseScore.Mp, c.MaxMp);
             await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
-            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            var update = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
@@ -263,7 +263,7 @@ public sealed class ItemHandler(
         {
             Game.Stats.Recalculate(c, catalog.List);
             await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
-            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            var update = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
@@ -305,7 +305,7 @@ public sealed class ItemHandler(
         await session.SendAsync(ServerPackets.UpdateItem(session.Id, (ServerPackets.ItemPlace)destType, destPos, dest[destPos]));
         if (destType == 0)
         {
-            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            var update = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }
@@ -386,7 +386,7 @@ public sealed class ItemHandler(
         {
             Game.Stats.Recalculate(c, catalog.List);
             await session.SendAsync(ServerPackets.UpdateScore(session.Id, c));
-            var update = ServerPackets.UpdateEquip(session.Id, c.Equip);
+            var update = ServerPackets.UpdateEquip(session.Id, c.VisibleEquip);
             foreach (var viewer in world.Viewers(session))
                 await viewer.SendAsync(update);
         }

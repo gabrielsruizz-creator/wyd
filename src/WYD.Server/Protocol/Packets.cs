@@ -205,7 +205,7 @@ public static class ServerPackets
     /// </summary>
     public static byte[] CreateMob(ushort mobId, Character c)
     {
-        var (equip, anct) = VisualEquip(c.Equip);
+        var (equip, anct) = VisualEquip(c.VisibleEquip);
         return CreateMob(mobId, c.Name, c.PosX, c.PosY, equip, c.Guild, c.CurrentScore, Affects.ToClient(c, DateTime.UtcNow), anct);
     }
 
@@ -645,7 +645,7 @@ public static class ServerPackets
         w.WriteInt16(c.PosY);
         c.BaseScore.Write(w);
         c.CurrentScore.Write(w);                      // CurrentScore: com a velocidade das botas e da montaria
-        foreach (var item in c.Equip) item.Write(w);
+        foreach (var item in c.VisibleEquip) item.Write(w);
         foreach (var item in c.Inventory) item.Write(w);
         w.WriteUInt32(c.LearnedSkill).WriteUInt32(0);  // LearnedSkill[2]
         w.WriteInt16(c.ScoreBonus).WriteInt16(c.SpecialBonus).WriteInt16(c.SkillBonus);

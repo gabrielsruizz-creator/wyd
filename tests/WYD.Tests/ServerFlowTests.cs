@@ -52,6 +52,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(98, 36, 6, 42, 6, 5),                      // Muro de Espinhos: 42 de mana
             new(6, 0, 1, 0, 3, 8, 0, 0, 40),               // Fúria Divina: puxa o alvo
             new(16, 0, 3, 0, 2, 4, 0, 0, 3, 50, 3),        // Perseguição: efeito 3 nos inimigos
+            new(64, 0, 0, 0, 20, 0, 0, 0, 16, 1, 13),      // Lobisomem: transformação 1
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -1597,6 +1598,28 @@ public sealed class ServerFlowTests : IAsyncLifetime
         {
             Directory.Delete(npcDir, true);
         }
+    }
+
+    [Fact]
+    public async Task Werewolf_changes_the_visible_face_until_it_expires()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        var me = await CharacterOf("jogadora");
+        me.Class = CharacterClass.BeastMaster;
+        me.Equip[0] = new Item(21);
+        me.LearnedSkill |= 1u << (64 % 24);
+
+        await a.SendAsync(SkillPacket(1, 64, 1));
+        var face = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
+        Assert.Equal(((short)ServerPackets.ItemPlace.Equip, (short)0, (short)22), (face.ReadInt16(), face.ReadInt16(), face.ReadInt16()));
+        Assert.Equal(21, me.Equip[0].Index);                                   // o rosto de verdade fica guardado
+        Assert.Equal(22, me.VisibleEquip[0].Index);
+
+        // Acabou: volta o rosto de BM.
+        me.Affects[0] = me.Affects[0] with { Expires = DateTime.UtcNow.AddSeconds(-1) };
+        var back = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
+        back.Skip(4);
+        Assert.Equal(21, back.ReadInt16());
     }
 
     [Fact]
