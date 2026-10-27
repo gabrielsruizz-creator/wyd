@@ -156,6 +156,9 @@ Na mesma pasta, devolva o brilho de refinação e de ancient do Hrotti (a textur
 dotnet run --project src\WYD.Server -- fix-mesh-textures "C:\caminho\do\jogo"
 ```
 
+Copie também a pasta `client\UI` deste repositório para dentro da pasta do jogo (ela traz o `EffectString.txt` em
+português, com os nomes dos efeitos das skills; o do 7.57 veio em coreano).
+
 **5. Corrija o client** (opcional; funciona no WYD.exe 7.57 e no 7.54; no 7.57 só a correção das armas, porque a
 ItemList dele já põe cada item em 1 slot): o efeito das armas +13 a +15 (sem isso a arma +13 ou mais solta o efeito do
 Grade seguinte, errado; o nome e a refinação continuam os de verdade, só o efeito para no do +12) e o inventário

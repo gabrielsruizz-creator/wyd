@@ -1,0 +1,48 @@
+Lentidão
+Velocidade
+Resistência Reduzida
+Poder
+Enfraquecimento
+Invencível
+Ataque Lento
+Joia
+Dano Aumentado
+Ataque Reduzido
+Escudo Mágico
+Defesa Reduzida
+Assalto
+Samaritano
+Skill Ampliada
+Transformação
+Aura da Vida
+Controle de Mana
+Imunidade
+Veneno
+Meditação
+Tempestade de Raios
+Força Elemental
+Possuído
+Proteção Elemental
+Esquiva Aumentada
+Encantar Gelo
+Invisibilidade
+Alma
+Coragem
+Escudo Dourado
+Poção Bloqueada
+Transmutação
+Comida
+Bigger
+Armadura Crítica
+Ligação Espectral
+Troca de Espírito
+EXP
+Atordoado
+Esquiva Reduzida
+Magia Misteriosa
+Antimagia
+Imobilizado
+Congelado
+Chama da Resistência
+Sangramento
+Última Resistência
