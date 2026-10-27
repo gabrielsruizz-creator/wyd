@@ -209,8 +209,11 @@ public static class ServerPackets
         return CreateMob(mobId, c.Name, c.PosX, c.PosY, equip, c.Guild, c.CurrentScore, Affects.ToClient(c, DateTime.UtcNow), anct);
     }
 
-    /// <summary>Slots cujo refino vai nos 4 bits de cima do índice (0x50BB00: elmo, peitoral... até as duas armas).</summary>
-    public const int FirstRefinedSlot = 1, LastRefinedSlot = 7;
+    /// <summary>
+    /// Slots cujo refino vai nos 4 bits de cima do índice (0x50BB00: do rosto, que brilha na transformação, até as duas
+    /// armas).
+    /// </summary>
+    public const int FirstRefinedSlot = 0, LastRefinedSlot = 7;
 
     /// <summary>
     /// Equipamento como os outros jogadores o veem (0x364 em 0x22 e 0xBA, 0x36B em 0x0C e 0x2C; lidos em 0x50B6C4 e

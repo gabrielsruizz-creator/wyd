@@ -1615,6 +1615,8 @@ public sealed class ServerFlowTests : IAsyncLifetime
         Assert.Equal(((short)ServerPackets.ItemPlace.Equip, (short)0, (short)22), (face.ReadInt16(), face.ReadInt16(), face.ReadInt16()));
         Assert.Equal(21, me.Equip[0].Index);                                   // o rosto de verdade fica guardado
         Assert.Equal(22, me.VisibleEquip[0].Index);
+        Assert.Equal((43, Affects.TransformGlow(me)), (me.VisibleEquip[0].Effect3, me.VisibleEquip[0].Value3));   // brilho pelo nível
+        Assert.Equal(me.Equip[0].Value2, me.VisibleEquip[0].Value2);           // a evolução continua no rosto
 
         // Acabou: volta o rosto de BM.
         me.Affects[0] = me.Affects[0] with { Expires = DateTime.UtcNow.AddSeconds(-1) };

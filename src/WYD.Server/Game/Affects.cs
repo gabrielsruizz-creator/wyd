@@ -118,6 +118,12 @@ public static class Affects
         return t is not null && t.Amount > 0 && t.Amount < TransformFaces.Length ? TransformFaces[t.Amount] : null;
     }
 
+    /// <summary>
+    /// Brilho do corpo transformado: o refino que vai no rosto da fera (o client desenha o corpo com o brilho do
+    /// refino do slot 0, 0x50BB00), de +0 a +9 conforme o nível (+9 no nível 400).
+    /// </summary>
+    public static int TransformGlow(Character c) => Math.Clamp((c.BaseScore.Level + 1) * 9 / 400, 0, 9);
+
     /// <summary>Tira os que acabaram. Retorna true se algum saiu.</summary>
     public static bool Expire(Character c, DateTime now) => c.Affects.RemoveAll(a => a.Expires <= now) > 0;
 

@@ -87,7 +87,8 @@ public sealed class Character
         {
             if (Game.Affects.TransformFace(this) is not short face) return Equip;
             var look = (Item[])Equip.Clone();
-            look[0] = new Item(face) { Effect1 = Equip[0].Effect1, Value1 = Equip[0].Value1 };
+            // O rosto da fera com os mesmos efeitos (a evolução fica no 2º) e o brilho no 3º, como refino.
+            look[0] = Equip[0] with { Index = face, Effect3 = (byte)Game.Stats.EfSanc, Value3 = (byte)Game.Affects.TransformGlow(this) };
             return look;
         }
     }
