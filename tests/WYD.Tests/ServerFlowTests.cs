@@ -53,6 +53,7 @@ public sealed class ServerFlowTests : IAsyncLifetime
             new(6, 0, 1, 0, 3, 8, 0, 0, 40),               // Fúria Divina: puxa o alvo
             new(16, 0, 3, 0, 2, 4, 0, 0, 3, 50, 3),        // Perseguição: efeito 3 nos inimigos
             new(64, 0, 0, 0, 20, 0, 0, 0, 16, 1, 13),      // Lobisomem: transformação 1
+            new(58, 0, 0, 0, 5, 0, 11, 3),                 // Evocar Lobo Selvagem: criatura 3
         ]))));
         builder.Services.AddSingleton(new WYD.Server.Data.ExpCatalog(new WYD.Server.Data.ExpTable([100, 200, 300, 400])));
 
@@ -1620,6 +1621,49 @@ public sealed class ServerFlowTests : IAsyncLifetime
         var back = await ReceiveTypeAsync(a, Opcodes.UpdateItem);
         back.Skip(4);
         Assert.Equal(21, back.ReadInt16());
+    }
+
+    [Fact]
+    public async Task Summoned_wolf_follows_and_hits_what_the_owner_attacked()
+    {
+        var npcDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(npcDir, "Boneco"), NpcDataTests.NpcFile("Boneco", 202, 1, 1_000_000));
+            await _host.Services.GetRequiredService<MobService>().SpawnAllAsync(
+                [new() { Leader = "Boneco", MaxNumMob = 1, StartX = 2104, StartY = 2100 }], npcDir);
+
+            using var a = await EnterWorldAsync("jogadora", "Alice");
+            var boneco = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            var me = await CharacterOf("jogadora");
+            me.Class = CharacterClass.BeastMaster;
+            me.LearnedSkill |= 1u << (58 % 24);
+
+            // A invocação aparece ao lado, com o modelo do lobo (226).
+            await a.SendAsync(SkillPacket(1, 58, 1));
+            var wolf = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+            Assert.NotEqual(boneco.Id, wolf.Id);
+            wolf.Skip(0x22 - 12);
+            Assert.Equal(226, wolf.ReadInt16());
+
+            // A dona bate no boneco: o lobo vai até ele e bate também, como golpe dela.
+            await Task.Delay(World.MinAttackInterval + TimeSpan.FromMilliseconds(50));
+            await a.SendAsync(SkillPacket(1, -1, boneco.Id));
+            PacketReader? bite = null;
+            for (int i = 0; i < 40 && bite is null; i++)
+            {
+                var p = await a.ReceiveAsync();
+                if (p.Type is Opcodes.AttackOne && p.Id == wolf.Id) bite = p;
+            }
+            Assert.NotNull(bite);
+            bite!.Skip(ServerPackets.AttackLayout.Targets - 12);
+            Assert.Equal(boneco.Id, bite.ReadInt32());
+            Assert.True(bite.ReadInt32() > 0);
+        }
+        finally
+        {
+            Directory.Delete(npcDir, true);
+        }
     }
 
     [Fact]

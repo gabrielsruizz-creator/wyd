@@ -379,7 +379,7 @@ public sealed partial class World(
     /// Ataque do jogador (0x39D / 0x39E / 0x367): calcula o dano em cada monstro alvo, devolve o pacote com os
     /// danos a todos que estão vendo e, se algum morrer, dá a experiência e tira o monstro do mapa até renascer.
     /// </summary>
-    public async Task AttackAsync(ClientSession session, byte[] packet, int? auraDamage = null)
+    public async Task AttackAsync(ClientSession session, byte[] packet, int? auraDamage = null, Mob? pet = null)
     {
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
@@ -437,8 +437,11 @@ public sealed partial class World(
             int attackRange = AttackRange + (Skills.Knows(me, Skills.SpectralForce) ? 1 : 0);
 
             var mine = _visible[session.Id];
-            var response = ServerPackets.Relay(packet, session.Id);
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Attacker), session.Id);
+            var response = ServerPackets.Relay(packet, pet?.Id ?? session.Id);
+            short fromX = pet?.X ?? me.PosX, fromY = pet?.Y ?? me.PosY;      // de onde sai o golpe
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(ServerPackets.AttackLayout.Attacker), pet?.Id ?? session.Id);
+            if (spell is not null && Summons.IsSummon(spell))
+                SummonPetLocked(session, spell, skill, now, outgoing);
 
             int count = Math.Min(ServerPackets.AttackLayout.MaxTargets,
                 (packet.Length - ServerPackets.AttackLayout.Targets) / ServerPackets.AttackLayout.TargetSize);
@@ -500,7 +503,7 @@ public sealed partial class World(
                 else if (SkillUse.IsDamage(spell)
                     && targetId >= Mob.FirstId && mine.Contains(targetId) && _mobs.TryGetValue(targetId, out var mob)
                     && mob.Alive && mob.Attackable && !hit.Contains(mob)
-                    && Math.Abs(mob.X - me.PosX) <= attackRange && Math.Abs(mob.Y - me.PosY) <= attackRange)
+                    && Math.Abs(mob.X - fromX) <= attackRange && Math.Abs(mob.Y - fromY) <= attackRange)
                 {
                     damage = auraDamage is int aura
                         ? Math.Max(aura - mob.Template.Score.Ac / 8, 1)                          // aura (Trovão)
@@ -510,6 +513,7 @@ public sealed partial class World(
                             : SkillUse.Damage(me, spell, skill, mob.Template.Score);
                     mob.Hp -= damage;
                     hit.Add(mob);
+                    if (auraDamage is null) me.LastTarget = mob.Id;
                     // Dano com efeito no alvo (Lâmina Congelada, Tempestade de Gelo...).
                     if (spell is { AffectType: not 0 } && SkillUse.IsOnEnemy(spell) && mob.Hp > 0
                         && Affects.FromSkill(me, spell, skill, now) is { } extra)
@@ -948,7 +952,7 @@ public sealed partial class World(
         List<(ClientSession To, byte[] Packet)> outgoing)
     {
         var me = session.Character!;
-        foreach (var old in _mobs.Values.Where(m => m.IsSummon && m.Owner == session.Id).ToList())
+        foreach (var old in _mobs.Values.Where(m => m.IsSummon && !m.IsPet && m.Owner == session.Id).ToList())
             RemoveSummonLocked(old, outgoing);
 
         var template = ThornWall.Template(me);
@@ -996,6 +1000,90 @@ public sealed partial class World(
             foreach (var mob in _mobs.Values.Where(m => m.IsSummon && (m.Expires <= now || !m.Alive)).ToList())
                 RemoveSummonLocked(mob, outgoing);
         return SendAllAsync(outgoing);
+    }
+
+    /// <summary>Evocação: troca a criatura anterior do dono por uma nova ao lado dele (chamar com o lock).</summary>
+    private void SummonPetLocked(ClientSession session, WYD.Server.Data.SkillDefinition spell, int skill, DateTime now,
+        List<(ClientSession To, byte[] Packet)> outgoing)
+    {
+        var me = session.Character!;
+        foreach (var old in _mobs.Values.Where(m => m.IsPet && m.Owner == session.Id).ToList())
+            RemoveSummonLocked(old, outgoing);
+        if (FreeSummonIdLocked() is not ushort id) return;
+        var (x, y) = FreeCellLocked(me.PosX, me.PosY, null);
+        var rule = new WYD.Server.Data.SpawnRule { Leader = Summons.Creatures[spell.InstanceValue].Name, StartX = x, StartY = y };
+        var pet = new Mob(id, Summons.Template(me, spell, skill), rule, x, y)
+        {
+            Expires = now + Summons.Duration, Owner = session.Id, IsPet = true,
+        };
+        _mobs[id] = pet;
+        GridAdd(pet);
+        foreach (var player in _players.Values)
+        {
+            if (!InRange(player.Character!, pet)) continue;
+            _visible[player.Id].Add(pet.Id);
+            outgoing.Add((player, pet.CreatePacket()));
+        }
+    }
+
+    /// <summary>
+    /// As criaturas da Evocação: somem sem o dono (saiu, morreu ou ficou longe demais); com alvo (o último monstro que
+    /// o dono atacou, ou um que está atacando o dono) chegam perto e batem, e o golpe conta como do dono (experiência
+    /// e drop); sem alvo, seguem o dono.
+    /// </summary>
+    public async Task PetsAsync(DateTime now)
+    {
+        var outgoing = new List<(ClientSession To, byte[] Packet)>();
+        var moves = new List<(Mob Pet, short X, short Y)>();
+        var hits = new List<(ClientSession Owner, Mob Pet, byte[] Packet)>();
+        lock (_lock)
+        {
+            foreach (var pet in _mobs.Values.Where(m => m.IsPet && m.Alive).ToList())
+            {
+                if (!_players.TryGetValue(pet.Owner, out var owner) || IsDead(owner.Character!)
+                    || Math.Max(Math.Abs(owner.Character!.PosX - pet.X), Math.Abs(owner.Character.PosY - pet.Y)) > Summons.LeashDistance)
+                {
+                    RemoveSummonLocked(pet, outgoing);
+                    continue;
+                }
+                var me = owner.Character!;
+                Mob? target = null;
+                if (me.LastTarget != 0 && _mobs.TryGetValue(me.LastTarget, out var last) && last.Alive && last.Attackable
+                    && _visible[owner.Id].Contains(last.Id))
+                    target = last;
+                target ??= _mobs.Values.FirstOrDefault(m => m.Alive && m.Target == owner.Id && _visible[owner.Id].Contains(m.Id));
+
+                if (target is null)
+                {
+                    if (pet.NextMove <= now
+                        && Math.Max(Math.Abs(me.PosX - pet.X), Math.Abs(me.PosY - pet.Y)) > Summons.FollowDistance)
+                    {
+                        pet.NextMove = now + TimeSpan.FromSeconds(1);
+                        var (fx, fy) = FreeCellLocked(me.PosX, me.PosY, pet);
+                        moves.Add((pet, fx, fy));
+                    }
+                    continue;
+                }
+
+                if (Math.Max(Math.Abs(target.X - pet.X), Math.Abs(target.Y - pet.Y)) > 1)
+                {
+                    if (pet.NextMove > now) continue;
+                    pet.NextMove = now + TimeSpan.FromSeconds(1);
+                    var (tx, ty) = FreeCellLocked(target.X, target.Y, pet);
+                    moves.Add((pet, tx, ty));
+                    continue;
+                }
+                if (pet.NextPetAttack > now) continue;
+                pet.NextPetAttack = now + Summons.AttackInterval;
+                hits.Add((owner, pet, ServerPackets.MobAttack(pet.Id, pet.X, pet.Y, target.Id, target.X, target.Y, 0,
+                    (byte)(ServerPackets.FirstAttackMotion + Random.Shared.Next(ServerPackets.AttackMotions)))));
+            }
+        }
+        await SendAllAsync(outgoing);
+        foreach (var (pet, x, y) in moves)
+            await MoveMobAsync(pet, x, y);
+        foreach (var (owner, pet, packet) in hits)
+            await AttackAsync(owner, packet, pet.Template.Score.Damage, pet);
     }
 
     /// <summary>Monstros mortos cujo tempo de renascer já passou.</summary>

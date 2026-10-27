@@ -52,6 +52,9 @@ ficou no histórico do git.
       (Dodge), Controle de Mana (30% da mana máxima vira vida), Aura da Vida e as auras de dano (Tempestade de Raios,
       Corrente Elemental, que batem nos monstros em volta a cada 2 s); os outros mostram o ícone, mas ainda não têm
       efeito. Precisa da `data/SkillData.bin`
+- [x] BM: transformações da Natureza (Lobisomem, Homem-Urso, Astaroth, Titã, Éden) trocam o corpo enquanto duram;
+      Evocação invoca a criatura (Condor, Javali, Lobo, Urso, Grande Tigre, Gorila, Dragão Negro, Succubus), que
+      segue a dona, ataca o monstro que ela atacou e dá a experiência e o drop para ela (some em 5 minutos)
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam

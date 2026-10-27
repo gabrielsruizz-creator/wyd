@@ -51,6 +51,7 @@ public sealed class MobService(IOptions<ServerOptions> options, World world, Npc
             await world.ExpireAffectsAsync(now);
             await world.AurasAsync(now);
             await world.ExpireSummonsAsync(now);
+            await world.PetsAsync(now);
 
             foreach (var mob in world.WatchedMobs())
             {

@@ -41,11 +41,17 @@ public sealed class Mob
 
     public bool IsSummon => Expires is not null;
 
+    /// <summary>Criatura da Evocação: segue e defende o dono (ver <see cref="Summons"/>); ninguém a ataca.</summary>
+    public bool IsPet { get; init; }
+
+    /// <summary>Próxima vez que a criatura da Evocação pode bater.</summary>
+    public DateTime NextPetAttack { get; set; }
+
     /// <summary>Quando um monstro morto volta ao mapa.</summary>
     public DateTime RespawnAt { get; set; }
 
     /// <summary>NPCs (lojas, guardas, mestres...) não podem ser atacados.</summary>
-    public bool Attackable => Template.Merchant == 0 && !SoulQuest.IsEhre(Template.Name);
+    public bool Attackable => Template.Merchant == 0 && !SoulQuest.IsEhre(Template.Name) && !IsPet;
 
     /// <summary>NPCs (lojas etc.) e spawns com raio zero ficam parados.</summary>
     public bool Wanders => Attackable && Math.Max(Spawn.StartRange, Spawn.DestRange) > 0;

@@ -74,6 +74,9 @@ public sealed class Character
     /// <summary>Equip[0] é o "rosto" (modelo do personagem); os demais são os equipamentos.</summary>
     public Item[] Equip { get; set; } = new Item[GameConstants.MaxEquip];
 
+    /// <summary>Último monstro que o personagem atacou (a criatura da Evocação vai nele).</summary>
+    public ushort LastTarget { get; set; }
+
     /// <summary>
     /// O equipamento como aparece no client (o próprio e os outros): igual ao <see cref="Equip"/>, com o rosto da fera
     /// no lugar do rosto enquanto dura uma transformação (ver <see cref="Game.Affects.TransformFace"/>).
