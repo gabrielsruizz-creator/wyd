@@ -24,6 +24,24 @@ public static class Arch
     /// </summary>
     public static short Face(CharacterClass body, CharacterClass skills) => (short)(10 * (int)body + 6 + (int)skills);
 
+    /// <summary>
+    /// O rosto para o corpo <paramref name="body"/> com as skills de <paramref name="skills"/>: o rosto de Mortal da
+    /// classe (1, 11, 21, 31) quando as duas são iguais e o personagem usa rosto de Mortal; senão o de Arch, que é o
+    /// único que guarda corpo e skills de classes diferentes.
+    /// </summary>
+    public static short FaceFor(Item current, CharacterClass body, CharacterClass skills) =>
+        body == skills && current.Index is 1 or 11 or 21 or 31 ? (short)(10 * (int)body + 1) : Face(body, skills);
+
+    /// <summary>Classe pelo nome curto ou completo (tk, fm, bm, ht...); null se não reconhece.</summary>
+    public static CharacterClass? ParseClass(string text) => text.Trim().ToLowerInvariant() switch
+    {
+        "tk" or "transknight" or "trans" => CharacterClass.TransKnight,
+        "fm" or "foema" => CharacterClass.Foema,
+        "bm" or "beastmaster" or "beast" => CharacterClass.BeastMaster,
+        "ht" or "hunter" or "huntress" => CharacterClass.Huntress,
+        _ => null,
+    };
+
     /// <summary>Classe do corpo pelo rosto (1-39), ou a classe do personagem.</summary>
     public static CharacterClass BodyOf(Character c) =>
         c.Equip[0].Index is >= 1 and < 40 ? (CharacterClass)((c.Equip[0].Index - 1) / 10) : c.Class;

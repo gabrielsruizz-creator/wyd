@@ -34,6 +34,7 @@ public sealed class CommandHandler(
     [
         ("/gm item <índice> [efeito valor]...", "cria um item no inventário (até 3 efeitos)"),
         ("/gm capa <índice>", "troca a capa equipada (0 tira a capa)"),
+        ("/gm classe <tk|fm|bm|ht> [corpo]", "troca as skills (a classe); com corpo de outra classe usa o rosto de Arch, como pelo Sefirot. Relogue depois"),
         ("/gm face <índice>", "troca o rosto (o modelo do personagem): TK, FM, BM, HT ou o de um monstro"),
         ("/gm nivel <número>", "muda o seu nível"),
         ("/gm evoluir <mortal|arch|celestial|sub>", "muda a sua evolução (nível 1)"),
@@ -116,6 +117,7 @@ public sealed class CommandHandler(
             case "item": await GiveItemAsync(session, args); break;
             case "capa": await SetCapeAsync(session, args); break;
             case "face" or "rosto": await SetFaceAsync(session, args); break;
+            case "classe" or "class": await SetClassAsync(session, args); break;
             case "nivel" or "nível" or "level": await SetLevelAsync(session, args); break;
             case "gold": await SetGoldAsync(session, args); break;
             case "evoluir": await SetEvolutionAsync(session, args); break;
@@ -472,6 +474,33 @@ public sealed class CommandHandler(
         string name = definition?.Name.Replace('_', ' ') ?? $"rosto {index}";
         logger.LogInformation("[{Id}] GM '{Account}' trocou o rosto de {Name}: {Face} ({Index}).", session.Id, session.Account!.Username, c.Name, name, index);
         await session.SendMessageAsync($"Rosto: {name}. Se não aparecer, troque de canal ou relogue.");
+    }
+
+    /// <summary>
+    /// /gm classe ht fm: skills de Huntress com corpo de Foema. A classe decide as skills que o client mostra e manda
+    /// (0x114, MOB.Class); o rosto decide o corpo, e com corpo e skills de classes diferentes precisa ser o rosto de
+    /// Arch certo (ver <see cref="Game.Arch.Face"/>), senão o client anima a skill sem mandar o golpe.
+    /// </summary>
+    private async Task SetClassAsync(ClientSession session, string args)
+    {
+        var c = session.Character!;
+        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var skills = parts.Length is 1 or 2 ? Game.Arch.ParseClass(parts[0]) : null;
+        var body = parts.Length == 2 ? Game.Arch.ParseClass(parts[1]) : Game.Arch.BodyOf(c);
+        if (skills is null || body is null)
+        {
+            await session.SendMessageAsync("Uso: /gm classe <tk|fm|bm|ht> [corpo tk|fm|bm|ht] (skills primeiro, corpo depois)");
+            return;
+        }
+
+        short face = Game.Arch.FaceFor(c.Equip[0], body.Value, skills.Value);
+        c.Class = skills.Value;
+        c.Equip[0] = new Item(face) { Effect1 = c.Equip[0].Effect1, Value1 = c.Equip[0].Value1 };
+        await characters.SaveClassAsync(c.Id, c.Class);
+        await characters.SaveItemsAsync(c);
+        logger.LogInformation("[{Id}] GM '{Account}' trocou a classe de {Name}: skills {Skills}, corpo {Body} (rosto {Face}).",
+            session.Id, session.Account!.Username, c.Name, skills, body, face);
+        await session.SendMessageAsync($"Skills de {Game.Sefirot.ClassName(skills.Value)} com corpo de {Game.Sefirot.ClassName(body.Value)} (rosto {face}). Troque de personagem e entre de novo.");
     }
 
     /// <summary>

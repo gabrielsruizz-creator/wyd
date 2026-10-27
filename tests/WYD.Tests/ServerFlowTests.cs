@@ -937,6 +937,31 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Gm_class_sets_skills_and_the_matching_arch_face()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");                    // TK, rosto 1
+        (await _store.FindByUsernameAsync("jogadora"))!.AccessLevel = 1;
+        var me = await CharacterOf("jogadora");
+        me.Equip[0] = new Item(11);                                                  // corpo de Foema Mortal
+
+        // Skills de TK no corpo de Foema: rosto de Arch 16 (10 × Foema + 6 + TK).
+        await a.SendAsync(CommandPacket("gm", "classe tk"));
+        Assert.StartsWith("Skills de Transknight com corpo de Foema (rosto 16)", (await ReceiveTypeAsync(a, Opcodes.MessagePanel)).ReadString(GameConstants.MessageLength));
+        Assert.Equal((CharacterClass.TransKnight, (short)16), (me.Class, me.Equip[0].Index));
+
+        // Corpo e skills de Huntress num rosto de Arch: continua de Arch (39).
+        await a.SendAsync(CommandPacket("gm", "classe ht ht"));
+        await ReceiveTypeAsync(a, Opcodes.MessagePanel);
+        Assert.Equal((CharacterClass.Huntress, (short)39), (me.Class, me.Equip[0].Index));
+
+        // Rosto de Mortal com a mesma classe: fica o de Mortal.
+        me.Equip[0] = new Item(31);
+        await a.SendAsync(CommandPacket("gm", "classe ht"));
+        await ReceiveTypeAsync(a, Opcodes.MessagePanel);
+        Assert.Equal(31, me.Equip[0].Index);
+    }
+
+    [Fact]
     public async Task Help_lists_commands_in_chat()
     {
         using var a = await EnterWorldAsync("jogadora", "Alice");
@@ -2078,6 +2103,14 @@ internal sealed class InMemoryStore : IAccountRepository, ICharacterRepository
             _characters.Add(character);
             return Task.FromResult(true);
         }
+    }
+
+    public Task SaveClassAsync(int characterId, CharacterClass cls)
+    {
+        lock (_characters)
+            foreach (var c in _characters.Where(c => c.Id == characterId))
+                c.Class = cls;
+        return Task.CompletedTask;
     }
 
     public Task SavePositionAsync(int characterId, short x, short y)

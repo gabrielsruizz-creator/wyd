@@ -327,6 +327,15 @@ public sealed class MySqlCharacterRepository(MySqlDatabase db) : ICharacterRepos
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task SaveClassAsync(int characterId, CharacterClass cls)
+    {
+        await using var connection = await db.OpenAsync();
+        await using var command = new MySqlCommand("UPDATE characters SET class = @class WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@class", (byte)cls);
+        command.Parameters.AddWithValue("@id", characterId);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task SaveInventoryAsync(int characterId, Item[] inventory)
     {
         await using var connection = await db.OpenAsync();

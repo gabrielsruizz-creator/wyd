@@ -38,6 +38,9 @@ public interface ICharacterRepository
 
     Task SavePositionAsync(int characterId, short x, short y);
 
+    /// <summary>Grava a classe (as skills) do personagem.</summary>
+    Task SaveClassAsync(int characterId, CharacterClass cls);
+
     Task SaveInventoryAsync(int characterId, Item[] inventory);
 
     Task SaveExpAsync(int characterId, long exp);
