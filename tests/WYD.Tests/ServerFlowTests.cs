@@ -1669,6 +1669,51 @@ public sealed class ServerFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Party_invite_accept_and_leave()
+    {
+        using var a = await EnterWorldAsync("jogadora", "Alice");
+        using var b = await EnterWorldAsync("jogadorb", "Bruno");
+        var bornForA = await ReceiveTypeAsync(a, Opcodes.CreateMob);
+        ushort bId = bornForA.Id;
+        var bornForB = await ReceiveTypeAsync(b, Opcodes.CreateMob);
+        ushort aId = bornForB.Id;
+
+        // Alice convida o Bruno (0x37F com o alvo em 0x28): ele recebe o convite com ela como líder.
+        await a.SendAsync(new PacketWriter(Opcodes.PartyInvite, ServerPackets.PartyInviteSize, aId).Skip(0x28 - 12).WriteInt32(bId).ToArray());
+        var invite = await ReceiveTypeAsync(b, Opcodes.PartyInvite);
+        invite.Skip(0x14 - 12);
+        Assert.Equal(aId, invite.ReadUInt16());
+        Assert.Equal("Alice", invite.ReadString(16));
+
+        // Ele aceita (0x3AB): cada um vê o outro na janela, a Alice como líder.
+        await b.SendAsync(new PacketWriter(Opcodes.PartyAccept, 32, bId).WriteUInt16(aId).WriteString("Alice", 16).Skip(2).ToArray());
+        var leader = await ReceiveTypeAsync(b, Opcodes.PartyAdd);
+        Assert.Equal(0, leader.ReadByte() * 0 + leader.ReadByte());                // byte 0x0D = 0: líder
+        leader.Skip(6);
+        Assert.Equal(aId, leader.ReadUInt16());
+        var member = await ReceiveTypeAsync(a, Opcodes.PartyAdd);
+        member.Skip(1);
+        Assert.Equal(1, member.ReadByte());
+        member.Skip(6);
+        Assert.Equal(bId, member.ReadUInt16());
+
+        // O Bruno sai: sobra só a Alice e o grupo acaba para os dois.
+        await b.SendAsync(new PacketWriter(Opcodes.PartyRemove, ServerPackets.PartyRemoveSize, bId).WriteInt32(0).ToArray());
+        var leftB = await ReceiveTypeAsync(b, Opcodes.PartyRemove);
+        Assert.Equal(0, leftB.ReadInt32());
+        var leftA = await ReceiveTypeAsync(a, Opcodes.PartyRemove);
+        Assert.Equal(0, leftA.ReadInt32());
+    }
+
+    [Fact]
+    public void Party_experience_is_split_with_a_bonus()
+    {
+        Assert.Equal(1000, World.PartyShare(1000, 1));
+        Assert.Equal(550, World.PartyShare(1000, 2));      // 1000 × 110% / 2
+        Assert.Equal(325, World.PartyShare(1000, 4));      // 1000 × 130% / 4
+    }
+
+    [Fact]
     public void Buffs_keep_their_time_while_offline()
     {
         var c = ClassTemplates.Create(1, 0, "Teste", CharacterClass.Foema, 2100, 2100);

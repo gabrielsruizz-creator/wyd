@@ -55,6 +55,9 @@ ficou no histórico do git.
 - [x] BM: transformações da Natureza (Lobisomem, Homem-Urso, Astaroth, Titã, Éden) trocam o corpo enquanto duram;
       Evocação invoca a criatura (Condor, Javali, Lobo, Urso, Grande Tigre, Gorila, Dragão Negro, Succubus), que
       segue a dona, ataca o monstro que ela atacou e dá a experiência e o drop para ela (some em 5 minutos)
+- [x] Grupo: convidar (clique no jogador), aceitar, sair e o líder tirar membros, até 12; a experiência de quem mata é
+      dividida entre os membros vivos perto (+10% por membro além do primeiro). As criaturas da Evocação aparecem na
+      janela do grupo e somem quando o dono sai do grupo
 - [x] Teleportes das cidades (0x290), com destino e preço montados pelo GM no jogo (`/gm tp add`)
 - [x] FOR, DES, CON, INT e especiais contam na ficha (dano, vida, mana) como o client calcula; acessórios com HP%,
       MP% e regeneração funcionam
@@ -69,7 +72,7 @@ ficou no histórico do git.
 
 1. Drops: itens dos monstros caindo no chão e sendo pegos.
 2. Buffs das skills, baú e NPCs de quest.
-3. Grupo, troca, guild.
+3. Troca, guild.
 4. Teleportes, quests.
 
 ## Requisitos

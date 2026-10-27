@@ -40,6 +40,9 @@ public sealed class PacketDispatcher
         Register(Opcodes.AttackTwo, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.Attack, oneTarget, SessionState.InGame, world.HandleAttackAsync);
         Register(Opcodes.Revive, PacketHeader.Size, SessionState.InGame, world.HandleReviveAsync);
+        Register(Opcodes.PartyInvite, ServerPackets.PartyInviteSize, SessionState.InGame, world.HandlePartyInviteAsync);
+        Register(Opcodes.PartyAccept, PacketHeader.Size + 2, SessionState.InGame, world.HandlePartyAcceptAsync);
+        Register(Opcodes.PartyRemove, ServerPackets.PartyRemoveSize, SessionState.InGame, world.HandlePartyRemoveAsync);
         Register(Opcodes.Teleport, PacketHeader.Size, SessionState.InGame, teleports.HandleAsync);
         Register(Opcodes.NpcClick, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcClickAsync);
         Register(Opcodes.NpcTalk, PacketHeader.Size + 4, SessionState.InGame, kings.HandleNpcTalkAsync);

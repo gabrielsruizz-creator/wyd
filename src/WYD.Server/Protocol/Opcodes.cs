@@ -34,6 +34,9 @@ public static class Opcodes
     public const ushort DropItem = 0x272;          // 32 bytes: int TipoOrig, int SlotOrig, ...; largar no chão: ignorado (no 7.54 não há item no chão)
     public const ushort RequestMob = 0x369;        // client pede o 0x364 de um id que ele não conhece (conferido no WYD.exe 7.54)
     public const ushort ClientPing = 0x3A0;        // keep-alive (a validar)
+    public const ushort PartyInvite = 0x37F;       // 44 bytes, nos dois sentidos: byte Classe, byte 0, short Nível, MaxHp, Hp, ushort Líder em 0x14, char Nome[16] em 0x16, int Alvo em 0x28 (conferido no WYD.exe 7.57, 0x46DE07)
+    public const ushort PartyAccept = 0x3AB;       // 32 bytes: ushort Líder em 0x0C, char Nome[16] em 0x0E (conferido no WYD.exe 7.57, 0x46FC40)
+    public const ushort PartyRemove = 0x37E;       // 16 bytes, nos dois sentidos: int Id em 0x0C (0 = sair/desfazer) (conferido no WYD.exe 7.57, 0x489736)
     public const ushort SecondPassword = 0xFDE;    // MSG_SecondPassword, 32 bytes, nos dois sentidos (conferido no WYD.exe 7.54)
 
     // ---- Servidor -> Client ----
@@ -62,6 +65,7 @@ public static class Opcodes
     public const ushort UpdateEquip = 0x36B;           // 60 bytes: ushort Equip[16] (refino << 12), byte Anct[16] em 0x2C (para quem está vendo; ver VisualEquip)
     public const ushort UpdateItem = 0x182;            // 24 bytes: short Tipo (0 equip, 1 inventário, 2 baú), short Slot, ITEM (conferido no WYD.exe 7.54)
     public const ushort ShopList = 0x17C;              // 236 bytes: int tipo, ITEM Lista[27], int imposto (conferido no WYD.exe 7.54)             // 16 bytes: tira da tela o id do cabeçalho (conferido no WYD.exe 7.54)
+    public const ushort PartyAdd = 0x37D;              // 40 bytes: byte Classe, byte Membro (0 = líder), short Nível, MaxHp, Hp, ushort Id, char Nome[16] (conferido no WYD.exe 7.57, 0x489527)
     public const ushort SecondPasswordFail = 0xFDF;    // segunda senha errada: o client volta a bloquear (conferido no WYD.exe 7.54)
 
     public static string Name(ushort type) => type switch
@@ -95,6 +99,10 @@ public static class Opcodes
         AttackTwo => "AttackTwo",
         MobKill => "MobKill",
         Revive => "Revive",
+        PartyInvite => "PartyInvite",
+        PartyAccept => "PartyAccept",
+        PartyRemove => "PartyRemove",
+        PartyAdd => "PartyAdd",
         Teleport => "Teleport",
         NpcClick => "NpcClick",
         EhreCombine => "EhreCombine",

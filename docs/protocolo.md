@@ -591,3 +591,16 @@ equipamentos dos outros jogadores (lidos em 0x50B6C4 e 0x50C7BB):
 - Montaria (slot 14): índice | (nível ÷ 10) << 12 (0x50BE8E). No próprio personagem o client usa o nível do item
   (efeito 81, byte 4) ÷ 10 para o tamanho e a armadura da montaria; para os outros, esses 4 bits.
 
+## Grupo (7.57)
+
+| Pacote | Tamanho | Campos |
+|--------|---------|--------|
+| 0x37F convite (nos dois sentidos) | 44 | byte Classe, byte 0, short Nível, MaxHp, Hp, ushort Líder (0x14), char Nome[16] (0x16), int Alvo (0x28) |
+| 0x3AB aceitar (client) | 32 | ushort Líder (0x0C), char Nome[16] (0x0E) |
+| 0x37D membro na janela (servidor) | 40 | byte Classe, byte Membro (0 = líder, 0x0D), short Nível, MaxHp, Hp, ushort Id (0x14), char Nome[16] (0x16) |
+| 0x37E sair (nos dois sentidos) | 16 | int Id (0x0C); 0 = sair / o grupo acabou |
+
+Montados em 0x46DE07 (0x37F), 0x46FC40 e 0x489445 (0x3AB), 0x46493A e 0x4705C7 (0x37E); lidos em 0x488FD9 (0x37F),
+0x489527 (0x37D: tira o id que já estiver na janela e põe de novo) e 0x489736 (0x37E). O 0x37D aceita id de monstro
+(a criatura da Evocação). A vida vai em short; acima de 32767 o servidor reduz as duas na mesma proporção.
+

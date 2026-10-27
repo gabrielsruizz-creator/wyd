@@ -384,6 +384,7 @@ public sealed partial class World(
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         var killed = new List<Mob>();
         var pulled = new List<(Mob Mob, (short X, short Y) To)>();
+        var partyProgress = new List<Character>();
         var stored = new List<(int Slot, Item Item)>();
         var lost = new List<Item>();
         long exp;
@@ -538,11 +539,27 @@ public sealed partial class World(
                 buffed.Add(session);
             }
 
+            // Grupo: a experiência é dividida entre os membros vivos perto de quem matou.
+            var sharers = killed.Count == 0 ? [] : PartyOfLocked(session)
+                .Where(p => p == session || (_players.ContainsKey(p.Id) && !IsDead(p.Character!) && InRange(p.Character!, me)))
+                .ToList();
             foreach (var mob in killed)
             {
                 long gained = Math.Max(0, mob.Template.Exp) * (100 + me.ItemBonus.ExpBonus) / 100;   // ancient de experiência
-                me.Exp = Math.Min(Leveling.MaxExp, me.Exp + gained);
+                long share = PartyShare(gained, sharers.Count);
+                foreach (var p in sharers)
+                    p.Character!.Exp = Math.Min(Leveling.MaxExp, p.Character.Exp + share);
                 me.Coin = (int)Math.Min(Handlers.ItemHandler.MaxCoin, (long)me.Coin + Math.Max(0, mob.Template.Coin));
+            }
+            foreach (var p in sharers.Where(p => p != session))
+            {
+                var o = p.Character!;
+                partyProgress.Add(o);
+                outgoing.Add((p, ServerPackets.UpdateEtc(p.Id, o)));
+                if (Leveling.Apply(o, expTable.For(o.Evolution)) <= 0) continue;
+                outgoing.Add((p, ServerPackets.LevelUp(p.Id)));
+                outgoing.Add((p, ServerPackets.UpdateScore(p.Id, o)));
+                outgoing.Add((p, ServerPackets.UpdateHpMp(p.Id, o.BaseScore.Hp, o.BaseScore.Mp)));
             }
             exp = me.Exp;
             levels = killed.Count > 0 ? Leveling.Apply(me, expTable.For(me.Evolution)) : 0;
@@ -610,6 +627,11 @@ public sealed partial class World(
         await SendAllAsync(outgoing);
         foreach (var (mob, to) in pulled)
             await MoveMobAsync(mob, to.X, to.Y, PullSpeed);
+        foreach (var c in partyProgress)
+        {
+            try { await characters.SaveProgressAsync(c); }
+            catch (Exception ex) { logger.LogError(ex, "Não foi possível salvar o progresso de {Name}.", c.Name); }
+        }
         if (noSkillData)
         {
             logger.LogWarning("Sem SkillData.bin: as skills não têm efeito. Copie a SkillData.bin do client para a pasta data.");
@@ -984,6 +1006,10 @@ public sealed partial class World(
     /// <summary>Tira uma invocação do mapa de vez (chamar com o lock).</summary>
     private void RemoveSummonLocked(Mob mob, List<(ClientSession To, byte[] Packet)> outgoing)
     {
+        // A criatura da Evocação sai da janela do grupo do dono.
+        if (mob.IsPet && _players.TryGetValue(mob.Owner, out var owner))
+            foreach (var member in PartyOfLocked(owner))
+                outgoing.Add((member, ServerPackets.PartyRemove(mob.Id)));
         if (mob.Alive) GridRemove(mob);
         mob.Alive = false;
         _mobs.Remove(mob.Id);
@@ -1018,6 +1044,8 @@ public sealed partial class World(
         };
         _mobs[id] = pet;
         GridAdd(pet);
+        foreach (var member in PartyOfLocked(session))                     // aparece na janela do grupo
+            outgoing.Add((member, PetEntry(pet)));
         foreach (var player in _players.Values)
         {
             if (!InRange(player.Character!, pet)) continue;
@@ -1183,7 +1211,9 @@ public sealed partial class World(
         var outgoing = new List<(ClientSession To, byte[] Packet)>();
         lock (_lock)
         {
-            if (!_players.Remove(session.Id)) return null;
+            if (!_players.ContainsKey(session.Id)) return null;
+            LeavePartyLocked(session, outgoing, notify: false);
+            _players.Remove(session.Id);
             if (_visible.Remove(session.Id, out var mine))
             {
                 foreach (var id in mine)

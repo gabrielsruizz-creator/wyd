@@ -534,6 +534,49 @@ public static class ServerPackets
     public static byte[] UpdateHpMp(ushort id, int hp, int mp) =>
         new PacketWriter(Opcodes.UpdateHpMp, 28, id).WriteInt32(hp).WriteInt32(mp).WriteInt32(hp).WriteInt32(mp).ToArray();
 
+    // ------------------------------------------------------------------ grupo
+
+    public const int PartyInviteSize = 44, PartyAddSize = 40, PartyRemoveSize = 16;
+
+    /// <summary>Vida para a janela do grupo, que lê shorts: acima de 32767 as duas são reduzidas na mesma proporção.</summary>
+    public static (short Max, short Hp) PartyHp(int max, int hp)
+    {
+        max = Math.Max(1, max);
+        hp = Math.Clamp(hp, 0, max);
+        if (max <= short.MaxValue) return ((short)max, (short)hp);
+        return (short.MaxValue, (short)((long)hp * short.MaxValue / max));
+    }
+
+    /// <summary>0x37F para o convidado: quem chama (o líder do grupo) e o id dele, que volta no 0x3AB.</summary>
+    public static byte[] PartyInvite(ushort leaderId, Character leader, ushort target)
+    {
+        var (max, hp) = PartyHp(leader.MaxHp, leader.BaseScore.Hp);
+        return new PacketWriter(Opcodes.PartyInvite, PartyInviteSize, leaderId)
+            .WriteByte((byte)leader.Class).WriteByte(0)
+            .WriteInt16((short)Math.Min(short.MaxValue, leader.BaseScore.Level)).WriteInt16(max).WriteInt16(hp)
+            .WriteUInt16(leaderId).WriteString(leader.Name, NameLength).Skip(2)
+            .WriteInt32(target)
+            .ToArray();
+    }
+
+    /// <summary>0x37D: um membro na janela do grupo (também a criatura da Evocação, com o id dela).</summary>
+    public static byte[] PartyAdd(ushort id, string name, byte cls, bool leader, int level, int maxHp, int hp)
+    {
+        var (max, cur) = PartyHp(maxHp, hp);
+        return new PacketWriter(Opcodes.PartyAdd, PartyAddSize, id)
+            .WriteByte(cls).WriteByte(leader ? (byte)0 : (byte)1)
+            .WriteInt16((short)Math.Clamp(level, 0, short.MaxValue)).WriteInt16(max).WriteInt16(cur)
+            .WriteUInt16(id).WriteString(name, NameLength).Skip(2)
+            .ToArray();
+    }
+
+    public static byte[] PartyAdd(ushort id, Character c, bool leader) =>
+        PartyAdd(id, c.Name, (byte)c.Class, leader, c.BaseScore.Level, c.MaxHp, c.BaseScore.Hp);
+
+    /// <summary>0x37E: tira o id da janela do grupo; 0 apaga o grupo inteiro (saiu ou o grupo acabou).</summary>
+    public static byte[] PartyRemove(ushort id) =>
+        new PacketWriter(Opcodes.PartyRemove, PartyRemoveSize, id).WriteInt32(id).ToArray();
+
     /// <summary>0x36B: equipamentos visíveis de um jogador, para quem está vendo ele.</summary>
     public static byte[] UpdateEquip(ushort id, IReadOnlyList<Item> items)
     {

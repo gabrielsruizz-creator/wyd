@@ -49,6 +49,15 @@ public sealed class WorldHandler(World world)
     public Task HandleAttackAsync(ClientSession session, PacketReader packet) =>
         world.AttackAsync(session, packet.ToArray());
 
+    /// <summary>0x37F: convidar para o grupo.</summary>
+    public Task HandlePartyInviteAsync(ClientSession session, PacketReader packet) => world.InviteAsync(session, packet.ToArray());
+
+    /// <summary>0x3AB: aceitar o convite.</summary>
+    public Task HandlePartyAcceptAsync(ClientSession session, PacketReader packet) => world.AcceptPartyAsync(session, packet.ToArray());
+
+    /// <summary>0x37E: sair do grupo, tirar um membro ou dispensar a criatura.</summary>
+    public Task HandlePartyRemoveAsync(ClientSession session, PacketReader packet) => world.RemovePartyAsync(session, packet.ToArray());
+
     /// <summary>0x289: o personagem morto pede para renascer.</summary>
     public Task HandleReviveAsync(ClientSession session, PacketReader packet) => world.ReviveAsync(session);
 }
